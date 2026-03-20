@@ -3,6 +3,8 @@
 [![Status](https://img.shields.io/badge/Status-Active%20Development-green)]()
 [![License](https://img.shields.io/badge/License-Academic%20Research-blue)]()
 
+**[English](README.md) | [简体中文](README_CN.md)**
+
 > A comprehensive, specialized database for mechanobiology research, filling the critical gap in bioinformatics infrastructure for mechanically activated ion channels (MAICs).
 
 ---
