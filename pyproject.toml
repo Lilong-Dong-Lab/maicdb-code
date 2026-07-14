@@ -1,0 +1,35 @@
+[project]
+name = "maicdb"
+version = "0.1.0"
+description = "Mechanically Activated Ion Channel Database (MAIC-DB) — schema and tooling"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "CC-BY-4.0" }
+authors = [{ name = "Lilong-Dong-Lab" }]
+keywords = ["mechanobiology", "ion-channels", "bioinformatics", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = ["sqlalchemy>=2.0"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[project.scripts]
+maicdb-init-db = "maicdb.database:init_db_cli"
+maicdb-dump-schema = "maicdb.database:dump_schema_cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/maicdb"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

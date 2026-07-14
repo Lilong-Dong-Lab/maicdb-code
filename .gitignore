@@ -39,6 +39,11 @@ env/
 htmlcov/
 .tox/
 
+# SQLite databases (generated at runtime; the schema.sql dump IS tracked)
+*.db
+*.sqlite
+*.sqlite3
+
 # Jupyter
 .ipynb_checkpoints/
 
