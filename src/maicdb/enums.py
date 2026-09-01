@@ -49,7 +49,6 @@ __all__ = [
     "EntityType",
     "StructureSource",
     "ParameterSet",
-    "value_stored_enum",
 ]
 
 
@@ -67,7 +66,7 @@ def value_stored_enum(enum_cls: type[Enum]) -> SQLEnum:
     """Return a SQLAlchemy ``Enum`` that stores the member *value* (not name),
     with a CHECK constraint.
 
-    Used for the unit enums so the physical unit string ("mmHg", "mN_m", …)
+    Used for the unit enums so the physical unit string ("mmHg", "mN/m", …)
     appears verbatim in the column, and the CHECK constraint lists the allowed
     unit strings.
     """

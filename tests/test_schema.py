@@ -16,8 +16,6 @@ Grouped into:
 
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError
@@ -166,27 +164,35 @@ def test_channel_two_organisms_split_and_unique(session):
 
 
 def test_structure_accepts_prose_fields(session):
-    """README-prose fields (conformational state, aux subunit, mutation, DOI) fit."""
-    ch = make_piezo1_channel("Mus musculus", 10090, uniprot=None)
+    """README-prose fields (conformational state, aux subunit, mutation, DOI) fit.
+
+    Values vault-sourced (data-v1.0): PDB 8YFC per
+    data/piezo1/structures/piezo1_pdb_structures.csv; DOI from the raw RCSB
+    entry detail (data/piezo1/raw/piezo1_pdb_entries_detail/8YFC.json,
+    primary citation Shan et al. 2025). deposition_date None — empty in the
+    vault CSV (not captured). conformational_state is free-text prose
+    (no vault column) kept as the schema-acceptance example.
+    """
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
     session.add(ch)
     session.flush()
 
     st = Structure(
         maicdb_id=_acc(AccessionPrefix.STRUCTURE),
         channel_id=ch.id,
-        pdb_id="6BPZ",
+        pdb_id="8YFC",
         structure_source=StructureSource.PDB,
-        title="Cryo-EM structure of mouse Piezo1 in complex with MDFIC (A1988V mutant)",
+        title="Human PIEZO1-A1988V-MDFIC",
         method="E, M",
-        resolution_a=3.8,
-        organism="Mus musculus",
-        num_chains=3,
+        resolution_a=3.2,
+        organism="Homo sapiens",
+        num_chains=2,
         has_inhibitor=False,
         auxiliary_subunits=["MDFIC"],
         mutation="A1988V",
         conformational_state="curved/resting",
-        deposition_date=date(2020, 1, 15),
-        doi="10.1038/s41586-019-1866-6",
+        deposition_date=None,   # empty in vault CSV
+        doi="10.7554/eLife.101923",
     )
     session.add(st)
     session.flush()
@@ -195,7 +201,11 @@ def test_structure_accepts_prose_fields(session):
 
 
 def test_structure_accepts_empty_csv_fields(session):
-    """The CSV's empty columns (residues, coverage, doi) are nullable."""
+    """The CSV's empty columns (residues, coverage, doi) are nullable.
+
+    PDB 8ZU3 values vault-sourced (data-v1.0,
+    data/piezo1/structures/piezo1_pdb_structures.csv).
+    """
     ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
     session.add(ch)
     session.flush()
@@ -205,9 +215,9 @@ def test_structure_accepts_empty_csv_fields(session):
         channel_id=ch.id,
         pdb_id="8ZU3",
         structure_source=StructureSource.PDB,
-        title="Structure of human Piezo1",
+        title="Human PIEZO1-MDFIC",
         method="E, M",
-        resolution_a=3.6,
+        resolution_a=3.1,
         organism="Homo sapiens",
         num_chains=2,
         residues_covered=None,  # EMPTY in CSV
@@ -344,7 +354,14 @@ def test_biophysics_empty_but_ready(session):
 
 
 def test_biophysics_full_card_with_units(session):
-    """A fully-populated Mechano-Gating Card with value+unit pairs + MIMIC."""
+    """A fully-populated Mechano-Gating Card with value+unit pairs + MIMIC.
+
+    SYNTHETIC representative card — no single vault experiment populates a
+    full card (1 extraction row = 1 experiment; wide value columns are
+    mutually exclusive by design). Values sit inside vault-observed Piezo1
+    ranges (data/piezo1/extraction: conductance 22.9–73 pS, T50 1.8–4.7 mN/m,
+    tau_inact 13–33.8 ms); p50/slope/tau_act are illustrative.
+    """
     ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
     session.add(ch)
     session.flush()
@@ -355,11 +372,11 @@ def test_biophysics_full_card_with_units(session):
         parameter_set="full_card",
         p50_value=-30.0,
         p50_unit=PressureUnit.MMHG,
-        t50_value=5.0,
+        t50_value=4.4,
         t50_unit=TensionUnit.MN_M,
         slope=8.0,
         tau_act_ms=2.1,
-        tau_inact_ms=12.0,
+        tau_inact_ms=15.0,
         conductance_ps=23.5,
         # MIMIC metadata
         stimulus_type=StimulusType.PRESSURE_CLAMP,
@@ -449,17 +466,28 @@ def test_enum_membership_for_real_data(enum_cls, member):
 
 
 def test_publication_shared_across_structures(session):
-    """Two structures cite one normalized publication (dedup)."""
-    ch = make_piezo1_channel("Mus musculus", 10090, uniprot=None)
+    """Two structures cite one normalized publication (dedup).
+
+    Real sharing pattern from the vault (data-v1.0): PDB 8ZU3 and 8YFC share
+    one primary citation — Shan et al., eLife 2025, doi 10.7554/eLife.101923,
+    pmid 40668110 (raw RCSB entry details,
+    data/piezo1/raw/piezo1_pdb_entries_detail/{8ZU3,8YFC}.json; both
+    structures in data/piezo1/structures/piezo1_pdb_structures.csv). The
+    original fixture wrongly had 6B3R+6BPZ share one paper — they cite
+    different primary citations (Guo & MacKinnon eLife 2017 vs Saotome et al.
+    Nature 2018).
+    """
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
     session.add(ch)
     session.flush()
 
     pub = Publication(
-        doi="10.1038/nature25989",
-        title="Structure of the mouse Piezo1 channel",
-        journal="Nature",
-        year=2018,
-        authors=["Guo YR", "MacKinnon R"],
+        doi="10.7554/eLife.101923",
+        title="Structure of human PIEZO1 and its slow-inactivating channelopathy mutations",
+        journal="eLife",
+        year=2025,
+        authors=["Shan Y", "Guo X", "Zhang M", "Chen M", "Li Y", "Zhang M", "Pei D"],
+        pmid=40668110,
     )
     session.add(pub)
     session.flush()
@@ -467,20 +495,20 @@ def test_publication_shared_across_structures(session):
     s1 = Structure(
         maicdb_id=_acc(AccessionPrefix.STRUCTURE),
         channel_id=ch.id,
-        pdb_id="6B3R",
+        pdb_id="8ZU3",
         structure_source=StructureSource.PDB,
         publication_id=pub.id,
     )
     s2 = Structure(
         maicdb_id=_acc(AccessionPrefix.STRUCTURE),
         channel_id=ch.id,
-        pdb_id="6BPZ",
+        pdb_id="8YFC",
         structure_source=StructureSource.PDB,
         publication_id=pub.id,
     )
     session.add_all([s1, s2])
     session.flush()
-    rows = session.scalar(select(Structure).where(Structure.pdb_id == "6B3R"))
+    rows = session.scalar(select(Structure).where(Structure.pdb_id == "8ZU3"))
     assert rows.publication_id == pub.id
 
 
