@@ -49,8 +49,11 @@ the evidence chain that F-004/F-005 built on, and no columns for 118 of the
    `macroscopic_rise_time` (13), `thermal_threshold` (9), `ca_permeability`
    (4), `osmotic_threshold` (3). Together with the existing `delta_p50_*`
    (12), all 130 gap-adjudicated migration values land in typed columns;
-   routing stays 948/136/16. Column types mirror the staging loader exactly
-   (finalized in A2 from `build_staging_db.py`).
+   routing stays 948/136/16. Column types mirror the staging loader
+   (one provenance exception: staging stages the 4 `ca_permeability` values
+   inside `ion_selectivity_ratio` with `gap_kind='ca_permeability'` — e.g.
+   ASIC-00051 = 18.5; formal v0.2 gives the kind a dedicated column); types
+   finalized in A2 from `build_staging_db.py`.
 3. **`unmapped_measurement` archive table** (the 16 adjudicated-kept rows):
    `measurement_id UNIQUE`, `channel_id FK`, `parameter_kind`, `value`+`unit`,
    `adjudication`, the evidence columns, `publication_id FK`.
@@ -108,7 +111,7 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 | `db_target_column` | card column routing | `conductance_ps`, `p50_value`+`p50_unit`, `t50_value`+`t50_unit`, `x50_value`+`x50_unit`, `tau_act_ms`, `tau_inact_ms`, `tau_deact_ms`, `reversal_potential_mv`, `slope`, `iv_relation` (8 corpus rows; formal column + `IVRelation` enum exist), `delta_p50_value`+`delta_p50_unit` |
 | gap migrations | §2.2 six columns | all 118 non-delta_p50 migration values land in typed columns (nothing NULLed silently) |
 | `value`/`error`/`value_relation` | card values | **105 unit conversions ported** (nS→pS ×1000, s→ms ×1000, min→ms ×60000, µs→ms ×0.001, mM→nM ×1e6) — hook: `REPORTED UNIT IS <UNIT>` in `extractor_note`; as-printed originals have NO formal column → §6.1 open item |
-| `unit_db` | `*_unit` enums | mmHg→`PressureUnit.MMHG`, kPa→`KPA`, mN/m→`TensionUnit.MN_M`, dyn/cm→`DYN_CM`, µm→`IndentationUnit.UM` — loader FAILS on unmapped unit (strict). One row (TRPV4-EX-00072) routes bare `p50_value` with no unit → NULL unit, manifest entry |
+| `unit_db` | `*_unit` enums | mmHg→`PressureUnit.MMHG`, kPa→`KPA`, mN/m→`TensionUnit.MN_M`, dyn/cm→`DYN_CM`, µm→`IndentationUnit.UM` — loader FAILS on unmapped unit (strict). One row (TRPV4-EX-00072) routes bare `p50_value` (db_target_column lacks the pair); its unit comes from `unit_db` (mmHg → MMHG), manifest entry |
 | `db_parameter_set` | `parameter_set` | verbatim (P50, T50, CONDUCTANCE_ONLY, …) |
 | `stimulus_type` | `stimulus_type` | enum strict; corpus vocabulary {PRESSURE_CLAMP, SUCTION, HYPOTONIC, …, OTHER} — loader asserts full coverage, maps strays to OTHER only with manifest entry |
 | `stimulus_detail` | `stimulus_waveform` + `probe_geometry` | keep verbatim in `experiment_label` this load; structured parse deferred |
@@ -120,13 +123,17 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 | `condition_key` | `condition_key` **[v0.2]** | verbatim (row-local uniqueness key) |
 
 ### 3.5 `compound` — 85 rows (modulator_name dedup, staging parity)
-`modulator_role`→`compound_type` normalization (agonist→ACTIVATOR,
-blocker/antagonist→INHIBITOR_BLOCKER, potentiator→POTENTIATOR; the one
-conflict — 2,2,2-Trifluoroethanol antagonist/potentiator tie — resolves to
-highest frequency per staging, manifest entry). piezo1 `compounds/`
-descriptors (21/21 with InChIKey) join where available; other layers
-name-only. NULL `inchikey` rows are safe (SQLite UNIQUE tolerates NULLs);
-manifest discloses descriptor coverage.
+`modulator_role`→`compound_type` normalization: agonist→ACTIVATOR,
+blocker/antagonist→INHIBITOR_BLOCKER, potentiator→POTENTIATOR; multi-role
+modulators resolve by **majority frequency across rows** with a manifest
+entry — four in the corpus: Yoda1 (12/1), lysophosphatidylcholine (9/1),
+arachidonic acid (5/1) → ACTIVATOR; **2,2,2-Trifluoroethanol (2/2) is the
+sole tie** → deterministic tie-break resolves to INHIBITOR_BLOCKER (staging
+stored the raw string `antagonist`; the formal enum
+vocabulary normalizes it — parity deviation disclosed in the manifest).
+piezo1 `compounds/` descriptors (21/21 with InChIKey) join where available;
+other layers name-only. NULL `inchikey` rows are safe (SQLite UNIQUE
+tolerates NULLs); manifest discloses descriptor coverage.
 
 ### 3.6 `bioactivity` — 136 rows
 Corpus kind split: IC50 91 / EC50 21 / KD 13 / KI 8 / PEC50 3 (KB has 0 rows).
