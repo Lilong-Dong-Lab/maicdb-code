@@ -36,6 +36,7 @@ from maicdb.enums import (
     StimulusType,
     StructureSource,
     TensionUnit,
+    VariantType,
 )
 from maicdb.models import (
     ALL_TABLES,
@@ -45,14 +46,16 @@ from maicdb.models import (
     Compound,
     ExternalReference,
     Publication,
+    DbMeta,
     Structure,
+    UnmappedMeasurement,
     Variant,
 )
 
 # --------------------------------------------------------------------------- #
 # Helpers — build entities with realistic Piezo1 values
 # --------------------------------------------------------------------------- #
-_SEQ = {"CH": 0, "ST": 0, "BX": 0, "CP": 0, "BA": 0, "VR": 0}
+_SEQ = {"CH": 0, "ST": 0, "BX": 0, "CP": 0, "BA": 0, "VR": 0, "UM": 0}
 
 
 def _acc(prefix: AccessionPrefix) -> str:
@@ -566,3 +569,221 @@ def test_make_engine_creates_schema():
     create_all(eng)
     names = set(inspect(eng).get_table_names())
     assert {"channel", "compound", "publication"} <= names
+
+
+# --------------------------------------------------------------------------- #
+# Schema v0.2 — evidence chain, migration columns, as-reported pair,
+# variant link, unmapped archive, db_meta
+# --------------------------------------------------------------------------- #
+def test_evidence_columns_roundtrip_biophysics(session):
+    """The v0.2 evidence chain round-trips; n is TEXT (ranges occur in corpus).
+
+    value_as_reported/unit_as_reported vault-sourced (data-v1.0): staging row
+    PIEZO1-EX-00001 carries 13 / mmHg. Remaining literals are schema-acceptance
+    fixtures (not claimed vault-sourced).
+    """
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
+    session.add(ch)
+    session.flush()
+
+    bx = BiophysicsExperiment(
+        maicdb_id=_acc(AccessionPrefix.BIOPHYSICS_EXPERIMENT),
+        channel_id=ch.id,
+        conductance_ps=23.5,
+        measurement_id="PIEZO1-EX-00001",
+        evidence_quote="single-channel conductance of 13 pS under stretch",
+        evidence_location="Results, Fig 2",
+        confidence="high",
+        extractor_note="synthetic fixture note. [F-004:verbatim-semi] x",
+        condition_key="piezo1_conductance_cell-attached",
+        n="3-10",
+        value_as_reported="13",
+        unit_as_reported="mmHg",
+    )
+    session.add(bx)
+    session.flush()
+
+    row = session.get(BiophysicsExperiment, bx.id)
+    assert row.measurement_id == "PIEZO1-EX-00001"
+    assert row.n == "3-10"          # TEXT: corpus ranges survive verbatim
+    assert "[F-004:verbatim-semi]" in row.extractor_note
+    assert row.value_as_reported == "13" and row.unit_as_reported == "mmHg"
+
+
+def test_measurement_id_unique_enforced(session):
+    """measurement_id is the vault natural key — duplicates are DB-rejected."""
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
+    session.add(ch)
+    session.flush()
+    for i in (1, 2):
+        session.add(BiophysicsExperiment(
+            maicdb_id=_acc(AccessionPrefix.BIOPHYSICS_EXPERIMENT),
+            channel_id=ch.id,
+            measurement_id="DUP-EX-00001" if i == 1 else None,
+            conductance_ps=float(i),
+        ))
+    session.flush()
+    session.add(BiophysicsExperiment(
+        maicdb_id=_acc(AccessionPrefix.BIOPHYSICS_EXPERIMENT),
+        channel_id=ch.id,
+        measurement_id="DUP-EX-00001",  # duplicate natural key
+        conductance_ps=99.0,
+    ))
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+
+def test_migration_columns_six_kinds(session):
+    """All six v0.2 migration columns hold values in one row.
+
+    Vault-sourced (data-v1.0, staging biophysics_experiment):
+    threshold_fold_shift 3.0 fold (TRPV4-EX-00033) and 40.0 % (PIEZO1-EX-00108)
+    as separate rows in staging — here collapsed into one schema-acceptance
+    row exercising every column; ca_permeability 18.5 (ASIC-00051, staged
+    inside ion_selectivity_ratio with gap_kind='ca_permeability'); thermal 31.0
+    (TRPV4 thermal family, TRAAK-00026=31 °C migration). rise_time and osmotic
+    literals are schema-acceptance fixtures.
+    """
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
+    session.add(ch)
+    session.flush()
+
+    bx = BiophysicsExperiment(
+        maicdb_id=_acc(AccessionPrefix.BIOPHYSICS_EXPERIMENT),
+        channel_id=ch.id,
+        ion_selectivity_ratio=7.4,
+        ratio_direction="P_Na/P_K",
+        ca_permeability=18.5,
+        threshold_fold_shift_value=3.0,
+        threshold_fold_shift_unit="fold",
+        macroscopic_rise_time_ms=1.2,
+        thermal_threshold_c=31.0,
+        osmotic_threshold_value=310.0,
+        osmotic_threshold_unit="mOsm/kg",
+    )
+    session.add(bx)
+    session.flush()
+    row = session.get(BiophysicsExperiment, bx.id)
+    assert row.ion_selectivity_ratio == pytest.approx(7.4)
+    assert row.ratio_direction == "P_Na/P_K"
+    assert row.ca_permeability == pytest.approx(18.5)
+    assert row.threshold_fold_shift_value == pytest.approx(3.0)
+    assert row.threshold_fold_shift_unit == "fold"
+    assert row.macroscopic_rise_time_ms == pytest.approx(1.2)
+    assert row.thermal_threshold_c == pytest.approx(31.0)
+    assert row.osmotic_threshold_value == pytest.approx(310.0)
+
+
+def test_variant_fk_roundtrip(session):
+    """variant_id links a measurement to its variant; back-populates work."""
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
+    session.add(ch)
+    session.flush()   # ch.id must exist before the variant references it
+    v = Variant(
+        maicdb_id=_acc(AccessionPrefix.VARIANT),
+        channel_id=ch.id,
+        mutation_short="A1988V",
+        variant_type=VariantType.MISSENSE,
+    )
+    session.add(v)
+    session.flush()
+
+    bx = BiophysicsExperiment(
+        maicdb_id=_acc(AccessionPrefix.BIOPHYSICS_EXPERIMENT),
+        channel_id=ch.id,
+        variant_id=v.id,
+        delta_p50_value=-12.0,
+        delta_p50_unit=PressureUnit.MMHG,
+        measurement_id="SYN-VARIANT-0001",
+    )
+    session.add(bx)
+    session.flush()
+
+    assert bx.variant is v
+    assert v.biophysics_experiments == [bx]
+
+
+def test_bioactivity_evidence_columns(session):
+    """The evidence chain exists on the pharmacology fact table too."""
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
+    cpd = Compound(
+        maicdb_id=_acc(AccessionPrefix.COMPOUND),
+        name="Yoda1",
+        chembl_id="CHEMBL4303374",
+        compound_type=CompoundType.ACTIVATOR,
+    )
+    session.add_all([ch, cpd])
+    session.flush()
+
+    ba = Bioactivity(
+        maicdb_id=_acc(AccessionPrefix.BIOACTIVITY),
+        compound_id=cpd.id,
+        channel_id=ch.id,
+        activity_type=ActivityType.EC50,
+        activity_value=17.1,
+        activity_units="µM",
+        relation="=",
+        measurement_id="SYN-BA-0001",
+        evidence_quote="Yoda1 activated PIEZO1 with EC50 17.1 µM",
+        evidence_location="Fig 3",
+        confidence="high",
+        extractor_note="synthetic fixture",
+        condition_key="piezo1_yoda1_hec",
+        n="≥75 cells/data-point",
+    )
+    session.add(ba)
+    session.flush()
+    row = session.get(Bioactivity, ba.id)
+    assert row.measurement_id == "SYN-BA-0001"
+    assert row.n == "≥75 cells/data-point"
+
+
+def test_unmapped_measurement_row(session):
+    """v0.2 archive table holds adjudicated-kept gap rows with full evidence.
+
+    Kind composition vault-sourced (data-v1.0): the 16 kept rows are
+    pressure_threshold 9, block_voltage 2, x50 2, tau_act 1,
+    ion_selectivity_ratio 2 — pressure_threshold is the canonical example.
+    """
+    ch = make_piezo1_channel("Homo sapiens", 9606, "Q92508")
+    session.add(ch)
+    session.flush()
+
+    um = UnmappedMeasurement(
+        maicdb_id=_acc(AccessionPrefix.UNMAPPED_MEASUREMENT),
+        channel_id=ch.id,
+        parameter_kind="pressure_threshold",
+        value=20.0,
+        unit="mmHg",
+        adjudication="threshold=拟合 P50 only; 描述性阈值归档不 row",
+        measurement_id="SYN-UM-0001",
+        evidence_quote="threshold pressure of 20 mmHg activated the channel",
+        evidence_location="Results",
+        confidence="medium",
+        extractor_note="synthetic fixture",
+        condition_key="piezo1_threshold",
+    )
+    session.add(um)
+    session.flush()
+
+    row = session.get(UnmappedMeasurement, um.id)
+    assert row.maicdb_id == "MAIC:UM:00001"
+    assert row.parameter_kind == "pressure_threshold"
+    assert row.value == pytest.approx(20.0)
+    assert ch.unmapped_measurements == [row]
+
+
+def test_db_meta_key_value(session):
+    """db_meta is a singleton key–value table; keys are unique."""
+    session.add_all([
+        DbMeta(key="schema_version", value="0.2.0"),
+        DbMeta(key="license", value="CC-BY-4.0"),
+        DbMeta(key="data_freeze_tag", value="data-v1.0"),
+    ])
+    session.flush()
+    val = session.scalar(select(DbMeta).where(DbMeta.key == "license"))
+    assert val.value == "CC-BY-4.0"
+
+    session.add(DbMeta(key="license", value="other"))  # duplicate key
+    with pytest.raises(IntegrityError):
+        session.flush()

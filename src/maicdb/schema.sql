@@ -1,3 +1,9 @@
+CREATE TABLE db_meta (
+	"key" VARCHAR(64) NOT NULL, 
+	value TEXT NOT NULL, 
+	PRIMARY KEY ("key")
+)
+
 CREATE TABLE external_reference (
 	id INTEGER NOT NULL, 
 	entity_type VARCHAR(21) NOT NULL, 
@@ -155,6 +161,13 @@ CREATE TABLE bioactivity (
 	publication_id INTEGER, 
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
 	updated_at DATETIME, 
+	measurement_id TEXT, 
+	evidence_quote TEXT, 
+	evidence_location TEXT, 
+	confidence TEXT, 
+	extractor_note TEXT, 
+	condition_key TEXT, 
+	n TEXT, 
 	PRIMARY KEY (id), 
 	CONSTRAINT uq_bioactivity_dedup UNIQUE (compound_id, channel_id, activity_type, activity_value, assay_description), 
 	UNIQUE (maicdb_id), 
@@ -173,6 +186,10 @@ CREATE INDEX ix_bioactivity_assay_format ON bioactivity (assay_format)
 CREATE INDEX ix_bioactivity_channel_id ON bioactivity (channel_id)
 
 CREATE INDEX ix_bioactivity_compound_id ON bioactivity (compound_id)
+
+CREATE INDEX ix_bioactivity_condition_key ON bioactivity (condition_key)
+
+CREATE UNIQUE INDEX ix_bioactivity_measurement_id ON bioactivity (measurement_id)
 
 CREATE INDEX ix_bioactivity_source_db ON bioactivity (source_db)
 
@@ -223,6 +240,41 @@ CREATE UNIQUE INDEX ix_structure_pdb_id ON structure (pdb_id)
 CREATE INDEX ix_structure_source_db ON structure (source_db)
 
 CREATE INDEX ix_structure_structure_source ON structure (structure_source)
+
+CREATE TABLE unmapped_measurement (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(24) NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	parameter_kind TEXT NOT NULL, 
+	value FLOAT, 
+	unit TEXT, 
+	adjudication TEXT, 
+	measurement_id TEXT, 
+	evidence_quote TEXT, 
+	evidence_location TEXT, 
+	confidence TEXT, 
+	extractor_note TEXT, 
+	condition_key TEXT, 
+	n TEXT, 
+	source_db VARCHAR(15), 
+	collected_date DATE, 
+	publication_id INTEGER, 
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (source_db IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	FOREIGN KEY(publication_id) REFERENCES publication (id) ON DELETE SET NULL
+)
+
+CREATE INDEX ix_unmapped_measurement_channel_id ON unmapped_measurement (channel_id)
+
+CREATE INDEX ix_unmapped_measurement_condition_key ON unmapped_measurement (condition_key)
+
+CREATE UNIQUE INDEX ix_unmapped_measurement_measurement_id ON unmapped_measurement (measurement_id)
+
+CREATE INDEX ix_unmapped_measurement_source_db ON unmapped_measurement (source_db)
 
 CREATE TABLE variant (
 	id INTEGER NOT NULL, 
@@ -287,6 +339,7 @@ CREATE TABLE biophysics_experiment (
 	channel_id INTEGER NOT NULL, 
 	structure_id INTEGER, 
 	compound_id INTEGER, 
+	variant_id INTEGER, 
 	experiment_label TEXT, 
 	parameter_set VARCHAR(16), 
 	p50_value FLOAT, 
@@ -305,6 +358,17 @@ CREATE TABLE biophysics_experiment (
 	iv_relation VARCHAR(18), 
 	delta_p50_value FLOAT, 
 	delta_p50_unit VARCHAR(5), 
+	ion_selectivity_ratio FLOAT, 
+	ratio_direction TEXT, 
+	ca_permeability FLOAT, 
+	threshold_fold_shift_value FLOAT, 
+	threshold_fold_shift_unit TEXT, 
+	macroscopic_rise_time_ms FLOAT, 
+	thermal_threshold_c FLOAT, 
+	osmotic_threshold_value FLOAT, 
+	osmotic_threshold_unit TEXT, 
+	value_as_reported TEXT, 
+	unit_as_reported TEXT, 
 	stimulus_type VARCHAR(17), 
 	stimulus_waveform TEXT, 
 	stimulus_velocity FLOAT, 
@@ -325,6 +389,13 @@ CREATE TABLE biophysics_experiment (
 	n_cells INTEGER, 
 	analysis_method TEXT, 
 	protocol_ref TEXT, 
+	measurement_id TEXT, 
+	evidence_quote TEXT, 
+	evidence_location TEXT, 
+	confidence TEXT, 
+	extractor_note TEXT, 
+	condition_key TEXT, 
+	n TEXT, 
 	source_db VARCHAR(15), 
 	collected_date DATE, 
 	publication_id INTEGER, 
@@ -335,6 +406,7 @@ CREATE TABLE biophysics_experiment (
 	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
 	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE SET NULL, 
 	FOREIGN KEY(compound_id) REFERENCES compound (id) ON DELETE SET NULL, 
+	FOREIGN KEY(variant_id) REFERENCES variant (id) ON DELETE SET NULL, 
 	CONSTRAINT parameterset CHECK (parameter_set IN ('P50', 'T50', 'X50', 'CONDUCTANCE_ONLY', 'KINETICS_ONLY', 'FULL_CARD')), 
 	CONSTRAINT pressureunit CHECK (p50_unit IN ('mmHg', 'kPa', 'Pa', 'mbar', 'cmH2O', 'psi')), 
 	CONSTRAINT tensionunit CHECK (t50_unit IN ('mN/m', 'dyn/cm', 'pN/um', 'N/m')), 
@@ -351,7 +423,11 @@ CREATE INDEX ix_biophysics_experiment_channel_id ON biophysics_experiment (chann
 
 CREATE INDEX ix_biophysics_experiment_compound_id ON biophysics_experiment (compound_id)
 
+CREATE INDEX ix_biophysics_experiment_condition_key ON biophysics_experiment (condition_key)
+
 CREATE INDEX ix_biophysics_experiment_iv_relation ON biophysics_experiment (iv_relation)
+
+CREATE UNIQUE INDEX ix_biophysics_experiment_measurement_id ON biophysics_experiment (measurement_id)
 
 CREATE INDEX ix_biophysics_experiment_parameter_set ON biophysics_experiment (parameter_set)
 
@@ -362,3 +438,5 @@ CREATE INDEX ix_biophysics_experiment_source_db ON biophysics_experiment (source
 CREATE INDEX ix_biophysics_experiment_stimulus_type ON biophysics_experiment (stimulus_type)
 
 CREATE INDEX ix_biophysics_experiment_structure_id ON biophysics_experiment (structure_id)
+
+CREATE INDEX ix_biophysics_experiment_variant_id ON biophysics_experiment (variant_id)
