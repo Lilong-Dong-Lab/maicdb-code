@@ -483,7 +483,7 @@ def test_publication_shared_across_structures(session):
 
     pub = Publication(
         doi="10.7554/eLife.101923",
-        title="Structure of human PIEZO1 and its slow-inactivating channelopathy mutations",
+        title="Structure of human PIEZO1 and its slow-inactivating channelopathy mutants",
         journal="eLife",
         year=2025,
         authors=["Shan Y", "Guo X", "Zhang M", "Chen M", "Li Y", "Zhang M", "Pei D"],

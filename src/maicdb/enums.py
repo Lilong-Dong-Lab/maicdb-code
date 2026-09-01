@@ -82,7 +82,7 @@ def value_stored_enum(enum_cls: type[Enum]) -> SQLEnum:
 # Identity module
 # --------------------------------------------------------------------------- #
 class Family(str, Enum):
-    """The seven canonical mechanically-activated ion channel families."""
+    """Mechanically-activated ion channel families — 7 canonical + OTHER."""
 
     PIEZO = "PIEZO"
     TRP = "TRP"
