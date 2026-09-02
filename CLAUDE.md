@@ -22,15 +22,17 @@ frozen corpus releases (currently tag **`data-v1.0`**, 1100 rows).
 ```bash
 uv sync                      # install deps
 uv pip install -e .          # editable install (REQUIRED before pytest in a fresh venv)
-uv run pytest tests/ -q      # the schema test suite (currently 24)
+uv run pytest tests/ -q      # the test suite (45: schema + loader, vault-dependent tests auto-skip)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
 ```
 
-**Known env anomaly**: `uv run`'s auto-sync can cycle the editable install and
-transiently break `import maicdb` (including in later fresh invocations); the sequence above run
-verbatim passes, and a clean-venv wheel install always imports. If an import
-fails, re-run `uv pip install -e .`.
+**Known env anomaly (root-caused 2026-09-02)**: the venv's `.pth` files can
+carry the macOS BSD `hidden` flag (an external watcher re-applies it);
+CPython 3.12's site.py skips UF_HIDDEN pth files → `import maicdb` fails.
+Reliable heals: `chflags nohidden .venv/lib/python3.12/site-packages/*.pth`,
+or prefix commands with `PYTHONPATH=src`, or a wheel install. (`uv pip
+install -e .` alone is NOT reliable — the flag comes back.)
 
 ## Git/PR workflow (same discipline as the vault)
 
