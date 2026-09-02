@@ -10,4 +10,4 @@ Data loading is a separate (future) concern; this package defines the schema
 and validates it against the real Piezo1 reference dataset.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

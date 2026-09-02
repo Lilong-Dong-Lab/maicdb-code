@@ -1,8 +1,8 @@
 # MAIC-DB Loader Mapping Spec v0.2 — data-v1.0 Corpus → Formal Schema
 
-Status: spec (this round); implementation in the next round(s). Decisions marked
-**[DECIDED 2026-09-01]** were approved by the lab lead; open items are
-explicitly listed in §6. Rev v0.2 (same day): incorporates the independent
+Status: schema v0.2 IMPLEMENTED (A2a, models.py @ 0.2.0); loader pending
+(A2b). Decisions marked **[DECIDED 2026-09-01]** were approved by the lab
+lead (§2 + §6 — all decided; nothing open). Rev v0.2 (same day): the independent
 gate review of v0.1 (1 MAJOR + 7 MINOR + 4 NIT, all fixed — see PR #2
 conversation); every corpus-facing figure below was recomputed by the
 reviewer against the vault @ `data-v1.0` unless marked otherwise.
@@ -53,15 +53,16 @@ the evidence chain that F-004/F-005 built on, and no columns for 118 of the
    (one provenance exception: staging stages the 4 `ca_permeability` values
    inside `ion_selectivity_ratio` with `gap_kind='ca_permeability'` — e.g.
    ASIC-00051 = 18.5; formal v0.2 gives the kind a dedicated column); types
-   finalized in A2 from `build_staging_db.py`.
+   finalized in schema v0.2 (`models.py` — realized as ion_selectivity_ratio +
+   ratio_direction, threshold_fold_shift_value+unit, macroscopic_rise_time_ms,
+   thermal_threshold_c, ca_permeability, osmotic_threshold_value+unit).
 3. **`unmapped_measurement` archive table** (the 16 adjudicated-kept rows):
    `measurement_id UNIQUE`, `channel_id FK`, `parameter_kind`, `value`+`unit`,
    `adjudication`, the evidence columns, `publication_id FK`.
 
-Also recommended now: **`db_meta`** table — `schema_version`,
-`release_date`, `mimic_standard_version`, `data_freeze_tag=data-v1.0`.
-**License: OPEN ITEM** (§6.5 — no vault authority for any license value; the
-v0.1 draft's "CC-BY-4.0" was unsupported and is withdrawn).
+Also **`db_meta`** table (implemented): `schema_version`, `license`,
+`release_date`, `mimic_standard_version`, `data_freeze_tag=data-v1.0` —
+license value per §6.5 (CC-BY-4.0, decided).
 
 ## 3. Table-by-table mapping
 
@@ -81,7 +82,7 @@ v0.1 draft's "CC-BY-4.0" was unsupported and is withdrawn).
 |---|---|---|
 | configs `protein.gene_symbol` | `gene_symbol` | verbatim (PIEZO1, TRPV4, …) |
 | `protein.aliases` | `gene_aliases` | JSON list |
-| `protein.uniprot` | `uniprot_accession` | one accession per layer (mscl P0A742, mscs P0C0S1, …) — **except osca**: config carries slash-joined `O94886/Q5T3F8/Q9P1W3/Q9XEA1` (multi-gene family layer) → §6.2 open item; also exceeds the nominal String(16) |
+| `protein.uniprot` | `uniprot_accession` | one accession per layer (mscl P0A742, mscs P0C0S1, …) — **except osca**: config carries slash-joined `O94886/Q5T3F8/Q9P1W3/Q9XEA1` (multi-gene family layer) → one family row per §6.2 (decided): accessions to external_reference, uniprot_accession NULL for that row |
 | configs family | `family` | PIEZO / TRP / K2P / OSCA_TMEM63 / MSCL_MSCS / TMC / DEG_ENaC_ASIC — enum covers all 12 layers (verified) |
 | — | `organism`, `organism_taxid` | canonical per gene: human (9606) for mammalian layers, E. coli for mscl/mscs — to be added as explicit config fields in A2 |
 | `protein.aliases[0..]` | `ortholog_group` | normalize to UPPERCASE gene symbol (§9 duty: case-fold so `Piezo1`/`PIEZO1` cannot split groups) |
@@ -110,7 +111,7 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 |---|---|---|
 | `db_target_column` | card column routing | `conductance_ps`, `p50_value`+`p50_unit`, `t50_value`+`t50_unit`, `x50_value`+`x50_unit`, `tau_act_ms`, `tau_inact_ms`, `tau_deact_ms`, `reversal_potential_mv`, `slope`, `iv_relation` (8 corpus rows; formal column + `IVRelation` enum exist), `delta_p50_value`+`delta_p50_unit` |
 | gap migrations | §2.2 six columns | all 118 non-delta_p50 migration values land in typed columns (nothing NULLed silently) |
-| `value`/`error`/`value_relation` | card values | **105 unit conversions ported** (nS→pS ×1000, s→ms ×1000, min→ms ×60000, µs→ms ×0.001, mM→nM ×1e6) — hook: `REPORTED UNIT IS <UNIT>` in `extractor_note`; as-printed originals have NO formal column → §6.1 open item |
+| `value`/`error`/`value_relation` | card values | **105 unit conversions ported** (nS→pS ×1000, s→ms ×1000, min→ms ×60000, µs→ms ×0.001, mM→nM ×1e6) — hook: `REPORTED UNIT IS <UNIT>` in `extractor_note`; as-printed originals land in `value_as_reported`/`unit_as_reported` (§6.1, implemented) |
 | `unit_db` | `*_unit` enums | mmHg→`PressureUnit.MMHG`, kPa→`KPA`, mN/m→`TensionUnit.MN_M`, dyn/cm→`DYN_CM`, µm→`IndentationUnit.UM` — loader FAILS on unmapped unit (strict). One row (TRPV4-EX-00072) routes bare `p50_value` (db_target_column lacks the pair); its unit comes from `unit_db` (mmHg → MMHG), manifest entry |
 | `db_parameter_set` | `parameter_set` | verbatim (P50, T50, CONDUCTANCE_ONLY, …) |
 | `stimulus_type` | `stimulus_type` | enum strict; corpus vocabulary {PRESSURE_CLAMP, SUCTION, HYPOTONIC, …, OTHER} — loader asserts full coverage, maps strays to OTHER only with manifest entry |
@@ -129,7 +130,7 @@ modulators resolve by **majority frequency across rows** with a manifest
 entry — four in the corpus: Yoda1 (12/1), lysophosphatidylcholine (9/1),
 arachidonic acid (5/1) → ACTIVATOR; **2,2,2-Trifluoroethanol (2/2) is the
 sole tie** → deterministic tie-break resolves to INHIBITOR_BLOCKER (staging
-stored the raw string `antagonist`; the formal enum
+stored its own CHECK-vocabulary member `ANTAGONIST` (uppercase); the formal enum
 vocabulary normalizes it — parity deviation disclosed in the manifest).
 piezo1 `compounds/` descriptors (21/21 with InChIKey) join where available;
 other layers name-only. NULL `inchikey` rows are safe (SQLite UNIQUE
@@ -149,8 +150,7 @@ Evidence columns as §2. `uq_bioactivity_dedup` respected.
 parsed when the short form is a clean substitution, else NULL; clinical columns
 (clinvar/omim/dbsnp) NULL this load; `organism` = channel organism.
 Variant↔experiment linkage: extraction rows carry variant context on the
-measurement row; v0.1 has no FK → §6.3 open item (`variant_id` FK
-recommended).
+measurement row; v0.1 had no FK → `variant_id` now implemented (§6.3).
 
 ### 3.8 `external_reference`
 piezo1 `cross_references/` (uniprot↔pdb mapping etc.) → CHANNEL xrefs.
@@ -182,26 +182,25 @@ the 130 §3.4 migrations INTO biophysics). Columns per §2.3.
 ## 5. Round plan
 
 - **A2 (next)**: schema v0.2 (evidence columns incl. `n TEXT`, six migration
-  columns, `unmapped_measurement`, `db_meta`; §6 open items resolved first) +
+  columns, `unmapped_measurement`, `db_meta`; §6 decisions all settled 2026-09-01) +
   loader implementation + tests (enum coverage incl. 9 recording modes,
   conservation, determinism, negative fixtures).
 - **A3**: run the load against `data-v1.0`, publish `maicdb.sqlite` +
   manifest, cross-repo digest.
 
-## 6. Open items (decisions for A2 kickoff)
+## 6. Extension decisions — **all DECIDED 2026-09-01 (user approval, A2a kickoff)**
 
-1. `value_as_reported`/`unit_as_reported` columns (as-printed originals of
-   the 105 converted rows) — recommended YES (staging carried them).
-2. **Multi-gene layer → channel mapping (osca)**: config uniprot
-   `O94886/Q5T3F8/Q9P1W3/Q9XEA1` (OSCA/TMEM63 family layer) — canonical gene
-   row vs family-placeholder row vs four channel rows; affects
-   `uniprot_accession` length too.
-3. `variant_id` FK on `biophysics_experiment` — recommended YES.
-4. Author enrichment from the vault's Zotero export (full arrays) vs
-   `first_author`-only with disclosure — Zotero join is offline-safe
-   (`.pandoc/zotero-library-1.json` in the vault) but adds a second provenance
-   source to validate.
-5. **`db_meta.license`** — no vault authority exists for any license value
-   (v0.1 draft's CC-BY-4.0 withdrawn); requires an explicit lab decision
-   before A3 publishes anything.
-6. `stimulus_detail` structured parse — deferred beyond v1.0 (verbatim only).
+1. `value_as_reported`/`unit_as_reported` columns — **YES** (implemented in
+   schema v0.2).
+2. **Multi-gene layer → channel mapping (osca)** — **one family row**: the
+   layer's curated canonical label as `gene_symbol`, the four accessions
+   (O94886/Q5T3F8/Q9P1W3/Q9XEA1) go to `external_reference`, gene names to
+   `gene_aliases`; `uniprot_accession` stays NULL for that row.
+3. `variant_id` FK on `biophysics_experiment` — **YES** (implemented).
+4. Author enrichment from the vault's Zotero export
+   (`.pandoc/zotero-library-1.json`, DOI join, unmatched disclosed in the
+   manifest) — **YES** (loader duty, A2b).
+5. **`db_meta.license` = CC-BY-4.0** — decided for the DATA corpus
+   (consistent with the code repo's pyproject license).
+6. `stimulus_detail` structured parse — stays deferred beyond v1.0
+   (verbatim only).

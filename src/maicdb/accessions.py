@@ -36,6 +36,7 @@ class AccessionPrefix(str, Enum):
     COMPOUND = "CP"
     BIOACTIVITY = "BA"
     VARIANT = "VR"
+    UNMAPPED_MEASUREMENT = "UM"   # schema v0.2: adjudicated-kept gap archive rows
 
 
 #: Zero-padding width of the numeric segment. 5 digits → 99,999 per entity,

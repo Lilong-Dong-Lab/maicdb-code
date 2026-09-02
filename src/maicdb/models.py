@@ -12,6 +12,14 @@ two support tables**:
 * support       → :class:`ExternalReference` (polymorphic external IDs) and
                   :class:`Publication` (normalized citations)
 
+Schema v0.2 (2026-09-01, per the loader mapping spec and user-approved
+decisions) adds: the per-row **evidence chain** on both fact tables
+(``measurement_id``/quote/location/confidence/extractor_note/condition_key/n),
+the six **gap-adjudicated migration columns**, ``value_as_reported``/
+``unit_as_reported``, the ``variant_id`` link,
+:class:`UnmappedMeasurement` (adjudicated-kept gap archive), and
+:class:`DbMeta` (singleton key–value database metadata).
+
 Every fact table carries:
 
 * a surrogate integer ``id`` (primary key),
@@ -88,6 +96,8 @@ __all__ = [
     "Variant",
     "ExternalReference",
     "Publication",
+    "UnmappedMeasurement",
+    "DbMeta",
 ]
 
 
@@ -194,6 +204,9 @@ class Channel(Base):
         back_populates="channel", cascade="all, delete-orphan"
     )
     variants: Mapped[list[Variant]] = relationship(
+        back_populates="channel", cascade="all, delete-orphan"
+    )
+    unmapped_measurements: Mapped[list[UnmappedMeasurement]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
     primary_publication: Mapped[Publication | None] = relationship()
@@ -312,6 +325,9 @@ class BiophysicsExperiment(Base):
     compound_id: Mapped[int | None] = mapped_column(
         ForeignKey("compound.id", ondelete="SET NULL"), index=True
     )  # set for Δ-P50 (ligand-induced threshold shift) experiments
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("variant.id", ondelete="SET NULL"), index=True
+    )  # schema v0.2: set when the measurement carries variant context
 
     experiment_label: Mapped[str | None] = mapped_column(Text)
     parameter_set: Mapped[ParameterSet | None] = mapped_column(name_stored_enum(ParameterSet), index=True)
@@ -345,6 +361,24 @@ class BiophysicsExperiment(Base):
         value_stored_enum(PressureUnit)
     )
 
+    # ---- Schema v0.2: gap-adjudicated migration measurements (staging parity;
+    # ---- the 130 corpus rows the curation phase adjudicated INTO biophysics) ----
+    ion_selectivity_ratio: Mapped[float | None] = mapped_column(Float)
+    ratio_direction: Mapped[str | None] = mapped_column(Text)  # "P_Na/P_K" etc.
+    ca_permeability: Mapped[float | None] = mapped_column(
+        Float
+    )  # dedicated column (staging staged these 4 inside ion_selectivity_ratio)
+    threshold_fold_shift_value: Mapped[float | None] = mapped_column(Float)
+    threshold_fold_shift_unit: Mapped[str | None] = mapped_column(Text)  # "%" / "fold"
+    macroscopic_rise_time_ms: Mapped[float | None] = mapped_column(Float)
+    thermal_threshold_c: Mapped[float | None] = mapped_column(Float)
+    osmotic_threshold_value: Mapped[float | None] = mapped_column(Float)
+    osmotic_threshold_unit: Mapped[str | None] = mapped_column(Text)  # e.g. "mOsm/kg"
+
+    # ---- Schema v0.2: as-printed originals of pre-authorized unit conversions ----
+    value_as_reported: Mapped[str | None] = mapped_column(Text)
+    unit_as_reported: Mapped[str | None] = mapped_column(Text)
+
     # ---- MIMIC metadata (embedded; 1:1 with the experiment) ----
     stimulus_type: Mapped[StimulusType | None] = mapped_column(name_stored_enum(StimulusType), index=True)
     stimulus_waveform: Mapped[str | None] = mapped_column(Text)  # step/ramp/train/…
@@ -367,6 +401,18 @@ class BiophysicsExperiment(Base):
     analysis_method: Mapped[str | None] = mapped_column(Text)
     protocol_ref: Mapped[str | None] = mapped_column(Text)  # protocol DOI/ID
 
+    # ---- Schema v0.2: per-row evidence chain (vault corpus provenance) ----
+    # Mirrors the extraction schema 1:1; the F-004 disclosure tokens and
+    # REPORTED-UNIT hooks live in extractor_note verbatim. n is TEXT: corpus
+    # replicate counts include ranges and text ("3-10", "≥75 cells/data-point").
+    measurement_id: Mapped[str | None] = mapped_column(Text, unique=True, index=True)
+    evidence_quote: Mapped[str | None] = mapped_column(Text)
+    evidence_location: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[str | None] = mapped_column(Text)
+    extractor_note: Mapped[str | None] = mapped_column(Text)
+    condition_key: Mapped[str | None] = mapped_column(Text, index=True)
+    n: Mapped[str | None] = mapped_column(Text)
+
     # ---- Provenance stub ----
     source_db: Mapped[SourceDb | None] = mapped_column(name_stored_enum(SourceDb), index=True)
     collected_date: Mapped[date | None] = mapped_column(Date)
@@ -383,6 +429,7 @@ class BiophysicsExperiment(Base):
     channel: Mapped[Channel] = relationship(back_populates="biophysics_experiments")
     structure: Mapped[Structure | None] = relationship(back_populates="biophysics_experiments")
     compound: Mapped[Compound | None] = relationship(back_populates="biophysics_experiments")
+    variant: Mapped[Variant | None] = relationship(back_populates="biophysics_experiments")
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -508,6 +555,15 @@ class Bioactivity(Base):
     )
     updated_at: Mapped[str | None] = mapped_column(DateTime)
 
+    # ---- Schema v0.2: per-row evidence chain (vault corpus provenance) ----
+    measurement_id: Mapped[str | None] = mapped_column(Text, unique=True, index=True)
+    evidence_quote: Mapped[str | None] = mapped_column(Text)
+    evidence_location: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[str | None] = mapped_column(Text)
+    extractor_note: Mapped[str | None] = mapped_column(Text)
+    condition_key: Mapped[str | None] = mapped_column(Text, index=True)
+    n: Mapped[str | None] = mapped_column(Text)  # as reported (ranges occur)
+
     # Relationships
     compound: Mapped[Compound] = relationship(back_populates="bioactivities")
     channel: Mapped[Channel] = relationship(back_populates="bioactivities")
@@ -597,6 +653,9 @@ class Variant(Base):
 
     # Relationships
     channel: Mapped[Channel] = relationship(back_populates="variants")
+    biophysics_experiments: Mapped[list[BiophysicsExperiment]] = relationship(
+        back_populates="variant"
+    )
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -656,6 +715,78 @@ class ExternalReference(Base):
 
 
 # --------------------------------------------------------------------------- #
+# Schema v0.2: adjudicated-kept gap archive + database metadata
+# --------------------------------------------------------------------------- #
+class UnmappedMeasurement(Base):
+    """A real measurement whose ``parameter_kind`` has no card column — kept,
+    not discarded (schema v0.2, [user decision 2026-09-01]).
+
+    The 16 data-v1.0 rows the curation phase adjudicated to KEEP as gap
+    archive (pressure_threshold 9, block_voltage 2, x50 2, tau_act 1,
+    ion_selectivity_ratio 2). Distinct from the 130 migration rows that land
+    in typed :class:`BiophysicsExperiment` columns. Carries the full evidence
+    chain so nothing in the archive is provenance-free.
+    """
+
+    __tablename__ = "unmapped_measurement"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    parameter_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(Text)
+    adjudication: Mapped[str | None] = mapped_column(Text)  # staging gap ruling
+
+    # Evidence chain (as on the fact tables)
+    measurement_id: Mapped[str | None] = mapped_column(Text, unique=True, index=True)
+    evidence_quote: Mapped[str | None] = mapped_column(Text)
+    evidence_location: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[str | None] = mapped_column(Text)
+    extractor_note: Mapped[str | None] = mapped_column(Text)
+    condition_key: Mapped[str | None] = mapped_column(Text, index=True)
+    n: Mapped[str | None] = mapped_column(Text)
+
+    # Provenance stub
+    source_db: Mapped[SourceDb | None] = mapped_column(name_stored_enum(SourceDb), index=True)
+    collected_date: Mapped[date | None] = mapped_column(Date)
+    publication_id: Mapped[int | None] = mapped_column(
+        ForeignKey("publication.id", ondelete="SET NULL")
+    )
+
+    created_at: Mapped[str] = mapped_column(
+        DateTime, server_default=func.current_timestamp(), nullable=False
+    )
+    updated_at: Mapped[str | None] = mapped_column(DateTime)
+
+    # Relationships
+    channel: Mapped[Channel] = relationship(back_populates="unmapped_measurements")
+    publication: Mapped[Publication | None] = relationship()
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<UnmappedMeasurement maicdb_id={self.maicdb_id!r} kind={self.parameter_kind!r}>"
+
+
+class DbMeta(Base):
+    """Singleton key–value metadata for a loaded database (schema v0.2).
+
+    The loader writes at least: ``schema_version``, ``license``,
+    ``release_date``, ``mimic_standard_version``, ``data_freeze_tag``.
+    """
+
+    __tablename__ = "db_meta"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<DbMeta {self.key}={self.value!r}>"
+
+
+# --------------------------------------------------------------------------- #
 # Convenience collection for tooling / tests
 # --------------------------------------------------------------------------- #
 CORE_TABLES = (
@@ -665,6 +796,7 @@ CORE_TABLES = (
     Compound,
     Bioactivity,
     Variant,
+    UnmappedMeasurement,
 )
 ALL_TABLES = (
     Channel,
@@ -673,6 +805,8 @@ ALL_TABLES = (
     Compound,
     Bioactivity,
     Variant,
+    UnmappedMeasurement,
     ExternalReference,
     Publication,
+    DbMeta,
 )

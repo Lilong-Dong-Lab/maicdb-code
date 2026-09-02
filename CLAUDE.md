@@ -28,7 +28,7 @@ uv run maicdb-dump-schema --help # render DDL
 ```
 
 **Known env anomaly**: `uv run`'s auto-sync can cycle the editable install and
-transiently break `import maicdb` in the same shell; the sequence above run
+transiently break `import maicdb` (including in later fresh invocations); the sequence above run
 verbatim passes, and a clean-venv wheel install always imports. If an import
 fails, re-run `uv pip install -e .`.
 
