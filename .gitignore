@@ -66,3 +66,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# release artifacts override the sqlite ignore
+!db/maicdb.sqlite

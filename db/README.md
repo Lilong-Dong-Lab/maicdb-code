@@ -36,3 +36,9 @@ Every fact row carries the full evidence chain (`measurement_id`,
 `evidence_quote`, `evidence_location`, `confidence`, `extractor_note` — the
 F-004 disclosure tokens verbatim, `condition_key`, `n`). License:
 **CC-BY-4.0** (recorded in `db_meta`).
+
+> [!note] Date semantics
+> `db_meta.release_date` records the **data-freeze epoch** (2026-09-01, the
+> constant baked into the byte-stable dump) while the GitHub release day is
+> 2026-09-02 — the dump is deterministic by construction, so it pins the
+> freeze date, not the publication day.
