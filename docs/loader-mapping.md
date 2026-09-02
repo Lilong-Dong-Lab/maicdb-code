@@ -47,8 +47,10 @@ the evidence chain that F-004/F-005 built on, and no columns for 118 of the
 2. **Six migration columns** on `biophysics_experiment`, staging-parity types:
    `ion_selectivity_ratio` (66 rows), `threshold_fold_shift` (23),
    `macroscopic_rise_time` (13), `thermal_threshold` (9), `ca_permeability`
-   (4), `osmotic_threshold` (3). Together with the existing `delta_p50_*`
-   (12), all 130 gap-adjudicated migration values land in typed columns;
+   (4), `osmotic_threshold` (3), `delta_p50` (12 — TMC nm displacement drifts
+   that land in the **threshold-fold-shift pair**, NOT the card delta columns;
+   the card's `delta_p50_value` carries the 16 normal-routed rows). All 130
+   gap-adjudicated migration values land in typed columns;
    routing stays 948/136/16. Column types mirror the staging loader
    (one provenance exception: staging stages the 4 `ca_permeability` values
    inside `ion_selectivity_ratio` with `gap_kind='ca_permeability'` — e.g.
@@ -66,7 +68,8 @@ license value per §6.5 (CC-BY-4.0, decided).
 
 ## 3. Table-by-table mapping
 
-### 3.1 `publication` — 205 rows (DOI dedup; 10 papers shared across layers, 2 of them by 3 layers)
+### 3.1 `publication` — 211 rows (205 extraction DOIs, 10 shared across
+layers, 2 by 3 layers; +6 structure-only citations from the raw PDB details)
 | Extraction | Column | Transform |
 |---|---|---|
 | `doi` | `doi` | dedup key; all rows carry DOI |
@@ -111,7 +114,7 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 |---|---|---|
 | `db_target_column` | card column routing | `conductance_ps`, `p50_value`+`p50_unit`, `t50_value`+`t50_unit`, `x50_value`+`x50_unit`, `tau_act_ms`, `tau_inact_ms`, `tau_deact_ms`, `reversal_potential_mv`, `slope`, `iv_relation` (8 corpus rows; formal column + `IVRelation` enum exist), `delta_p50_value`+`delta_p50_unit` |
 | gap migrations | §2.2 six columns | all 118 non-delta_p50 migration values land in typed columns (nothing NULLed silently) |
-| `value`/`error`/`value_relation` | card values | **105 unit conversions ported** (nS→pS ×1000, s→ms ×1000, min→ms ×60000, µs→ms ×0.001, mM→nM ×1e6) — hook: `REPORTED UNIT IS <UNIT>` in `extractor_note`; as-printed originals land in `value_as_reported`/`unit_as_reported` (§6.1, implemented) |
+| `value`/`error`/`value_relation` | card values + `experiment_label` | **105 unit conversions ported** (nS→pS ×1000, s→ms ×1000, min→ms ×60000, µs→ms ×0.001, mM→nM ×1e6) — hook: `REPORTED UNIT IS <UNIT>` in `extractor_note`; as-printed originals land in `value_as_reported`/`unit_as_reported` (§6.1, implemented); `error`/`error_type` (no formal card column) fold verbatim into `experiment_label` as `ERROR-AS-REPORTED: …` — lossless, promotable to a typed column post-v1.0 |
 | `unit_db` | `*_unit` enums | mmHg→`PressureUnit.MMHG`, kPa→`KPA`, mN/m→`TensionUnit.MN_M`, dyn/cm→`DYN_CM`, µm→`IndentationUnit.UM` — loader FAILS on unmapped unit (strict). One row (TRPV4-EX-00072) routes bare `p50_value` (db_target_column lacks the pair); its unit comes from `unit_db` (mmHg → MMHG), manifest entry |
 | `db_parameter_set` | `parameter_set` | verbatim (P50, T50, CONDUCTANCE_ONLY, …) |
 | `stimulus_type` | `stimulus_type` | enum strict; corpus vocabulary {PRESSURE_CLAMP, SUCTION, HYPOTONIC, …, OTHER} — loader asserts full coverage, maps strays to OTHER only with manifest entry |
@@ -123,15 +126,18 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 | `measurement_id`…`extractor_note` | evidence columns **[v0.2]** | verbatim — F-004 tokens preserved; `measurement_id` UNIQUE |
 | `condition_key` | `condition_key` **[v0.2]** | verbatim (row-local uniqueness key) |
 
-### 3.5 `compound` — 85 rows (modulator_name dedup, staging parity)
+### 3.5 `compound` — 86 rows (85 roled modulator_name dedup + the unroled
+silica-nanoparticle family, which the formal NOT-NULL bioactivity compound
+link requires — typed UNCLASSIFIED, manifest-disclosed)
 `modulator_role`→`compound_type` normalization: agonist→ACTIVATOR,
 blocker/antagonist→INHIBITOR_BLOCKER, potentiator→POTENTIATOR; multi-role
 modulators resolve by **majority frequency across rows** with a manifest
 entry — four in the corpus: Yoda1 (12/1), lysophosphatidylcholine (9/1),
 arachidonic acid (5/1) → ACTIVATOR; **2,2,2-Trifluoroethanol (2/2) is the
-sole tie** → deterministic tie-break resolves to INHIBITOR_BLOCKER (staging
-stored its own CHECK-vocabulary member `ANTAGONIST` (uppercase); the formal enum
-vocabulary normalizes it — parity deviation disclosed in the manifest).
+sole tie** → deterministic alphabetical tie-break resolves to ANTAGONIST —
+the formal enum carries ANTAGONIST as a direct member, so this is EXACT
+staging parity (the earlier INHIBITOR_BLOCKER target rested on an incomplete
+role list; corrected at implementation).
 piezo1 `compounds/` descriptors (21/21 with InChIKey) join where available;
 other layers name-only. NULL `inchikey` rows are safe (SQLite UNIQUE
 tolerates NULLs); manifest discloses descriptor coverage.
@@ -174,8 +180,10 @@ the 130 §3.4 migrations INTO biophysics). Columns per §2.3.
       publication 205 (10 shared); channel 12; structure 12; compound 85;
       variant 125; migrations 118+12 all land in typed columns (0 NULLed
       migration values).
-- [ ] Determinism: byte-stable dump (SQLite version pinned note; port the
-      vault's `data/db/README.md` float-rendering caveat).
+- [x] Determinism (implemented): all `created_at` pinned to the freeze
+      epoch (2026-09-01) — not wall-clock; insert order sorted; the dump's
+      CREATE-INDEX block sorted (SQLite emits it nondeterministically);
+      two independent loads verified byte-identical.
 - [ ] Frozen-layer semantics: piezo1/piezo2 load as-is; their un-re-verified
       quote status recorded in `db_meta`, not per-row.
 

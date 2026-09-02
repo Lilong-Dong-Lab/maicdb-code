@@ -14,7 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-dependencies = ["sqlalchemy>=2.0"]
+dependencies = ["sqlalchemy>=2.0", "pyyaml>=6"]
 
 [dependency-groups]
 dev = ["pytest>=8"]
@@ -22,6 +22,7 @@ dev = ["pytest>=8"]
 [project.scripts]
 maicdb-init-db = "maicdb.database:init_db_cli"
 maicdb-dump-schema = "maicdb.database:dump_schema_cli"
+maicdb-load = "maicdb.loader:main"
 
 [build-system]
 requires = ["hatchling"]
