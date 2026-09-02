@@ -113,7 +113,7 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 | Extraction | Column | Transform |
 |---|---|---|
 | `db_target_column` | card column routing | `conductance_ps`, `p50_value`+`p50_unit`, `t50_value`+`t50_unit`, `x50_value`+`x50_unit`, `tau_act_ms`, `tau_inact_ms`, `tau_deact_ms`, `reversal_potential_mv`, `slope`, `iv_relation` (8 corpus rows; formal column + `IVRelation` enum exist), `delta_p50_value`+`delta_p50_unit` |
-| gap migrations | §2.2 six columns | all 118 non-delta_p50 migration values land in typed columns (nothing NULLed silently) |
+| gap migrations | §2.2 columns | all 130 migration values land in typed columns incl. the 12 delta_p50-kind nm drifts into the shift pair (nothing NULLed silently; `ratio_direction` NULL this load — staging's 70 classified directions not ported, parse deferred) |
 | `value`/`error`/`value_relation` | card values + `experiment_label` | **105 unit conversions ported** (nS→pS ×1000, s→ms ×1000, min→ms ×60000, µs→ms ×0.001, mM→nM ×1e6) — hook: `REPORTED UNIT IS <UNIT>` in `extractor_note`; as-printed originals land in `value_as_reported`/`unit_as_reported` (§6.1, implemented); `error`/`error_type` (no formal card column) fold verbatim into `experiment_label` as `ERROR-AS-REPORTED: …` — lossless, promotable to a typed column post-v1.0 |
 | `unit_db` | `*_unit` enums | mmHg→`PressureUnit.MMHG`, kPa→`KPA`, mN/m→`TensionUnit.MN_M`, dyn/cm→`DYN_CM`, µm→`IndentationUnit.UM` — loader FAILS on unmapped unit (strict). One row (TRPV4-EX-00072) routes bare `p50_value` (db_target_column lacks the pair); its unit comes from `unit_db` (mmHg → MMHG), manifest entry |
 | `db_parameter_set` | `parameter_set` | verbatim (P50, T50, CONDUCTANCE_ONLY, …) |
@@ -130,7 +130,8 @@ macroscopic_rise_time 13, delta_p50 12, thermal_threshold 9, ca_permeability
 silica-nanoparticle family, which the formal NOT-NULL bioactivity compound
 link requires — typed UNCLASSIFIED, manifest-disclosed)
 `modulator_role`→`compound_type` normalization: agonist→ACTIVATOR,
-blocker/antagonist→INHIBITOR_BLOCKER, potentiator→POTENTIATOR; multi-role
+antagonist→ANTAGONIST (direct enum member), blocker→INHIBITOR_BLOCKER,
+potentiator→POTENTIATOR; multi-role
 modulators resolve by **majority frequency across rows** with a manifest
 entry — four in the corpus: Yoda1 (12/1), lysophosphatidylcholine (9/1),
 arachidonic acid (5/1) → ACTIVATOR; **2,2,2-Trifluoroethanol (2/2) is the
@@ -176,10 +177,11 @@ the 130 §3.4 migrations INTO biophysics). Columns per §2.3.
 - [ ] `external_reference` target validation at insert.
 - [ ] `ortholog_group` uppercase normalization.
 - [ ] Unit-enum strict mapping (unmapped unit = load error).
-- [ ] Conservation: 1100 = biophysics 948 + bioactivity 136 + unmapped 16;
-      publication 205 (10 shared); channel 12; structure 12; compound 85;
-      variant 125; migrations 118+12 all land in typed columns (0 NULLed
-      migration values).
+- [x] Conservation (implemented + asserted): 1100 = biophysics 948 +
+      bioactivity 136 + unmapped 16; publication 211 (205 extraction, 10
+      shared, + 6 structure-only); channel 12; structure 12 (≥8 linked to
+      publications); compound 86 (85 roled + unroled silica family);
+      variant 125; all 130 migration values land in typed columns.
 - [x] Determinism (implemented): all `created_at` pinned to the freeze
       epoch (2026-09-01) — not wall-clock; insert order sorted; the dump's
       CREATE-INDEX block sorted (SQLite emits it nondeterministically);

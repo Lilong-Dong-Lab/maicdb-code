@@ -465,7 +465,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 unroled_activity_names.add(name)
         for name in unroled_activity_names:
             roles.setdefault(name, Counter())
-        descriptors = _read_piezo1_compound_descriptors(vault)
+        joining = {n.lower() for n in roles}
+        descriptors = _read_piezo1_compound_descriptors(vault, joining)
         compounds: dict[str, Compound] = {}
         used_inchikeys: set[str] = set()
         for name in sorted(roles):
@@ -486,7 +487,6 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             compounds[name] = Compound(
                 maicdb_id=acc.next(AccessionPrefix.COMPOUND),
                 name=name, compound_type=ctype,
-                chembl_id=d.get("chembl_id"), pubchem_cid=d.get("pubchem_cid"),
                 smiles=d.get("smiles"), inchikey=d.get("inchikey"),
                 molecular_weight=d.get("mw"), clogp=d.get("logp"),
                 tpsa=d.get("tpsa"), hbd=d.get("hbd"), hba=d.get("hba"),
@@ -505,7 +505,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 f"{sorted(unroled_activity_names)}")
         manifest["disclosures"].append(
             f"compound descriptors: {sum(1 for c in compounds.values() if c.inchikey)} / "
-            f"{len(compounds)} carry InChIKey (piezo1 ChEMBL/PubChem join by name)")
+            f"{len(compounds)} carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)")
 
         # ---- variant (125; hgvs_short dedup) ---------------------------------
         variants: dict[str, Variant] = {}
@@ -528,18 +528,20 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         n_struct = 0
         if st_csv.exists():
             st_pubs: dict[str, Publication] = {}
+            pending_links: list[tuple[Structure, str | None]] = []
             with st_csv.open(newline="", encoding="utf-8") as f:
                 for r in csv.DictReader(f):
-                    pub = None
+                    pub_doi = None
                     raw = vault / "data/piezo1/raw/piezo1_pdb_entries_detail" / f"{r['PDB_ID']}.json"
                     if raw.exists():
                         cit = (json.loads(raw.read_text(encoding="utf-8"))
                                .get("citation") or [{}])[0]
                         doi = _s(cit.get("pdbx_database_id_DOI"))
-                        if doi and doi in pubs:
-                            pub = pubs[doi]  # already known from extraction rows
-                        elif doi:
-                            if doi not in st_pubs:
+                        if doi:
+                            pub_doi = doi
+                            if doi in pubs:
+                                pass  # already known from extraction rows
+                            elif doi not in st_pubs:
                                 pmid = cit.get("pdbx_database_id_PubMed")
                                 st_pubs[doi] = Publication(
                                     doi=doi,
@@ -552,8 +554,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                                     pmid=int(pmid) if str(pmid or "").isdigit() else None,
                                     created_at=FREEZE_EPOCH)
                                 s.add(st_pubs[doi])
-                            pub = st_pubs[doi]
-                    s.add(Structure(
+                    st = Structure(
                         maicdb_id=acc.next(AccessionPrefix.STRUCTURE),
                         channel_id=channels["piezo1"].id,
                         pdb_id=r["PDB_ID"], structure_source=StructureSource.PDB,
@@ -563,10 +564,24 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         num_chains=int(r["Num_Chains"]) if str(r.get("Num_Chains") or "").isdigit() else None,
                         has_inhibitor=r.get("Has_Inhibitor", "").strip().lower() == "true",
                         source_db=SourceDb.PDB, collected_date=FREEZE_DATE,
-                        publication_id=pub.id if pub else None,
-                        created_at=FREEZE_EPOCH))
+                        created_at=FREEZE_EPOCH)
+                    s.add(st)
+                    pending_links.append((st, pub_doi))
                     n_struct += 1
+            # publication.id exists only after flush — patch links post-flush
+            # (same pattern as the external_reference block; the r1 gate
+            # caught the constructor-time-id NULL bug here)
             s.flush()
+            linked = 0
+            for st, doi in pending_links:
+                pub = pubs.get(doi) or st_pubs.get(doi)
+                if pub is not None and pub.id is not None:
+                    st.publication_id = pub.id
+                    linked += 1
+            manifest["counts"]["structure_publication_links"] = linked
+            if linked < 8:  # 10 of 12 raw citations carry a DOI
+                raise AssertionError(
+                    f"structure→publication linkage suspiciously low: {linked}/12")
             manifest["counts"]["publication"] += len(st_pubs) - sum(
                 1 for d in st_pubs if d in pubs)  # net new structure-only pubs
             pubs.update(st_pubs)
@@ -671,6 +686,10 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 raise ValueError(f"unknown db_target_table {table!r} in {r['measurement_id']}")
         for k in ("biophysics", "bioactivity", "unmapped"):
             manifest["counts"][k] = counts[k]
+        manifest["disclosures"].append(
+            "ratio_direction NULL this load: staging's 70 classified direction "
+            "values (note/web/machine provenance) were not ported — parse "
+            "deferred post-v1.0 (direction survives in the CSV parameter_label)")
         manifest["counts"]["unit_conversions"] = sum(
             1 for r in rows if _REPORTED_UNIT_RE.search(r.get("extractor_note") or ""))
 
@@ -756,32 +775,49 @@ def _route_gap_migration(r: dict, bx: BiophysicsExperiment) -> None:
     bx.unit_as_reported = unit or None
 
 
-def _read_piezo1_compound_descriptors(vault: Path) -> dict[str, dict]:
-    """piezo1 compounds CSV → name-normalized descriptor dict (lower-case join)."""
+def _read_piezo1_compound_descriptors(vault: Path,
+                                      joining_names: set[str] | None = None) -> dict[str, dict]:
+    """piezo1 compounds CSV → name-normalized descriptor dict (lower-case join).
+
+    The CSV carries duplicate InChIKeys under alias rows (CHEMBL-id names)
+    that never join a corpus modulator — among rows sharing a key, the name
+    that JOINS a corpus modulator keeps it (r1-gate MINOR-3: first-row-wins
+    starved Yoda1/Jedi1/Jedi2 of their keys)."""
+    joining = joining_names or set()
     p = vault / "data/piezo1/compounds/piezo1_compounds_properties.csv"
-    out: dict[str, dict] = {}
-    if not p.exists():
-        return out
-    with p.open(newline="", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            name = (r.get("Name") or "").strip().lower()
-            if not name:
-                continue
-            def _i(key): return int(r[key]) if str(r.get(key) or "").strip().lstrip("-").isdigit() else None
-            key = _s(r.get("InChIKey"))
-            if key and any(d.get("inchikey") == key for d in out.values()):
-                # the piezo1 CSV carries duplicate InChIKeys under different
-                # names — first entry keeps the UNIQUE key, later ones NULL it
-                key = None
-            out[name] = {
-                "smiles": _s(r.get("SMILES")), "inchikey": key,
+    raw_rows: list[tuple[str, dict]] = []
+    if p.exists():
+        with p.open(newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                name = (r.get("Name") or "").strip().lower()
+                if not name:
+                    continue
+                def _i(key): return int(r[key]) if str(r.get(key) or "").strip().lstrip("-").isdigit() else None
+                raw_rows.append((name, {
+                    "smiles": _s(r.get("SMILES")), "inchikey": _s(r.get("InChIKey")),
                 "mw": _f(r.get("MW")), "logp": _f(r.get("LogP")), "tpsa": _f(r.get("TPSA")),
                 "hbd": _i("HBD"), "hba": _i("HBA"), "rotb": _i("RotBonds"),
                 "rings": _i("AromaticRings"), "heavy": _i("HeavyAtoms"),
                 "source": _s(r.get("Source")) or None,
-                "lipinski": _bool(r.get("Lipinski_Pass")), "veber": _bool(r.get("Verber_Pass")) or _bool(r.get("Veber_Pass")),
-                "duplicate": _bool(r.get("Duplicate")),
-            }
+                    "lipinski": _bool(r.get("Lipinski_Pass")), "veber": _bool(r.get("Verber_Pass")) or _bool(r.get("Veber_Pass")),
+                    "duplicate": _bool(r.get("Duplicate")),
+                }))
+    out: dict[str, dict] = {}
+    # group rows sharing an InChIKey; the group's joining member (else the
+    # first) keeps the UNIQUE key, the others get None
+    key_groups: dict[str, list[str]] = {}
+    for name, d in raw_rows:
+        if d.get("inchikey"):
+            key_groups.setdefault(d["inchikey"], []).append(name)
+    winner_of: dict[str, str] = {}
+    for key, names in key_groups.items():
+        joiners = [n for n in names if n in joining]
+        winner_of[key] = sorted(joiners)[0] if joiners else sorted(names)[0]
+    for name, d in raw_rows:
+        k = d.get("inchikey")
+        if k and winner_of.get(k) != name:
+            d = {**d, "inchikey": None}
+        out[name] = d
     return out
 
 

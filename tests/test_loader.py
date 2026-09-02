@@ -28,11 +28,10 @@ from maicdb.loader import (
     verify_vault,
 )
 
-VAULT = Path(__file__).resolve().parents[2] / "Project_DataBase_MAICDB"
-if not VAULT.exists():
-    import os
-    env = os.environ.get("MAICDB_VAULT")
-    VAULT = Path(env) if env else VAULT
+import os
+# env var wins (explicit override), else the sibling checkout
+VAULT = Path(os.environ.get("MAICDB_VAULT") or
+             Path(__file__).resolve().parents[2] / "Project_DataBase_MAICDB")
 HAVE_VAULT = VAULT.exists() and (VAULT / "data" / "traak" / "extraction").exists()
 
 requires_vault = pytest.mark.skipif(
@@ -208,3 +207,46 @@ def test_migration_values_land_typed(tmp_path):
                    "threshold_fold_shift_value": 35,  # 23 fold-shift + 12 nm drifts
                    "macroscopic_rise_time_ms": 13, "thermal_threshold_c": 9,
                    "osmotic_threshold_value": 3, "delta_p50_value": 16}
+
+
+@requires_vault
+def test_structure_publication_links(tmp_path):
+    """MAJOR-1 regression: structure.publication_id must link (10 of 12 raw
+    citations carry a DOI; 9VMX/9VED legitimately NULL), and the 6
+    structure-only publications must be referenced by ≥1 row each."""
+    import sqlite3
+    out = tmp_path / "links.sqlite"
+    m = load_vault(VAULT, out, require_tag=None)
+    assert m["counts"]["structure_publication_links"] >= 8
+    conn = sqlite3.connect(out)
+    linked = conn.execute(
+        "SELECT COUNT(*) FROM structure WHERE publication_id IS NOT NULL").fetchone()[0]
+    orphans = conn.execute(
+        "SELECT COUNT(*) FROM publication p WHERE p.id NOT IN "
+        "(SELECT publication_id FROM biophysics_experiment WHERE publication_id IS NOT NULL "
+        " UNION SELECT publication_id FROM bioactivity WHERE publication_id IS NOT NULL "
+        " UNION SELECT publication_id FROM structure WHERE publication_id IS NOT NULL "
+        " UNION SELECT publication_id FROM unmapped_measurement WHERE publication_id IS NOT NULL "
+        " UNION SELECT publication_id FROM variant WHERE publication_id IS NOT NULL "
+        " UNION SELECT publication_id FROM compound WHERE publication_id IS NOT NULL "
+        " UNION SELECT publication_id FROM channel WHERE publication_id IS NOT NULL)"
+    ).fetchone()[0]
+    conn.close()
+    assert linked >= 8
+    assert orphans == 0  # every publication is cited by some row
+
+
+@requires_vault
+def test_yoda1_keeps_inchikey(tmp_path):
+    """MINOR-3 regression: duplicate InChIKeys award to corpus-joining names —
+    Yoda1 (and Jedi1/Jedi2) must carry their key, not the CHEMBL alias rows."""
+    import sqlite3
+    out = tmp_path / "keys.sqlite"
+    load_vault(VAULT, out, require_tag=None)
+    conn = sqlite3.connect(out)
+    keys = dict(conn.execute(
+        "SELECT name, inchikey FROM compound WHERE name IN "
+        "('Yoda1','Jedi1','Jedi2')").fetchall())
+    conn.close()
+    assert keys.get("Yoda1") not in (None, "")
+    assert sum(1 for v in keys.values() if v) >= 2
