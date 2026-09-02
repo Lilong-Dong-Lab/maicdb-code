@@ -1,0 +1,27 @@
+{
+  "vault_head": "5a8ff0ed5cacf62dd2517fd23a6f0d1848c93b7e",
+  "freeze_tag": "data-v1.0",
+  "schema_version": "0.2.0",
+  "counts": {
+    "publication": 211,
+    "channel": 12,
+    "external_reference": 6,
+    "compound": 86,
+    "variant": 125,
+    "structure_publication_links": 10,
+    "structure": 12,
+    "biophysics": 948,
+    "bioactivity": 136,
+    "unmapped": 16,
+    "unit_conversions": 105
+  },
+  "disclosures": [
+    "authors: 0 publications Zotero-enriched; first_author-only fallback for the rest",
+    "publication title variants (first-seen kept): 6 DOIs",
+    "compound 'ruthenium red': InChIKey already used by an earlier case-variant name — descriptor key withheld",
+    "unroled bioactivity modulators typed UNCLASSIFIED: ['Silica nanoparticles (Ludox SM30, ~10 nm)']",
+    "compound descriptors: 4 / 86 carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)",
+    "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)"
+  ],
+  "dump": "db/maicdb.sql"
+}

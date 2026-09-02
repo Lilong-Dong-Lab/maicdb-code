@@ -265,3 +265,17 @@ This project is provided for academic research purposes in mechanobiology and re
 ---
 
 **Project Status**: Active Development | **Created**: 2026-03-08
+
+## Releases
+
+### v1.0.0-data (2026-09-02)
+
+The first published database: schema v0.2 loaded from the vault's frozen
+`data-v1.0` corpus (1100 curated measurement rows across 12 mechanically
+activated ion channel families, 205+6 publications, full per-row evidence
+chain, CC-BY-4.0). Artifacts in [`db/`](db/) — `maicdb.sqlite`,
+byte-stable `maicdb.sql`, `load-manifest.json`. Regeneration, provenance and
+every mapping decision: [`db/README.md`](db/README.md) and
+[`docs/loader-mapping.md`](docs/loader-mapping.md).
+
+**Project Status**: v1.0 data published | active development (query tooling next)
