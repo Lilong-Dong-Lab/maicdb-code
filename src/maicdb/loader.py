@@ -289,12 +289,21 @@ def verify_vault(vault: Path, require_tag: str | None) -> str:
             raise RuntimeError(
                 f"tag {require_tag} ({tagged[:7]}) is not an ancestor of HEAD "
                 f"({head[:7]}) — history diverged from the freeze")
-        # The frozen content (12 layer datasets + identity configs) must be
-        # byte-unchanged since the tag; docs/report churn after the freeze is
-        # legal on the rolling repo.
+        # The frozen content (12 layer datasets — data/<ch>/** incl. per-layer
+        # READMEs and data/db/ — + identity configs, configs/*.yaml) must be
+        # byte-unchanged since the tag. Root-level schema docs (data/*.md —
+        # extraction_schema.md's Rules/enum sections evolve with the validator;
+        # CLAUDE.md: "doc side lives in the vault's data/extraction_schema.md —
+        # change both together") and validator-state registries (configs/*.json
+        # — composite_quote_registry, quote_landing_allowlist) are legal
+        # post-freeze churn. (2026-09-03 narrowing: the previous blanket
+        # `data/ + configs/` pathspec over-captured docs, blocking vault
+        # skill-patch PR #66 cross-repo — user decision, Option A.)
         diff = subprocess.run(
             ["git", "-C", str(vault), "diff", "--stat", f"{tagged}..{head}", "--",
-             "data/", "tools/literature-mining/configs/"],
+             "data/", "tools/literature-mining/configs/",
+             ":(exclude)data/*.md",
+             ":(exclude)tools/literature-mining/configs/*.json"],
             capture_output=True, text=True).stdout.strip()
         if diff:
             raise RuntimeError(

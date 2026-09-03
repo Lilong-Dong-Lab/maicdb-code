@@ -1,0 +1,19 @@
+# KNOWN-QUIRKS — maicdb-code repo
+
+Environment/interpreter quirks that have actually bitten this repo, each with its compliant
+workaround. One lookup instead of scattered prose (V.8, vault
+`report/Skills_Retrospective_2026-09-02_agent.md` §V.8, 2026-09-03). Sibling registry: vault
+repo (`Project_DataBase_MAICDB`) `KNOWN-QUIRKS.md` (curation-side quirks — SQLite float
+rendering/interpreter pinning, codex `task`-only, `uv run` argv trap, …). New entries:
+quirk + symptom + compliant workaround + first empirical witness.
+
+| # | Quirk | Symptom | Compliant workaround | Witness |
+|---|---|---|---|---|
+| 1 | The venv's `.pth` files can carry the macOS BSD `hidden` flag (an external watcher re-applies it); CPython 3.12's site.py skips `UF_HIDDEN` pth files | `import maicdb` fails / tests cannot collect | `chflags nohidden .venv/lib/python3.12/site-packages/*.pth`, or prefix `PYTHONPATH=src`, or a wheel install — the flag comes back, so prefer `PYTHONPATH=src` in scripted contexts | root-caused 2026-09-02 (CLAUDE.md env anomaly) |
+| 2 | `uv pip install -e .` alone is NOT reliable in a fresh venv (quirk 1) | Editable install "succeeds" but imports still fail | After `uv sync`, run tests as `PYTHONPATH=src uv run pytest tests/ -q` in fresh-venv/CI contexts; editable install only after applying quirk-1 heal | CLAUDE.md env anomaly (root-caused 2026-09-02) |
+| 3 | Vault-dependent tests **auto-skip** when the vault is not at the expected path | A green suite may be a skipped suite — missing vault silently narrows coverage | Check the skip count in the pytest summary, not just the pass line; CI should assert the expected test count (45 as of data-v1.0) | test suite design, schema PR #1 |
+| 4 | Loader must own a **fresh** output DB file — a leftover DB from a prior run collides on UNIQUE constraints mid-load | Load fails with UNIQUE constraint errors that look like data defects | Delete/move the output DB before every rebuild; the loader's contract is "empty target", not "upsert" (enforced: `src/maicdb/loader.py` unlinks an existing output before load) | vault Skills_Retrospective_2026-09-02 §II.D (2026-09 deliverable arc) |
+| 5 | SQLite long-mantissa float rendering differs by interpreter build (3.47 e-notation vs 3.53 plain decimal) | Dump files not byte-reproducible under the wrong interpreter | See vault `KNOWN-QUIRKS.md` quirk 1 — reproduce dumps with the pinned interpreter; verify by row content, not raw file sha | staging dump rounds (vault-side witness) |
+| 6 | The freeze check (`verify_vault`) diffs the vault tag→HEAD over `data/` + `configs/` **excluding** root schema docs (`data/*.md`) and validator-state JSONs (`configs/*.json`) — frozen = the 12 layer datasets + identity YAMLs only | Editing vault `data/extraction_schema.md` Rules or adding a validator registry (e.g. `quote_landing_allowlist.json`) after `data-v1.0` is legal; the pre-2026-09-03 blanket pathspec wrongly failed it | Legal doc/registry churn goes to those two excluded globs; anything under `data/<ch>/**`, `data/db/`, or `configs/*.yaml` stays byte-frozen and requires a new tagged release | vault PR #66 cross-repo conflict (2026-09-03, user decision Option A) |
+
+Related, vault side: `../Project_DataBase_MAICDB/KNOWN-QUIRKS.md`.
