@@ -289,12 +289,27 @@ def verify_vault(vault: Path, require_tag: str | None) -> str:
             raise RuntimeError(
                 f"tag {require_tag} ({tagged[:7]}) is not an ancestor of HEAD "
                 f"({head[:7]}) — history diverged from the freeze")
-        # The frozen content (12 layer datasets + identity configs) must be
-        # byte-unchanged since the tag; docs/report churn after the freeze is
-        # legal on the rolling repo.
+        # The frozen content (12 layer datasets — data/<ch>/** incl. per-layer
+        # READMEs and data/db/ — + identity configs, configs/*.yaml) must be
+        # byte-unchanged since the tag. Root-level schema docs (data/*.md —
+        # extraction_schema.md's Rules/enum sections evolve with the validator;
+        # CLAUDE.md: "doc side lives in the vault's data/extraction_schema.md —
+        # change both together") and validator-state registries (configs/*.json
+        # — composite_quote_registry, quote_landing_allowlist) are legal
+        # post-freeze churn. (2026-09-03 narrowing: the previous blanket
+        # `data/ + configs/` pathspec over-captured docs, blocking vault
+        # skill-patch PR #66 cross-repo — user decision, Option A.)
+        # The exclude globs MUST be glob-anchored (`:(exclude,glob)`) — git's
+        # default pathspec mode lets `*` cross `/`, and the un-anchored form
+        # silently un-froze all 47 data/**.md files (per-layer READMEs, incident
+        # sidecars) instead of the 2 root docs (gate r1 MINOR, 2026-09-03;
+        # anchored form re-verified against README-changing commit 8cdb764;
+        # count erratum 48→47 per vault PR-#67-gate recount, same day).
         diff = subprocess.run(
             ["git", "-C", str(vault), "diff", "--stat", f"{tagged}..{head}", "--",
-             "data/", "tools/literature-mining/configs/"],
+             "data/", "tools/literature-mining/configs/",
+             ":(exclude,glob)data/*.md",
+             ":(exclude,glob)tools/literature-mining/configs/*.json"],
             capture_output=True, text=True).stdout.strip()
         if diff:
             raise RuntimeError(
