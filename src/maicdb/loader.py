@@ -299,11 +299,16 @@ def verify_vault(vault: Path, require_tag: str | None) -> str:
         # post-freeze churn. (2026-09-03 narrowing: the previous blanket
         # `data/ + configs/` pathspec over-captured docs, blocking vault
         # skill-patch PR #66 cross-repo — user decision, Option A.)
+        # The exclude globs MUST be glob-anchored (`:(exclude,glob)`) — git's
+        # default pathspec mode lets `*` cross `/`, and the un-anchored form
+        # silently un-froze all 48 data/**.md files (per-layer READMEs, incident
+        # sidecars) instead of the 2 root docs (gate r1 MINOR, 2026-09-03;
+        # anchored form re-verified against README-changing commit 8cdb764).
         diff = subprocess.run(
             ["git", "-C", str(vault), "diff", "--stat", f"{tagged}..{head}", "--",
              "data/", "tools/literature-mining/configs/",
-             ":(exclude)data/*.md",
-             ":(exclude)tools/literature-mining/configs/*.json"],
+             ":(exclude,glob)data/*.md",
+             ":(exclude,glob)tools/literature-mining/configs/*.json"],
             capture_output=True, text=True).stdout.strip()
         if diff:
             raise RuntimeError(
