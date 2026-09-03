@@ -301,9 +301,10 @@ def verify_vault(vault: Path, require_tag: str | None) -> str:
         # skill-patch PR #66 cross-repo — user decision, Option A.)
         # The exclude globs MUST be glob-anchored (`:(exclude,glob)`) — git's
         # default pathspec mode lets `*` cross `/`, and the un-anchored form
-        # silently un-froze all 48 data/**.md files (per-layer READMEs, incident
+        # silently un-froze all 47 data/**.md files (per-layer READMEs, incident
         # sidecars) instead of the 2 root docs (gate r1 MINOR, 2026-09-03;
-        # anchored form re-verified against README-changing commit 8cdb764).
+        # anchored form re-verified against README-changing commit 8cdb764;
+        # count erratum 48→47 per vault PR-#67-gate recount, same day).
         diff = subprocess.run(
             ["git", "-C", str(vault), "diff", "--stat", f"{tagged}..{head}", "--",
              "data/", "tools/literature-mining/configs/",
