@@ -14,7 +14,7 @@
 |---|---|---|
 | Published DB | `db/maicdb.sqlite` (tag `v1.0.0-data`) | schema 0.2.0 · 10 tables · 948+136+16 = **1100** rows · CC-BY-4.0 + schema_version in `db_meta` · 3,112,960 bytes |
 | Byte-stable dump | `db/maicdb.sql` + `db/load-manifest.json` | reload-verified; manifest pins `vault_head 5a8ff0e` (regeneration `cmp` requires that vault state) |
-| ORM | `src/maicdb/models.py` | SQLAlchemy 2.0, all 10 tables; `BiophysicsExperiment`/`Bioactivity` carry the per-row **evidence chain** (`measurement_id`, `evidence_quote`, location, `confidence`, `extractor_note`, `condition_key`, `n`) plus `value_as_reported`/`unit_as_reported` |
+| ORM | `src/maicdb/models.py` | SQLAlchemy 2.0, all 10 tables; `BiophysicsExperiment`/`Bioactivity` carry the per-row **evidence chain** (`measurement_id`, `evidence_quote`, location, `confidence`, `extractor_note`, `condition_key`, `n`) — and, on `BiophysicsExperiment` **only**, `value_as_reported`/`unit_as_reported` (`Bioactivity`'s as-recorded pair is `activity_value`/`activity_units`) |
 | Engine / DDL | `src/maicdb/database.py` | `make_engine`/`create_all`/`render_ddl`; CLIs `maicdb-init-db`, `maicdb-dump-schema` |
 | Loader | `src/maicdb/loader.py` | `maicdb-load` CLI; freeze contract (tag-ancestor + frozen-content diff) |
 | Tests | `tests/` — **47 passed** | `PYTHONPATH=src uv run pytest tests/ -q` |
@@ -57,9 +57,15 @@ Minimum API surface (names indicative, shape is the contract):
    PIEZO1/PIEZO2 evidence quotes are frozen-layer **unverified**. Never render
    "verified" for them; attach the §6.7 boilerplate (vault
    `MAICDB_data_notes.md`). Encode as a channel-set constant + a unit test that
-   fails on "verified" for piezo output.
+   asserts the boilerplate is attached AND that no affirmative verification
+   status is rendered for piezo rows (no `Verified` label, no
+   `verification: verified` field — the boilerplate itself contains "not been
+   re-verified", so test semantics, not substrings).
 4. **No hardcoded data.** Gene lists, counts, gap disclosures — computed from
-   SQL. (Vault lesson F1–F12: hand-copied lists drift; computed lists pass gates.)
+   SQL. (Drift lesson, twice-earned: the vault register's README/count-drift
+   findings — F-002, F-013, F-030, F-051, F-070–F-073 — and the vault PR #69
+   gate round, where hand-copied zero-gene lists were wrong in 7 panels.
+   Computed lists pass gates.)
 5. **Caliber discipline.** One row = one curated measurement. Aggregates =
    count/min/median/max with n printed; never inferential claims.
 6. **Determinism.** Same input → byte-identical CLI output (no timestamps in
