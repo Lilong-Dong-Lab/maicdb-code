@@ -238,9 +238,11 @@ ortholog group: PIEZO1
 NOTE: PIEZO1/PIEZO2 rows are frozen-layer data whose evidence quotes have not been re-verified; verification percentages cover the 10 non-frozen layers only.
 
 p50 — P50 pressure threshold (56 rows)
+    sign convention: values are as recorded (negative P50 = suction; K2P layers all-negative); no |value| pooling is performed (data notes §6.1)
   PIEZO1-EX-00005  -28.0 mmHg  (as reported: -28.0 mm Hg)  confidence=high  n=21
     quote: The current-pressure relationship is characterized by maximal opening at -60 mm Hg, with a pressure for half-maximal activation (P50) of -28.0 ± 1.8 mm Hg (Fig. 1F).
     location: Results (Fig. 1F)
+… (55 more rows)
 ```
 
 ```bash
@@ -249,12 +251,12 @@ uv run maicdb-query export --parameter tau_inact --format csv > out.csv
 ```
 
 ```csv
-gene,family,parameter,unit,count,min,median,max
-ASIC,DEG_ENaC_ASIC,tau_inact,ms,14,48.0,520.0,3160.0
-MscL,MSCL_MSCS,tau_inact,ms,1,1890.0,1890.0,1890.0
-MscS,MSCL_MSCS,tau_inact,ms,3,250.0,2000.0,2800.0
-OSCA,OSCA_TMEM63,tau_inact,ms,12,10.0,46.3,427.0
-PIEZO1,PIEZO,tau_inact,ms,28,5.3,18.7,361.0
+gene,family,parameter,unit,count,min,median,max,measurement_ids
+ASIC,DEG_ENaC_ASIC,tau_inact,ms,14,48.0,520.0,3160.0,ASIC-00012;ASIC-00016;ASIC-00004;ASIC-00006;ASIC-00110;ASIC-00111;ASIC-00112;ASIC-00048;ASIC-00046;ASIC-00047;ASIC-00034;ASIC-00087;ASIC-00033;ASIC-00086
+MscL,MSCL_MSCS,tau_inact,ms,1,1890.0,1890.0,1890.0,MSCL-EX-00015
+MscS,MSCL_MSCS,tau_inact,ms,3,250.0,2000.0,2800.0,MSCS-EX-00049;MSCS-EX-00061;MSCS-EX-00048
+OSCA,OSCA_TMEM63,tau_inact,ms,12,10.0,46.3,427.0,OSCA-EX-00002;OSCA-EX-00004;OSCA-EX-00081;OSCA-EX-00006;OSCA-EX-00010;OSCA-EX-00079;OSCA-EX-00014;OSCA-EX-00018;OSCA-EX-00043;OSCA-EX-00021;OSCA-EX-00024;OSCA-EX-00027
+… (9 more rows, incl. zero-count genes reported with count=0)
 ```
 
 `maicdb-query provenance PIEZO1-EX-00005` prints a measurement's full
@@ -265,9 +267,12 @@ evidence row. Semantics, all enforced by tests:
 - **Per-unit aggregation** — count/min/median/max group by stored unit
   (mmHg/psi, dyn/cm·mN/m, nm/um coexist by design); modalities are never
   pooled or inter-converted. Genes with zero rows for a parameter are
-  reported (`count=0`), never hidden.
+  reported (`count=0`), never hidden. Threshold values keep their
+  as-recorded signs (disclosed; no |value| pooling).
 - **Evidence chain everywhere** — every printed number carries its
-  `measurement_id`, verbatim quote, location, confidence and extractor note.
+  `measurement_id`, verbatim quote, location, confidence and extractor note;
+  every aggregate row lists its `measurement_ids` (`;`-joined in CSV), one
+  step from the quotes via `provenance`.
 - **Frozen-layer wording** — outputs touching PIEZO1/PIEZO2 attach the §6.7
   boilerplate (CSV: stderr, so the data stream stays pure; JSON: a field)
   and never render an affirmative verification status.

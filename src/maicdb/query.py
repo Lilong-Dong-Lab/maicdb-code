@@ -28,24 +28,29 @@ Binding rules (``HANDOFF.md`` §3):
 
 from __future__ import annotations
 
+import argparse
 import csv
 import io
 import json
+import statistics
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal, cast
 from urllib.parse import quote
 
 from sqlalchemy import create_engine, select
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 
 from maicdb.models import BiophysicsExperiment, Bioactivity, Channel, UnmappedMeasurement
 
 __all__ = [
     "open_readonly",
+    "DEFAULT_DB_PATH",
     "PARAMETERS",
     "FROZEN_GENE_SYMBOLS",
     "FROZEN_LAYER_DISCLOSURE",
+    "SIGN_CONVENTION_NOTE",
     "UnknownGeneError",
     "UnknownParameterError",
     "channel_card",
@@ -68,6 +73,14 @@ FROZEN_LAYER_DISCLOSURE = (
     "PIEZO1/PIEZO2 rows are frozen-layer data whose evidence quotes "
     "have not been re-verified; verification percentages cover the "
     "10 non-frozen layers only."
+)
+
+#: Threshold sign-convention wording (vault data notes §6.1 — a caption
+#: rule, not data): values keep their as-recorded sign; we never pool or
+#: take |value|, so no per-display annotation is owed beyond this note.
+SIGN_CONVENTION_NOTE = (
+    "values are as recorded (negative P50 = suction; K2P layers all-negative); "
+    "no |value| pooling is performed (data notes §6.1)"
 )
 
 
@@ -148,7 +161,24 @@ _EVIDENCE_COLUMNS = (
 )
 
 
-def _gene_identity(conn, gene: str) -> dict:
+def _enum_str(value: object, attr: str) -> str:
+    """Render a possibly-enum column value as the plain string stored in
+    the DB (``attr`` is ``"name"`` for name-stored, ``"value"`` for
+    value-stored enum columns)."""
+    return cast(str, getattr(value, attr, value))
+
+
+def _require_parameters(names: list[str]) -> None:
+    """Raise :class:`UnknownParameterError` listing any unregistered names."""
+    unknown = [n for n in names if n not in PARAMETERS]
+    if unknown:
+        raise UnknownParameterError(
+            f"unknown parameter(s) {', '.join(map(repr, unknown))}; "
+            f"known: {', '.join(PARAMETERS)}"
+        )
+
+
+def _gene_identity(conn: Connection, gene: str) -> dict:
     """Fetch the identity block for *gene*; raise if unknown.
 
     The known-gene list in the error is computed from SQL (no hardcoded
@@ -175,10 +205,9 @@ def _gene_identity(conn, gene: str) -> dict:
             f"unknown gene {gene!r}; known genes: {', '.join(known)}"
         )
     identity = dict(row)
-    # Render enum members by their stored value, JSON-encode aliases.
+    # Render name-stored enum members as their stored names.
     for key in ("family", "activation_mechanism"):
-        val = identity.get(key)
-        identity[key] = getattr(val, "name", val)
+        identity[key] = _enum_str(identity.get(key), "name")
     return identity
 
 
@@ -190,12 +219,7 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
     Rows are ordered by ``measurement_id`` for byte-stable output.
     """
     names = list(PARAMETERS) if parameters is None else list(parameters)
-    unknown = [n for n in names if n not in PARAMETERS]
-    if unknown:
-        raise UnknownParameterError(
-            f"unknown parameter(s) {', '.join(map(repr, unknown))}; "
-            f"known: {', '.join(PARAMETERS)}"
-        )
+    _require_parameters(names)
 
     with engine.connect() as conn:
         card: dict = {"gene": _gene_identity(conn, gene), "parameters": {}}
@@ -207,10 +231,8 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
             cols = [value_col]
             if spec.unit_column is not None:
                 cols.append(getattr(BiophysicsExperiment, spec.unit_column))
-            else:
-                # fixed-unit parameters still carry the as-reported pair when
-                # the loader converted them (value/unit_as_reported columns)
-                pass
+            # value/unit_as_reported ride along for every parameter — the
+            # loader stores the pre-conversion original whenever it converted
             cols.append(BiophysicsExperiment.value_as_reported)
             cols.append(BiophysicsExperiment.unit_as_reported)
             cols.extend(getattr(BiophysicsExperiment, c) for c in _EVIDENCE_COLUMNS)
@@ -220,7 +242,9 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                     select(*cols)
                     .where(
                         BiophysicsExperiment.channel_id
-                        == select(Channel.id).where(Channel.gene_symbol == gene),
+                        == select(Channel.id)
+                        .where(Channel.gene_symbol == gene)
+                        .scalar_subquery(),
                         value_col.is_not(None),
                     )
                     .order_by(BiophysicsExperiment.measurement_id)
@@ -232,8 +256,7 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                 # (plain str — value-stored enum members render as "mmHg").
                 r["value"] = r.pop(spec.column)
                 if spec.unit_column is not None:
-                    unit = r.pop(spec.unit_column)
-                    r["unit"] = getattr(unit, "value", unit)
+                    r["unit"] = _enum_str(r.pop(spec.unit_column), "value")
                 else:
                     r["unit"] = spec.fixed_unit
             card["parameters"][name] = {
@@ -252,18 +275,18 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     Caliber discipline: one row = one curated measurement; ``count`` is the
     aggregate n. The per-row replicate counts (TEXT, often ranges) are *not*
     parsed into aggregates — they surface per-row in :func:`channel_card`.
+    Each aggregate row carries its ``measurement_ids`` (rule 2: every
+    printed number stays one step from its verbatim quote via
+    :func:`provenance`). As-recorded value/unit strings are not aggregable
+    across a unit group and are preserved per-row in :func:`channel_card`
+    and :func:`provenance` — this table aggregates the normalized columns.
 
     Units are never pooled or inter-converted (rule 7): a gene measuring in
     both mmHg and psi gets two rows. Fixed-unit parameters (τ ms, pS, …)
     aggregate under their baked-in unit. Output ordering is deterministic:
     gene asc, then unit.
     """
-    import statistics
-
-    if parameter not in PARAMETERS:
-        raise UnknownParameterError(
-            f"unknown parameter {parameter!r}; known: {', '.join(PARAMETERS)}"
-        )
+    _require_parameters([parameter])
     spec = PARAMETERS[parameter]
     value_col = getattr(BiophysicsExperiment, spec.column)
 
@@ -282,26 +305,30 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
             select(
                 Channel.gene_symbol,
                 value_col,
+                BiophysicsExperiment.measurement_id,
                 *([unit_col] if unit_col is not None else []),
             )
             .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
             .where(value_col.is_not(None))
         ).all()
 
-    grouped: dict[tuple[str, str | None], list[float]] = {}
+    grouped: dict[tuple[str, str | None], list[tuple[float, str | None]]] = {}
     for row in rows:
-        gene, value = row[0], row[1]
-        unit = row[2] if unit_col is not None else spec.fixed_unit
-        unit = getattr(unit, "value", unit)  # plain str ("mmHg", not member)
-        grouped.setdefault((gene, unit), []).append(value)
+        gene, value, mid = row[0], row[1], row[2]
+        unit = row[3] if unit_col is not None else spec.fixed_unit
+        unit = _enum_str(unit, "value")  # plain str ("mmHg", not member)
+        grouped.setdefault((gene, unit), []).append((value, mid))
 
     out: list[dict] = []
     for gene, family in genes:
-        family_name = getattr(family, "name", family)
+        family_name = _enum_str(family, "name")
         gene_units = sorted(u for (g, u) in grouped if g == gene and u is not None)
         if gene_units:
             for unit in gene_units:
-                values = sorted(grouped[(gene, unit)])
+                # deterministic order even when measurement_id is NULL
+                # (nullable column) or values tie
+                pairs = sorted(grouped[(gene, unit)], key=lambda p: (p[0], p[1] or ""))
+                values = [v for v, _ in pairs]
                 # round(..., 6) mirrors the loader's converted-value precision
                 # and keeps exports byte-stable across float repr changes.
                 out.append(
@@ -314,6 +341,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                         "min": round(values[0], 6),
                         "median": round(statistics.median(values), 6),
                         "max": round(values[-1], 6),
+                        "measurement_ids": [mid for _, mid in pairs],
                     }
                 )
         else:
@@ -327,6 +355,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     "min": None,
                     "median": None,
                     "max": None,
+                    "measurement_ids": [],
                 }
             )
     return out
@@ -361,17 +390,35 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
 
 
 #: Column order of the comparison export (CSV header and JSON row order).
-_EXPORT_COLUMNS = ("gene", "family", "parameter", "unit", "count", "min", "median", "max")
+_EXPORT_COLUMNS = (
+    "gene",
+    "family",
+    "parameter",
+    "unit",
+    "count",
+    "min",
+    "median",
+    "max",
+    "measurement_ids",
+)
+
+#: Parameters whose sign convention is disclosed alongside aggregates
+#: (vault data notes §6.1 — thresholds keep as-recorded signs).
+_THRESHOLD_PARAMETERS = frozenset({"p50", "t50", "x50", "delta_p50"})
 
 
-def export(engine: Engine, parameter: str, format: str = "csv") -> str:
+def export(
+    engine: Engine, parameter: str, format: Literal["csv", "json"] = "csv"
+) -> str:
     """Deterministic serialization of a parameter comparison (rule 6).
 
     * ``csv`` — pure data on stdout; when the result touches a frozen
       channel, the §6.7 boilerplate goes to **stderr** so the data stream
       stays clean while the wording rule still holds everywhere.
+      ``measurement_ids`` cells are ``;``-joined.
     * ``json`` — ``{"parameter": …, "rows": […], "frozen_layer_disclosure": …}``
-      (the disclosure field appears only when a frozen gene has rows).
+      (the disclosure field appears only when a frozen gene has rows;
+      threshold parameters add a ``sign_convention`` note).
 
     No timestamps anywhere; identical inputs produce byte-identical output.
     """
@@ -382,12 +429,21 @@ def export(engine: Engine, parameter: str, format: str = "csv") -> str:
         writer = csv.writer(buf, lineterminator="\n")
         writer.writerow(_EXPORT_COLUMNS)
         for r in rows:
-            writer.writerow([r[col] for col in _EXPORT_COLUMNS])
-        _disclose_to_stderr(rows)
+            writer.writerow(
+                [
+                    ";".join(r["measurement_ids"])
+                    if col == "measurement_ids"
+                    else r[col]
+                    for col in _EXPORT_COLUMNS
+                ]
+            )
+        _disclose_to_stderr(rows, parameter)
         return buf.getvalue()
 
     if format == "json":
         doc: dict = {"parameter": parameter, "rows": rows}
+        if parameter in _THRESHOLD_PARAMETERS:
+            doc["sign_convention"] = SIGN_CONVENTION_NOTE
         if _touches_frozen(rows):
             doc["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
         return json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
@@ -400,9 +456,12 @@ def _touches_frozen(rows: list[dict]) -> bool:
     return any(r["gene"] in FROZEN_GENE_SYMBOLS and r["count"] > 0 for r in rows)
 
 
-def _disclose_to_stderr(rows: list[dict]) -> None:
+def _disclose_to_stderr(rows: list[dict], parameter: str) -> None:
     """CSV companion for the wording rule: the boilerplate must accompany
-    piezo numbers, but stdout must remain pure data (rule 6)."""
+    piezo numbers, but stdout must remain pure data (rule 6). Threshold
+    parameters also disclose the sign convention (§6.1)."""
+    if parameter in _THRESHOLD_PARAMETERS:
+        print(f"sign convention: {SIGN_CONVENTION_NOTE}", file=sys.stderr)
     if _touches_frozen(rows):
         print(FROZEN_LAYER_DISCLOSURE, file=sys.stderr)
 
@@ -430,6 +489,8 @@ def _render_card(card: dict) -> str:
             f"{name} — {block['label']} ({block['n_rows']} row"
             f"{'s' if block['n_rows'] != 1 else ''}){suffix}"
         )
+        if name in _THRESHOLD_PARAMETERS:
+            lines.append(f"    sign convention: {SIGN_CONVENTION_NOTE}")
         for r in block["rows"]:
             as_reported = ""
             if r.get("value_as_reported") is not None:
@@ -469,8 +530,6 @@ def main(argv: list[str] | None = None) -> int:
       export --parameter P [--format F]  comparison table (csv|json)
       provenance MEASUREMENT_ID          full evidence row
     """
-    import argparse
-
     parser = argparse.ArgumentParser(
         prog="maicdb-query",
         description="Query the published MAIC-DB artifact (read-only).",

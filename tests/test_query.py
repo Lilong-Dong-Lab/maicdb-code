@@ -7,8 +7,13 @@ published artifact ``db/maicdb.sqlite`` (schema 0.2.0, data freeze
 families, §6.7 frozen wording). Census SQL for each pinned number is quoted
 in the test docstring so any drift is re-derivable.
 
-Tests auto-skip when the published DB is absent (mirrors ``requires_vault``
-in ``test_loader.py``).
+Conscious deviation from the CLAUDE.md fixture-citation rule (vault CSV
+path / raw JSON): the pins here are *aggregate counts and exemplar rows*,
+not extracted cells, so they cite the data-notes section that asserts the
+same number plus the census SQL that re-derives it against any copy of the
+artifact — stronger against loader drift than a raw-JSON pointer, and it
+keeps the tests runnable without a vault checkout (they auto-skip only on
+a missing DB, mirroring ``requires_vault`` in ``test_loader.py``).
 """
 
 from __future__ import annotations
@@ -19,7 +24,18 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-from maicdb.query import channel_card, open_readonly
+from maicdb.query import (
+    FROZEN_GENE_SYMBOLS,
+    FROZEN_LAYER_DISCLOSURE,
+    UnknownGeneError,
+    UnknownParameterError,
+    channel_card,
+    export,
+    main,
+    open_readonly,
+    parameter_comparison,
+    provenance,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = REPO_ROOT / "db" / "maicdb.sqlite"
@@ -99,8 +115,6 @@ def test_channel_card_identity_and_p50_rows(engine):
 
 def test_channel_card_unknown_gene_is_clean_error(engine):
     """Unknown gene: a clean lookup error, not an empty card (HANDOFF §5)."""
-    from maicdb.query import UnknownGeneError
-
     with pytest.raises(UnknownGeneError, match="PIEZO9"):
         channel_card(engine, "PIEZO9")
 
@@ -137,8 +151,6 @@ def test_frozen_layer_wording(engine):
             for item in obj:
                 yield from keys_of(item)
 
-    from maicdb.query import FROZEN_LAYER_DISCLOSURE, FROZEN_GENE_SYMBOLS
-
     assert FROZEN_GENE_SYMBOLS == frozenset({"PIEZO1", "PIEZO2"})
     assert FROZEN_LAYER_DISCLOSURE == (
         "PIEZO1/PIEZO2 rows are frozen-layer data whose evidence quotes "
@@ -149,6 +161,9 @@ def test_frozen_layer_wording(engine):
     for gene in ("PIEZO1", "PIEZO2"):
         card = channel_card(engine, gene, parameters=["tau_inact"])
         assert card["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+        # The no-verification-status walker runs on the PIEZO cards too —
+        # the rule is about piezo rows specifically.
+        assert not [k for k in keys_of(card) if k.lower().startswith("verif")]
 
     card = channel_card(engine, "TRAAK", parameters=["tau_inact"])
     assert "frozen_layer_disclosure" not in card
@@ -169,8 +184,6 @@ def test_parameter_comparison_per_unit_aggregates(engine):
       (census ``SELECT c.gene_symbol … WHERE p50/t50/x50 NOT NULL`` lists
       only MscL, MscS, OSCA, PIEZO1, TMC, TRAAK, TREK-1, TREK-2, TRPV4).
     """
-    from maicdb.query import parameter_comparison
-
     cmp_rows = parameter_comparison(engine, "p50")
 
     # No cross-unit pooling: every counted row carries a stored unit.
@@ -198,6 +211,13 @@ def test_parameter_comparison_per_unit_aggregates(engine):
     ordered = sorted(cmp_rows, key=lambda r: (r["gene"], r["unit"] or ""))
     assert [id(r) for r in cmp_rows] == [id(r) for r in ordered]
 
+    # Rule 2: every aggregate is traceable — ids listed, sorted with values.
+    msc_psi = by_gene_unit[("MscL", "psi")]
+    assert len(msc_psi["measurement_ids"]) == 4
+    assert "MSCL-EX-00037" in msc_psi["measurement_ids"]
+    zero = by_gene_unit[("PIEZO2", None)]
+    assert zero["measurement_ids"] == []
+
 
 def test_parameter_comparison_fixed_unit_parameter(engine):
     """Fixed-unit parameters aggregate under their baked-in unit (τ in ms).
@@ -205,12 +225,10 @@ def test_parameter_comparison_fixed_unit_parameter(engine):
     93 tau_inact rows: census ``SELECT COUNT(*) … WHERE tau_inact_ms IS NOT
     NULL`` on data-v1.0 (HANDOFF §2 example parameter).
     """
-    from maicdb.query import parameter_comparison
-
     cmp_rows = parameter_comparison(engine, "tau_inact")
     assert sum(r["count"] for r in cmp_rows) == 93
     assert all(r["unit"] in (None, "ms") for r in cmp_rows)
-    with pytest.raises(Exception):
+    with pytest.raises(UnknownParameterError):
         parameter_comparison(engine, "not_a_parameter")
 
 
@@ -221,8 +239,6 @@ def test_provenance_full_evidence_row(engine):
     "Results (Fig. 1F)", confidence "high", n "21", and the row's
     ``maicdb_id`` is present. Unknown id → None (clean miss).
     """
-    from maicdb.query import provenance
-
     ev = provenance(engine, "PIEZO1-EX-00005")
     assert ev is not None
     assert ev["measurement_id"] == "PIEZO1-EX-00005"
@@ -239,12 +255,11 @@ def test_provenance_full_evidence_row(engine):
 
 
 def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
-    """CSV export: pure data on stdout, §6.7 boilerplate on stderr (p50
-    includes PIEZO1 rows → disclosure is mandatory), byte-identical across
-    calls. 13 lines of data: 12 genes + MscL's second (psi) unit row.
+    """CSV export: pure data on stdout, §6.7 boilerplate + sign-convention
+    note on stderr (p50 is a threshold parameter and includes PIEZO1 rows),
+    byte-identical across calls. 13 data lines: 12 genes + MscL's second
+    (psi) unit row; every aggregate row carries its measurement_ids.
     """
-    from maicdb.query import FROZEN_LAYER_DISCLOSURE, export
-
     csv_a = export(engine, "p50", format="csv")
     err_a = capsys.readouterr().err
     csv_b = export(engine, "p50", format="csv")
@@ -252,23 +267,29 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
 
     assert csv_a == csv_b  # byte-identical (rule 6)
     lines = csv_a.splitlines()
-    assert lines[0] == "gene,family,parameter,unit,count,min,median,max"
+    assert lines[0] == (
+        "gene,family,parameter,unit,count,min,median,max,measurement_ids"
+    )
     assert len(lines) == 14  # header + 13 data rows
-    assert err_a.strip() == FROZEN_LAYER_DISCLOSURE
+    assert FROZEN_LAYER_DISCLOSURE in err_a
+    assert "sign convention" in err_a and "as recorded" in err_a
 
     import csv as csv_mod
 
     rows = list(csv_mod.reader(lines[1:]))
-    assert all(len(r) == 8 for r in rows)
+    assert all(len(r) == 9 for r in rows)
+    # Every counted aggregate row is traceable: ids listed, ;-joined.
+    msc_psi = next(r for r in rows if r[0] == "MscL" and r[3] == "psi")
+    assert msc_psi[8].count(";") == 3  # 4 ids
+    assert "MSCL-EX-00037" in msc_psi[8]
 
 
 def test_export_json_round_trip_and_disclosure(engine):
     """JSON export: round-trips through json.loads, embeds the frozen-layer
-    disclosure as a field (p50 touches PIEZO1), and is byte-stable.
+    disclosure and the threshold sign-convention note as fields (p50
+    touches PIEZO1), and is byte-stable.
     """
     import json
-
-    from maicdb.query import FROZEN_LAYER_DISCLOSURE, export
 
     payload_a = export(engine, "p50", format="json")
     payload_b = export(engine, "p50", format="json")
@@ -277,7 +298,9 @@ def test_export_json_round_trip_and_disclosure(engine):
     doc = json.loads(payload_a)
     assert doc["parameter"] == "p50"
     assert doc["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+    assert "as recorded" in doc["sign_convention"]
     assert sum(r["count"] for r in doc["rows"]) == 152
+    assert all(isinstance(r["measurement_ids"], list) for r in doc["rows"])
 
 
 # --------------------------------------------------------------------------- #
@@ -291,8 +314,6 @@ def test_cli_channel_card(capsys):
     first-consumer target: identity + P50 rows with per-row provenance,
     frozen disclosure inline (human-readable card, stdout is the product).
     """
-    from maicdb.query import main
-
     rc = main(["channel", "PIEZO1", "--parameter", "p50", *CLI_ARGS])
     out = capsys.readouterr().out
     assert rc == 0
@@ -304,13 +325,11 @@ def test_cli_channel_card(capsys):
     assert "Results (Fig. 1F)" in out
     assert "not been re-verified" in out  # §6.7 boilerplate rendered
 
-    rc2 = main(["channel", "PIEZO1", "--parameter", "p50", *CLI_ARGS])
+    assert main(["channel", "PIEZO1", "--parameter", "p50", *CLI_ARGS]) == 0
     assert capsys.readouterr().out == out  # byte-identical (rule 6)
 
 
 def test_cli_channel_unknown_gene_clean_error(capsys):
-    from maicdb.query import main
-
     rc = main(["channel", "PIEZO9", *CLI_ARGS])
     captured = capsys.readouterr()
     assert rc != 0
@@ -324,8 +343,6 @@ def test_cli_export_matches_library_bytes(capsys):
     is byte-identical to the library export and stable across runs (the
     numbers behind the A1 panels).
     """
-    from maicdb.query import export, main, open_readonly
-
     rc = main(["export", "--parameter", "tau_inact", "--format", "csv", *CLI_ARGS])
     out = capsys.readouterr().out
     assert rc == 0
@@ -340,8 +357,6 @@ def test_cli_export_matches_library_bytes(capsys):
 
 
 def test_cli_provenance(capsys):
-    from maicdb.query import main
-
     rc = main(["provenance", "PIEZO1-EX-00005", *CLI_ARGS])
     out = capsys.readouterr().out
     assert rc == 0

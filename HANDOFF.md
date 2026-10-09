@@ -19,6 +19,11 @@
 > listing the 12 computed genes; zero-row gene × parameter reported
 > (PIEZO2/TRESK/ASIC thresholds `count=0`); PIEZO2 frozen wording asserted
 > by field semantics. Transcript: README "Querying the Database".
+> Post two-axis review (Standards CLEAN / Spec findings addressed):
+> aggregate rows carry `measurement_ids` (rule-2 traceability), threshold
+> outputs disclose the §6.1 sign convention, the no-verification walker
+> asserts on the piezo cards themselves, and the channel query no longer
+> emits an SAWarning (scalar_subquery).
 
 ## 1. Current state (verified 2026-09-21 — do not rebuild)
 
