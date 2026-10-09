@@ -22,7 +22,7 @@ frozen corpus releases (currently tag **`data-v1.0`**, 1100 rows).
 ```bash
 uv sync                      # install deps
 uv pip install -e .          # editable install (REQUIRED before pytest in a fresh venv)
-uv run pytest tests/ -q      # the test suite (45: schema + loader, vault-dependent tests auto-skip)
+uv run pytest tests/ -q      # the test suite (64: schema + loader + query; vault/artifact-dependent tests auto-skip)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
 ```
@@ -61,5 +61,7 @@ install -e .` alone is NOT reliable — the flag comes back.)
 - Loader must be deterministic (byte-stable outputs given the same input tag)
   and strict where the spec says strict (unit enums, conservation asserts).
 - Never fabricate test fixture values: fixtures claiming real-data provenance
-  must cite the vault source (CSV path / raw JSON) in the docstring — the
+  must cite the vault source in the docstring — CSV path / raw JSON for
+  extracted cells, or (for pins against the published artifact) the
+  data-notes section plus the census SQL that re-derives the number — the
   retro gate on PR #1 exists because of exactly this.

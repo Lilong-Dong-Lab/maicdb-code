@@ -186,8 +186,11 @@ def test_parameter_comparison_per_unit_aggregates(engine):
     """
     cmp_rows = parameter_comparison(engine, "p50")
 
-    # No cross-unit pooling: every counted row carries a stored unit.
-    assert all(r["unit"] is not None for r in cmp_rows if r["count"] > 0)
+    # No cross-unit pooling: p50's counted rows each carry one stored unit
+    # (data-v1.0 has zero NULL-unit p50 rows — census ``SELECT COUNT(*) …
+    # WHERE p50_value IS NOT NULL AND p50_unit IS NULL`` → 0; NULL-unit
+    # buckets are pinned in the null-unit test below).
+    assert all(isinstance(r["unit"], str) for r in cmp_rows if r["count"] > 0)
 
     by_gene_unit = {(r["gene"], r["unit"]): r for r in cmp_rows}
     assert sum(r["count"] for r in cmp_rows) == 152
@@ -232,6 +235,48 @@ def test_parameter_comparison_fixed_unit_parameter(engine):
         parameter_comparison(engine, "not_a_parameter")
 
 
+def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
+    """NULL-unit rows aggregate under ``unit=None`` — reported, never erased
+    (rule 5). Before the fix these rows were silently dropped and every
+    gene exported a false ``count=0``.
+
+    Pinned (census on data-v1.0):
+    * ``slope`` — 13 rows over 6 genes (ASIC 1, MscL 3, PIEZO1 2, TRAAK 2,
+      TREK-1 3, TREK-2 2), ``slope_unit`` NULL on all 13
+      (``SELECT c.gene_symbol, COUNT(*) … WHERE b.slope IS NOT NULL
+      GROUP BY 1``).
+    * ``ion_selectivity_ratio`` — 66 rows over 7 genes; the parameter has
+      no unit column at all (registry ``unit_column=None``).
+    * ``threshold_fold_shift`` — MscL carries BOTH buckets (4 rows unit
+      NULL + 4 rows "%"), proving a NULL unit never pools with a stored one.
+    """
+    slope_rows = parameter_comparison(engine, "slope")
+    assert sum(r["count"] for r in slope_rows) == 13
+    assert {r["gene"] for r in slope_rows if r["count"] > 0} == {
+        "ASIC", "MscL", "PIEZO1", "TRAAK", "TREK-1", "TREK-2"
+    }
+    assert all(r["unit"] is None for r in slope_rows if r["count"] > 0)
+    # Deterministic ordering still holds with NULL units in play.
+    ordered = sorted(slope_rows, key=lambda r: (r["gene"], r["unit"] or ""))
+    assert [id(r) for r in slope_rows] == [id(r) for r in ordered]
+
+    ion_rows = parameter_comparison(engine, "ion_selectivity_ratio")
+    assert sum(r["count"] for r in ion_rows) == 66
+    counted = [r for r in ion_rows if r["count"] > 0]
+    assert {r["gene"] for r in counted} == {
+        "ASIC", "MscS", "OSCA", "PIEZO1", "TMC", "TREK-2", "TRPV4"
+    }
+    # Every counted NULL-unit aggregate stays traceable (rule 2).
+    assert all(r["unit"] is None and r["measurement_ids"] for r in counted)
+
+    tfs = {
+        (r["gene"], r["unit"]): r
+        for r in parameter_comparison(engine, "threshold_fold_shift")
+    }
+    assert tfs[("MscL", None)]["count"] == 4
+    assert tfs[("MscL", "%")]["count"] == 4
+
+
 def test_provenance_full_evidence_row(engine):
     """``provenance(measurement_id)`` returns the whole evidence row.
 
@@ -252,6 +297,22 @@ def test_provenance_full_evidence_row(engine):
     assert ev["extractor_note"]
 
     assert provenance(engine, "NO-SUCH-MEASUREMENT") is None
+
+
+def test_provenance_frozen_layer_disclosure(engine):
+    """§6.7 wording rule follows the evidence row itself (HANDOFF §3 rule
+    3): a PIEZO measurement's provenance carries the boilerplate verbatim;
+    a non-frozen gene's does not; and no affirmative verification status
+    is rendered (field-level check, not a substring hunt).
+    """
+    ev = provenance(engine, "PIEZO1-EX-00005")
+    assert ev["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+    assert not [k for k in ev if k.lower().startswith("verif")]
+
+    ev_msc = provenance(engine, "MSCL-EX-00037")  # MscL — non-frozen
+    assert ev_msc is not None
+    assert "frozen_layer_disclosure" not in ev_msc
+    assert not [k for k in ev_msc if k.lower().startswith("verif")]
 
 
 def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
@@ -363,6 +424,7 @@ def test_cli_provenance(capsys):
     assert "PIEZO1-EX-00005" in out
     assert "Results (Fig. 1F)" in out
     assert "The current-pressure relationship is characterized" in out
+    assert "not been re-verified" in out  # §6.7 boilerplate on this path too
 
     rc = main(["provenance", "NO-SUCH-MEASUREMENT", *CLI_ARGS])
     captured = capsys.readouterr()

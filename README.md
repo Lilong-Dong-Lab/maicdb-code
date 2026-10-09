@@ -262,13 +262,17 @@ OSCA,OSCA_TMEM63,tau_inact,ms,12,10.0,46.3,427.0,OSCA-EX-00002;OSCA-EX-00004;OSC
 `maicdb-query provenance PIEZO1-EX-00005` prints a measurement's full
 evidence row. Semantics, all enforced by tests:
 
-- **Read-only** — the DB opens via the SQLite `mode=ro` URI; the whole test
+- **Read-only** — the DB opens via the SQLite `mode=ro` URI; the query test
   suite leaves the artifact's SHA-256 unchanged.
 - **Per-unit aggregation** — count/min/median/max group by stored unit
   (mmHg/psi, dyn/cm·mN/m, nm/um coexist by design); modalities are never
-  pooled or inter-converted. Genes with zero rows for a parameter are
-  reported (`count=0`), never hidden. Threshold values keep their
-  as-recorded signs (disclosed; no |value| pooling).
+  pooled or inter-converted. Rows whose stored unit is NULL — and unit-less
+  parameters such as `ion_selectivity_ratio` — aggregate under an empty
+  unit, reported like any other bucket. Genes with zero rows for a
+  parameter are reported (`count=0`), never hidden. The table aggregates
+  normalized columns; as-recorded value/unit strings stay per-row in
+  channel cards and `provenance`. Threshold values keep their as-recorded
+  signs (disclosed; no |value| pooling).
 - **Evidence chain everywhere** — every printed number carries its
   `measurement_id`, verbatim quote, location, confidence and extractor note;
   every aggregate row lists its `measurement_ids` (`;`-joined in CSV), one

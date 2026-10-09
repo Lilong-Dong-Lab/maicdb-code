@@ -282,9 +282,13 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     and :func:`provenance` — this table aggregates the normalized columns.
 
     Units are never pooled or inter-converted (rule 7): a gene measuring in
-    both mmHg and psi gets two rows. Fixed-unit parameters (τ ms, pS, …)
-    aggregate under their baked-in unit. Output ordering is deterministic:
-    gene asc, then unit.
+    both mmHg and psi gets two rows. A NULL stored unit (``slope`` in
+    data-v1.0; unit-less parameters such as ``ion_selectivity_ratio``) is
+    likewise its own bucket — those rows aggregate under ``unit=None`` and
+    are reported, never erased (rule 5; rendered as an empty CSV cell /
+    JSON ``null``). Fixed-unit parameters (τ ms, pS, …) aggregate under
+    their baked-in unit. Output ordering is deterministic: gene asc, then
+    unit (``None`` first within a gene).
     """
     _require_parameters([parameter])
     spec = PARAMETERS[parameter]
@@ -322,7 +326,12 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     out: list[dict] = []
     for gene, family in genes:
         family_name = _enum_str(family, "name")
-        gene_units = sorted(u for (g, u) in grouped if g == gene and u is not None)
+        # NULL units are their own bucket (reported, never erased — rule 5);
+        # ``key`` keeps the sort total and matches the tested ordering
+        # contract (``unit or ""`` → None sorts first within a gene).
+        gene_units = sorted(
+            (u for (g, u) in grouped if g == gene), key=lambda u: u or ""
+        )
         if gene_units:
             for unit in gene_units:
                 # deterministic order even when measurement_id is NULL
@@ -372,6 +381,9 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
     Searches every evidence-carrying table (biophysics, bioactivity,
     unmapped gap archive) and returns the row with its ``table`` name and
     gene symbol attached — one-click provenance for any printed number.
+    Rows belonging to a frozen-layer channel carry the §6.7 boilerplate
+    (rule 3: the wording rule follows the evidence itself, so it holds on
+    this path too).
     """
     with engine.connect() as conn:
         for model in _EVIDENCE_TABLES:
@@ -385,6 +397,8 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
                     select(Channel.gene_symbol).where(Channel.id == row["channel_id"])
                 ).scalar_one_or_none()
                 out["gene"] = gene
+                if gene in FROZEN_GENE_SYMBOLS:
+                    out["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
                 return out
     return None
 
@@ -514,6 +528,8 @@ def _render_card(card: dict) -> str:
 def _render_provenance(ev: dict) -> str:
     """Human-readable evidence row."""
     lines = [f"{ev['measurement_id']} ({ev['table']}, gene {ev['gene']})"]
+    if "frozen_layer_disclosure" in ev:
+        lines.append(f"NOTE: {ev['frozen_layer_disclosure']}")
     for key in ("maicdb_id", "evidence_quote", "evidence_location",
                 "confidence", "extractor_note", "condition_key", "n"):
         if ev.get(key) is not None:
