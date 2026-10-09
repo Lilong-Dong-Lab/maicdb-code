@@ -22,7 +22,7 @@ frozen corpus releases (currently tag **`data-v1.0`**, 1100 rows).
 ```bash
 uv sync                      # install deps
 uv pip install -e .          # editable install (REQUIRED before pytest in a fresh venv)
-uv run pytest tests/ -q      # the test suite (45: schema + loader, vault-dependent tests auto-skip)
+uv run pytest tests/ -q      # the test suite (47: schema + loader, vault-dependent tests auto-skip)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
 ```
@@ -63,3 +63,17 @@ install -e .` alone is NOT reliable — the flag comes back.)
 - Never fabricate test fixture values: fixtures claiming real-data provenance
   must cite the vault source (CSV path / raw JSON) in the docstring — the
   retro gate on PR #1 exists because of exactly this.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues of `Lilong-Dong-Lab/maicdb-code`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
