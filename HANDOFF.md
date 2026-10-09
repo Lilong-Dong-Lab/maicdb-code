@@ -7,6 +7,18 @@
 > **Status when written**: this repo main `ee6ecdb` clean; `v1.0.0-data`
 > artifacts published (tag `6327e50`); schema + loader complete and
 > gate-verified; **no query layer exists yet — that is M1**.
+>
+> **M1 status: DONE (2026-10-09, branch `feat/query-library-m1`)** —
+> `src/maicdb/query.py` (`open_readonly` / `channel_card` /
+> `parameter_comparison` / `provenance` / `export`), CLI `maicdb-query`
+> (channel / export / provenance), `tests/test_query.py` (15 tests, real-DB
+> pins cited to data-notes §2/§6 and census SQL; DB-hash guard proves the
+> artifact untouched). Both §2 example commands verified against
+> `db/maicdb.sqlite`; `export --format csv` byte-identical across runs
+> (disclosure on stderr). §5 edge cases covered: unknown gene → clean error
+> listing the 12 computed genes; zero-row gene × parameter reported
+> (PIEZO2/TRESK/ASIC thresholds `count=0`); PIEZO2 frozen wording asserted
+> by field semantics. Transcript: README "Querying the Database".
 
 ## 1. Current state (verified 2026-09-21 — do not rebuild)
 

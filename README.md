@@ -19,6 +19,7 @@
 - [The MIMIC Standard](#the-mimic-standard)
 - [Therapeutic Applications](#therapeutic-applications)
 - [Repository Structure](#repository-structure)
+- [Querying the Database](#querying-the-database)
 - [Related Resources](#related-resources)
 - [Contributing](#contributing)
 - [References](#references)
@@ -214,6 +215,72 @@ maicdb-code/
 ├── scripts/               # Utility scripts
 ├── pyproject.toml         # Project configuration
 └── README.md              # This file
+```
+
+---
+
+## Querying the Database
+
+The `maicdb.query` library (`src/maicdb/query.py`) provides read-only,
+deterministic queries over the published artifact `db/maicdb.sqlite`
+(schema 0.2.0 · 1100 rows · CC-BY-4.0). The `maicdb-query` CLI is its first
+consumer; the website/API layers to come will wrap the same library.
+
+```bash
+# Channel card: identity + P50 rows with per-row provenance
+uv run maicdb-query channel PIEZO1 --parameter p50
+```
+
+```text
+PIEZO1 — Homo sapiens (family PIEZO)
+UniProt: Q92508
+ortholog group: PIEZO1
+NOTE: PIEZO1/PIEZO2 rows are frozen-layer data whose evidence quotes have not been re-verified; verification percentages cover the 10 non-frozen layers only.
+
+p50 — P50 pressure threshold (56 rows)
+  PIEZO1-EX-00005  -28.0 mmHg  (as reported: -28.0 mm Hg)  confidence=high  n=21
+    quote: The current-pressure relationship is characterized by maximal opening at -60 mm Hg, with a pressure for half-maximal activation (P50) of -28.0 ± 1.8 mm Hg (Fig. 1F).
+    location: Results (Fig. 1F)
+```
+
+```bash
+# Per-gene cross-comparison export (the numbers behind the A1 panels)
+uv run maicdb-query export --parameter tau_inact --format csv > out.csv
+```
+
+```csv
+gene,family,parameter,unit,count,min,median,max
+ASIC,DEG_ENaC_ASIC,tau_inact,ms,14,48.0,520.0,3160.0
+MscL,MSCL_MSCS,tau_inact,ms,1,1890.0,1890.0,1890.0
+MscS,MSCL_MSCS,tau_inact,ms,3,250.0,2000.0,2800.0
+OSCA,OSCA_TMEM63,tau_inact,ms,12,10.0,46.3,427.0
+PIEZO1,PIEZO,tau_inact,ms,28,5.3,18.7,361.0
+```
+
+`maicdb-query provenance PIEZO1-EX-00005` prints a measurement's full
+evidence row. Semantics, all enforced by tests:
+
+- **Read-only** — the DB opens via the SQLite `mode=ro` URI; the whole test
+  suite leaves the artifact's SHA-256 unchanged.
+- **Per-unit aggregation** — count/min/median/max group by stored unit
+  (mmHg/psi, dyn/cm·mN/m, nm/um coexist by design); modalities are never
+  pooled or inter-converted. Genes with zero rows for a parameter are
+  reported (`count=0`), never hidden.
+- **Evidence chain everywhere** — every printed number carries its
+  `measurement_id`, verbatim quote, location, confidence and extractor note.
+- **Frozen-layer wording** — outputs touching PIEZO1/PIEZO2 attach the §6.7
+  boilerplate (CSV: stderr, so the data stream stays pure; JSON: a field)
+  and never render an affirmative verification status.
+- **Determinism** — same input, byte-identical stdout; no timestamps.
+
+Library consumers use the same functions directly:
+
+```python
+from maicdb.query import channel_card, export, open_readonly
+
+engine = open_readonly("db/maicdb.sqlite")
+card = channel_card(engine, "PIEZO1", parameters=["p50"])
+csv_text = export(engine, "tau_inact", format="csv")
 ```
 
 ---
