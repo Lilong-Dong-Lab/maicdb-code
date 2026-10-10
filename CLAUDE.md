@@ -22,9 +22,10 @@ frozen corpus releases (currently tag **`data-v1.0`**, 1100 rows).
 ```bash
 uv sync                      # install deps
 uv pip install -e .          # editable install (REQUIRED before pytest in a fresh venv)
-PYTHONPATH=src uv run pytest tests/ -q   # the test suite (67: schema + loader + query; vault/artifact-dependent tests auto-skip)
+PYTHONPATH=src uv run pytest tests/ -q   # the test suite (vault/artifact-dependent tests auto-skip; CI pins the summary — .github/workflows/ci.yml + KNOWN-QUIRKS quirk 3)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
+git config core.hooksPath .githooks  # once per clone — pre-commit runs the suite
 ```
 
 **Known env anomaly (root-caused 2026-09-02)**: the venv's `.pth` files can
@@ -45,6 +46,10 @@ install -e .` alone is NOT reliable — the flag comes back.)
    - CLEAN → write the digest into the VAULT's `report/` as
      `ReviewDigest_maicdb-code-<topic>_<date>_agent.md` (the vault is the
      project's record home) via a small vault docs PR, then merge.
+   - Multi-round review loops: give each reviewer an adjudicated-decisions
+     block (settled decisions + "re-raise only if the implementation
+     contradicts them" — pattern: PR #10 body); without it, reviewers
+     re-litigate settled calls and the loop never converges.
    - Any ≥ MINOR finding → fix on the branch, scoped re-review, then merge.
    - The digest must name the reviewed object (commits/diff range) and the
      reproduction commands, which the reviewer must have actually executed.
@@ -65,6 +70,8 @@ install -e .` alone is NOT reliable — the flag comes back.)
   extracted cells, or (for pins against the published artifact) the
   data-notes section plus the census SQL that re-derives the number — the
   retro gate on PR #1 exists because of exactly this.
+- README transcripts are regenerated from live command output, never
+  hand-edited; reviewers diff them against the actual command output.
 
 ## Agent skills
 
