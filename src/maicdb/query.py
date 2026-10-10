@@ -190,11 +190,16 @@ _EVIDENCE_COLUMNS = (
 )
 
 
-def _enum_str(value: object, attr: str) -> str:
-    """Render a possibly-enum column value as the plain string stored in
-    the DB (``attr`` is ``"name"`` for name-stored, ``"value"`` for
-    value-stored enum columns)."""
-    return cast(str, getattr(value, attr, value))
+def _enum_name(value: object) -> str:
+    """Render a possibly-enum column value from a *name-stored* enum
+    column as the plain string stored in the DB."""
+    return cast(str, getattr(value, "name", value))
+
+
+def _enum_value(value: object) -> str:
+    """Render a possibly-enum column value from a *value-stored* enum
+    column as the plain string stored in the DB."""
+    return cast(str, getattr(value, "value", value))
 
 
 def _require_parameters(names: list[str]) -> None:
@@ -246,7 +251,7 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
     identity = dict(rows[0])
     # Render name-stored enum members as their stored names.
     for key in ("family", "activation_mechanism"):
-        identity[key] = _enum_str(identity.get(key), "name")
+        identity[key] = _enum_name(identity.get(key))
     return identity
 
 
@@ -280,13 +285,8 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                 dict(r)
                 for r in conn.execute(
                     select(*cols)
-                    .where(
-                        BiophysicsExperiment.channel_id
-                        == select(Channel.id)
-                        .where(Channel.gene_symbol == gene)
-                        .scalar_subquery(),
-                        value_col.is_not(None),
-                    )
+                    .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
+                    .where(Channel.gene_symbol == gene, value_col.is_not(None))
                     .order_by(
                         BiophysicsExperiment.measurement_id,
                         BiophysicsExperiment.maicdb_id,
@@ -299,7 +299,7 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                 # (plain str — value-stored enum members render as "mmHg").
                 r["value"] = r.pop(spec.column)
                 if spec.unit_column is not None:
-                    r["unit"] = _enum_str(r.pop(spec.unit_column), "value")
+                    r["unit"] = _enum_value(r.pop(spec.unit_column))
                 else:
                     r["unit"] = spec.fixed_unit
             card["parameters"][name] = {
@@ -388,12 +388,12 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     for row in rows:
         gene, value, mid, mdb = row[0], row[1], row[2], row[3]
         unit = row[4] if unit_col is not None else spec.fixed_unit
-        unit = _enum_str(unit, "value")  # plain str ("mmHg", not member)
+        unit = _enum_value(unit)  # plain str ("mmHg", not member)
         grouped.setdefault((gene, unit), []).append((value, mid, mdb))
 
     out: list[dict] = []
     for gene, family in genes:
-        family_name = _enum_str(family, "name")
+        family_name = _enum_name(family)
         # NULL units are their own bucket (reported, never erased — rule 5).
         # ``key`` keeps the order TOTAL and documented: None first, then the
         # empty string, then named units (``u or ""`` alone would tie None
