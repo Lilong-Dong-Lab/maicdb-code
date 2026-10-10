@@ -65,3 +65,17 @@ install -e .` alone is NOT reliable — the flag comes back.)
   extracted cells, or (for pins against the published artifact) the
   data-notes section plus the census SQL that re-derives the number — the
   retro gate on PR #1 exists because of exactly this.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues of `Lilong-Dong-Lab/maicdb-code`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
