@@ -1,7 +1,8 @@
 #!/bin/sh
 # Shared hook runner — invoked by .githooks/pre-commit and
 # .githooks/pre-merge-commit. Runs the full suite (~3 s) so a red suite
-# never commits or merges. Bypass: git commit --no-verify.
+# never commits or merges. Bypass: git commit --no-verify /
+# git merge --no-verify.
 # Origin: on PR #10, a red test shipped because pytest and git commit were
 # chained without && (record: PR #14 body; the incident pair is
 # efbf17f → a8a572e on feat/query-library-m1).
