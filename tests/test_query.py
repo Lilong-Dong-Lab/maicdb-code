@@ -510,18 +510,23 @@ def test_multi_organism_gene_symbol_fails_loudly():
 
 
 def test_schema_valid_null_states_render_and_export_cleanly():
-    """Schema-valid NULL states data-v1.0 doesn't exercise (both verified
+    """Schema-valid NULL states data-v1.0 doesn't exercise (all verified
     against an in-memory artifact):
 
     * ``measurement_id IS NULL`` (nullable column; census: 0 rows in
       data-v1.0) — the aggregate carries it, the CSV join renders an
-      explicit ``(unattributed)`` marker instead of crashing.
-    * unit ordering stays total with a NULL **and** empty-string unit
-      coexisting: None first, then "", then named units.
+      explicit ``(unattributed)`` marker instead of crashing, and the
+      CARD renders the same marker (not a Python ``None``);
+      ``provenance(None)`` is a clean miss, not an ``IS NULL`` match.
+    * unit ordering is the documented total order None < "" < named units;
+      rows are inserted in the REVERSE order so a stable sort that merely
+      preserved insertion order would fail the assertion.
     """
     from maicdb.enums import Family
     from maicdb.models import Base, BiophysicsExperiment, Channel
     from sqlalchemy.orm import Session
+
+    from maicdb.query import _render_card
 
     eng = sa.create_engine("sqlite://")
     Base.metadata.create_all(eng)
@@ -538,12 +543,16 @@ def test_schema_valid_null_states_render_and_export_cleanly():
         sess.add_all(
             [
                 BiophysicsExperiment(
-                    maicdb_id="MAIC:BX:TST01", channel_id=ch.id,
-                    measurement_id=None, slope=1.0, slope_unit=None,
+                    maicdb_id="MAIC:BX:TST03", channel_id=ch.id,
+                    measurement_id="PIEZO1-EX-TST03", slope=3.0, slope_unit="S",
                 ),
                 BiophysicsExperiment(
                     maicdb_id="MAIC:BX:TST02", channel_id=ch.id,
                     measurement_id="PIEZO1-EX-TST02", slope=2.0, slope_unit="",
+                ),
+                BiophysicsExperiment(
+                    maicdb_id="MAIC:BX:TST01", channel_id=ch.id,
+                    measurement_id=None, slope=1.0, slope_unit=None,
                 ),
             ]
         )
@@ -551,12 +560,16 @@ def test_schema_valid_null_states_render_and_export_cleanly():
 
     cmp_rows = parameter_comparison(eng, "slope")
     piezo = [r for r in cmp_rows if r["gene"] == "PIEZO1" and r["count"] > 0]
-    assert [r["unit"] for r in piezo] == [None, ""]
+    assert [r["unit"] for r in piezo] == [None, "", "S"]
     assert piezo[0]["measurement_ids"] == [None]
 
     csv_text = export(eng, "slope", format="csv")
     assert "(unattributed)" in csv_text
-    assert csv_text.count("\n") == 3  # header + 2 unit-bucket rows
+    assert csv_text.count("\n") == 4  # header + 3 unit-bucket rows
+
+    card = channel_card(eng, "PIEZO1", parameters=["slope"])
+    assert "(unattributed)" in _render_card(card)
+    assert provenance(eng, None) is None  # clean miss, not an IS-NULL match
     eng.dispose()
 
 

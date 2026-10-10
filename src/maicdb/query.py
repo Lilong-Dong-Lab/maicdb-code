@@ -462,8 +462,11 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
     gene symbol attached — one-click provenance for any printed number.
     Rows belonging to a frozen-layer channel carry the §6.7 boilerplate
     (rule 3: the wording rule follows the evidence itself, so it holds on
-    this path too).
+    this path too). ``None`` is a clean miss (a NULL comparison would
+    compile to ``IS NULL`` and match an arbitrary unattributed row).
     """
+    if measurement_id is None:
+        return None
     with engine.connect() as conn:
         for model in _EVIDENCE_TABLES:
             row = conn.execute(
@@ -582,6 +585,13 @@ def _or_not_recorded(value: object) -> str:
     return "(not recorded)" if value is None else str(value)
 
 
+def _unattributed(value: object) -> str:
+    """Render a nullable measurement_id explicitly — matches the CSV
+    export's ``(unattributed)`` marker (a literal ``None`` would print the
+    Python repr)."""
+    return "(unattributed)" if value is None else str(value)
+
+
 def _render_card(card: dict) -> str:
     """Human-readable channel card — deterministic plain text."""
     gene = card["gene"]
@@ -612,7 +622,7 @@ def _render_card(card: dict) -> str:
                     f"{' ' + r['unit_as_reported'] if r.get('unit_as_reported') else ''})"
                 )
             lines.append(
-                f"  {r['measurement_id']}  {r['value']} {r['unit'] or ''}"
+                f"  {_unattributed(r.get('measurement_id'))}  {r['value']} {r['unit'] or ''}"
                 f"{as_reported}  confidence={_or_not_recorded(r.get('confidence'))}"
                 f"  n={_or_not_recorded(r.get('n'))}"
             )
