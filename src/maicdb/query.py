@@ -255,7 +255,8 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
 
     ``parameters=None`` renders **every** registry parameter — blocks with
     zero rows are reported (``n_rows: 0``), never hidden (HANDOFF §5).
-    Rows are ordered by ``measurement_id`` for byte-stable output.
+    Rows are ordered by ``(measurement_id, maicdb_id)`` — the second key
+    is NOT NULL and unique, so tied/NULL ids stay byte-stable.
     """
     names = list(PARAMETERS) if parameters is None else list(parameters)
     _require_parameters(names)
@@ -286,7 +287,10 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                         .scalar_subquery(),
                         value_col.is_not(None),
                     )
-                    .order_by(BiophysicsExperiment.measurement_id)
+                    .order_by(
+                        BiophysicsExperiment.measurement_id,
+                        BiophysicsExperiment.maicdb_id,
+                    )
                 ).mappings()
             ]
             for r in rows:
@@ -371,18 +375,21 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 Channel.gene_symbol,
                 value_col,
                 BiophysicsExperiment.measurement_id,
+                # NOT NULL + unique: the total-order tie-break for rows
+                # whose measurement_id ties or is NULL.
+                BiophysicsExperiment.maicdb_id,
                 *([unit_col] if unit_col is not None else []),
             )
             .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
             .where(value_col.is_not(None))
         ).all()
 
-    grouped: dict[tuple[str, str | None], list[tuple[float, str | None]]] = {}
+    grouped: dict[tuple[str, str | None], list[tuple[float, str | None, str]]] = {}
     for row in rows:
-        gene, value, mid = row[0], row[1], row[2]
-        unit = row[3] if unit_col is not None else spec.fixed_unit
+        gene, value, mid, mdb = row[0], row[1], row[2], row[3]
+        unit = row[4] if unit_col is not None else spec.fixed_unit
         unit = _enum_str(unit, "value")  # plain str ("mmHg", not member)
-        grouped.setdefault((gene, unit), []).append((value, mid))
+        grouped.setdefault((gene, unit), []).append((value, mid, mdb))
 
     out: list[dict] = []
     for gene, family in genes:
@@ -397,10 +404,14 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
         )
         if gene_units:
             for unit in gene_units:
-                # deterministic order even when measurement_id is NULL
-                # (nullable column) or values tie
-                pairs = sorted(grouped[(gene, unit)], key=lambda p: (p[0], p[1] or ""))
-                values = [v for v, _ in pairs]
+                # deterministic total order even when measurement_id is
+                # NULL (nullable) or values tie: (value, mid, maicdb_id),
+                # with maicdb_id NOT NULL + unique as the final tie-break.
+                pairs = sorted(
+                    grouped[(gene, unit)],
+                    key=lambda p: (p[0], p[1] or "", p[2]),
+                )
+                values = [v for v, _, _ in pairs]
                 # round(..., 6) mirrors the loader's converted-value precision
                 # and keeps exports byte-stable across float repr changes.
                 row = {
@@ -412,7 +423,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     "min": round(values[0], 6),
                     "median": round(statistics.median(values), 6),
                     "max": round(values[-1], 6),
-                    "measurement_ids": [mid for _, mid in pairs],
+                    "measurement_ids": [mid for _, mid, _ in pairs],
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)

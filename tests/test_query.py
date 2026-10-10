@@ -521,6 +521,9 @@ def test_schema_valid_null_states_render_and_export_cleanly():
     * unit ordering is the documented total order None < "" < named units;
       rows are inserted in the REVERSE order so a stable sort that merely
       preserved insertion order would fail the assertion.
+    * two tied NULL-ID rows (equal value) order by the NOT-NULL unique
+      ``maicdb_id`` tie-break — the card renders "A quote" before "B
+      quote" although B was inserted first.
     """
     from maicdb.enums import Family
     from maicdb.models import Base, BiophysicsExperiment, Channel
@@ -553,6 +556,13 @@ def test_schema_valid_null_states_render_and_export_cleanly():
                 BiophysicsExperiment(
                     maicdb_id="MAIC:BX:TST01", channel_id=ch.id,
                     measurement_id=None, slope=1.0, slope_unit=None,
+                    evidence_quote="B quote",
+                ),
+                # inserted AFTER its tie partner, sorts BEFORE it (maicdb_id)
+                BiophysicsExperiment(
+                    maicdb_id="MAIC:BX:TST00", channel_id=ch.id,
+                    measurement_id=None, slope=1.0, slope_unit=None,
+                    evidence_quote="A quote",
                 ),
             ]
         )
@@ -561,14 +571,19 @@ def test_schema_valid_null_states_render_and_export_cleanly():
     cmp_rows = parameter_comparison(eng, "slope")
     piezo = [r for r in cmp_rows if r["gene"] == "PIEZO1" and r["count"] > 0]
     assert [r["unit"] for r in piezo] == [None, "", "S"]
-    assert piezo[0]["measurement_ids"] == [None]
+    assert piezo[0]["count"] == 2
+    assert piezo[0]["measurement_ids"] == [None, None]
 
     csv_text = export(eng, "slope", format="csv")
-    assert "(unattributed)" in csv_text
+    assert "(unattributed);(unattributed)" in csv_text
     assert csv_text.count("\n") == 4  # header + 3 unit-bucket rows
 
     card = channel_card(eng, "PIEZO1", parameters=["slope"])
     assert "(unattributed)" in _render_card(card)
+    # Tied NULL ids order by maicdb_id (TST00 "A quote" < TST01 "B quote"),
+    # not by insertion order (B was inserted first).
+    quotes = [r["evidence_quote"] for r in card["parameters"]["slope"]["rows"]]
+    assert quotes[-2:] == ["A quote", "B quote"]
     assert provenance(eng, None) is None  # clean miss, not an IS-NULL match
     eng.dispose()
 

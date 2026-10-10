@@ -260,7 +260,7 @@ ASIC,DEG_ENaC_ASIC,tau_inact,ms,14,48.0,520.0,3160.0,ASIC-00012;ASIC-00016;ASIC-
 MscL,MSCL_MSCS,tau_inact,ms,1,1890.0,1890.0,1890.0,MSCL-EX-00015,
 MscS,MSCL_MSCS,tau_inact,ms,3,250.0,2000.0,2800.0,MSCS-EX-00049;MSCS-EX-00061;MSCS-EX-00048,
 OSCA,OSCA_TMEM63,tau_inact,ms,12,10.0,46.3,427.0,OSCA-EX-00002;OSCA-EX-00004;OSCA-EX-00081;OSCA-EX-00006;OSCA-EX-00010;OSCA-EX-00079;OSCA-EX-00014;OSCA-EX-00018;OSCA-EX-00043;OSCA-EX-00021;OSCA-EX-00024;OSCA-EX-00027,
-… (9 more rows, incl. zero-count genes reported with count=0)
+… (8 more rows, incl. zero-count genes reported with count=0)
 ```
 
 The trailing `note` column is empty except on rows carrying a caliber
@@ -286,10 +286,11 @@ measurement's full evidence row. Semantics, all enforced by tests:
   signs (disclosed; no |value| pooling). A gene symbol spanning multiple
   organisms (schema-supported) raises a clean `AmbiguousGeneError` instead
   of pooling or picking one silently.
-- **Evidence chain everywhere** — every printed number carries its
-  `measurement_id`, verbatim quote, location, confidence and extractor note;
-  every aggregate row lists its `measurement_ids` (`;`-joined in CSV), one
-  step from the quotes via `provenance`.
+- **Evidence chain everywhere** — channel cards and `provenance` print
+  each row's full chain (`measurement_id`, verbatim quote, location,
+  confidence, extractor note); every aggregate row lists its
+  `measurement_ids` (`;`-joined in CSV), one step from the quotes via
+  `provenance`.
 - **Frozen-layer wording** — outputs touching PIEZO1/PIEZO2 attach the §6.7
   boilerplate on every path — channel cards, each PIEZO comparison row
   (counted or zero), `provenance`, and the export document (CSV: stderr, so
