@@ -51,7 +51,9 @@ __all__ = [
     "FROZEN_GENE_SYMBOLS",
     "FROZEN_LAYER_DISCLOSURE",
     "SIGN_CONVENTION_NOTE",
+    "RATIO_MEDIAN_NOTE",
     "UnknownGeneError",
+    "AmbiguousGeneError",
     "UnknownParameterError",
     "channel_card",
     "parameter_comparison",
@@ -83,9 +85,26 @@ SIGN_CONVENTION_NOTE = (
     "no |value| pooling is performed (data notes §6.1)"
 )
 
+#: Why direction-blind ratio parameters carry no median: ``ratio_direction``
+#: is NULL on every row this load, and cross-direction medians are
+#: meaningless. A1 panel p4 semantics: direction-unstated groups report
+#: count/min/max only, median left empty.
+RATIO_MEDIAN_NOTE = (
+    "median omitted: ratio_direction is NULL on every row this load, and "
+    "cross-direction medians are meaningless (A1 panel p4 semantics — "
+    "direction-unstated groups report count/min/max only)"
+)
+
 
 class UnknownGeneError(ValueError):
     """Raised when a gene symbol matches no channel row."""
+
+
+class AmbiguousGeneError(ValueError):
+    """Raised when a gene symbol matches multiple channel rows — the schema
+    splits one gene across organisms (``UNIQUE(gene_symbol, organism_taxid)``;
+    e.g. human + mouse PIEZO1). M1 refuses to pick one organism or pool
+    across them silently; organism-disambiguated queries are future work."""
 
 
 class UnknownParameterError(ValueError):
@@ -106,6 +125,10 @@ class ParameterSpec:
     label: str
     unit_column: str | None = None
     fixed_unit: str | None = None
+    #: Ratio parameters whose numerator/denominator direction is unrecorded
+    #: (``ratio_direction`` NULL this load) — medians are omitted (see
+    #: :data:`RATIO_MEDIAN_NOTE`); count/min/max still reported.
+    direction_blind_ratio: bool = False
 
 
 #: The M1 parameter registry (name → schema mapping). Names follow the
@@ -132,9 +155,11 @@ PARAMETERS: dict[str, ParameterSpec] = {
         "delta_p50_value", "ligand/variant-induced P50 shift", "delta_p50_unit"
     ),
     "ion_selectivity_ratio": ParameterSpec(
-        "ion_selectivity_ratio", "ion selectivity ratio"
+        "ion_selectivity_ratio", "ion selectivity ratio", direction_blind_ratio=True
     ),
-    "ca_permeability": ParameterSpec("ca_permeability", "Ca²⁺ permeability ratio"),
+    "ca_permeability": ParameterSpec(
+        "ca_permeability", "Ca²⁺ permeability ratio", direction_blind_ratio=True
+    ),
     "threshold_fold_shift": ParameterSpec(
         "threshold_fold_shift_value", "threshold fold shift", "threshold_fold_shift_unit"
     ),
@@ -184,7 +209,7 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
     The known-gene list in the error is computed from SQL (no hardcoded
     data — HANDOFF §3 rule 4).
     """
-    row = conn.execute(
+    rows = conn.execute(
         select(
             Channel.maicdb_id,
             Channel.gene_symbol,
@@ -198,13 +223,23 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
             Channel.ortholog_group,
             Channel.summary,
         ).where(Channel.gene_symbol == gene)
-    ).mappings().first()
-    if row is None:
+    ).mappings().all()
+    if not rows:
         known = [r[0] for r in conn.execute(select(Channel.gene_symbol).order_by(Channel.gene_symbol))]
         raise UnknownGeneError(
             f"unknown gene {gene!r}; known genes: {', '.join(known)}"
         )
-    identity = dict(row)
+    if len(rows) > 1:
+        # One gene, several organisms (schema: UNIQUE(gene_symbol,
+        # organism_taxid)) — refuse to pick one silently.
+        variants = ", ".join(
+            f"{r['organism']} (taxid {r['organism_taxid']})" for r in rows
+        )
+        raise AmbiguousGeneError(
+            f"gene {gene!r} spans {len(rows)} organisms: {variants}; "
+            "organism-disambiguated queries are not yet supported"
+        )
+    identity = dict(rows[0])
     # Render name-stored enum members as their stored names.
     for key in ("family", "activation_mechanism"):
         identity[key] = _enum_str(identity.get(key), "name")
@@ -296,10 +331,31 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
 
     with engine.connect() as conn:
         # Gene list computed from SQL (rule 4) — family rides along so
-        # consumers can group without a second query.
-        genes = conn.execute(
-            select(Channel.gene_symbol, Channel.family).order_by(Channel.gene_symbol)
+        # consumers can group without a second query. A gene spanning
+        # organisms (schema-supported) would pool or duplicate rows
+        # silently, so it fails loudly instead.
+        gene_rows = conn.execute(
+            select(
+                Channel.gene_symbol,
+                Channel.family,
+                Channel.organism,
+                Channel.organism_taxid,
+            ).order_by(Channel.gene_symbol, Channel.organism)
         ).all()
+        by_gene: dict[str, list] = {}
+        for g in gene_rows:
+            by_gene.setdefault(g[0], []).append(g)
+        for gene_symbol, entries in by_gene.items():
+            if len(entries) > 1:
+                variants = ", ".join(
+                    f"{e[2]} (taxid {e[3]})" for e in entries
+                )
+                raise AmbiguousGeneError(
+                    f"gene {gene_symbol!r} spans {len(entries)} organisms: "
+                    f"{variants}; organism-disambiguated comparisons are "
+                    "not yet supported"
+                )
+        genes = [(g, entries[0][1]) for g, entries in by_gene.items()]
         unit_col = (
             getattr(BiophysicsExperiment, spec.unit_column)
             if spec.unit_column is not None
@@ -340,34 +396,50 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 values = [v for v, _ in pairs]
                 # round(..., 6) mirrors the loader's converted-value precision
                 # and keeps exports byte-stable across float repr changes.
-                out.append(
-                    {
-                        "gene": gene,
-                        "family": family_name,
-                        "parameter": parameter,
-                        "unit": unit,
-                        "count": len(values),
-                        "min": round(values[0], 6),
-                        "median": round(statistics.median(values), 6),
-                        "max": round(values[-1], 6),
-                        "measurement_ids": [mid for _, mid in pairs],
-                    }
-                )
-        else:
-            out.append(
-                {
+                row = {
                     "gene": gene,
                     "family": family_name,
                     "parameter": parameter,
-                    "unit": None,
-                    "count": 0,
-                    "min": None,
-                    "median": None,
-                    "max": None,
-                    "measurement_ids": [],
+                    "unit": unit,
+                    "count": len(values),
+                    "min": round(values[0], 6),
+                    "median": round(statistics.median(values), 6),
+                    "max": round(values[-1], 6),
+                    "measurement_ids": [mid for _, mid in pairs],
                 }
-            )
+                _decorate_aggregate_row(row, gene, spec)
+                out.append(row)
+        else:
+            row = {
+                "gene": gene,
+                "family": family_name,
+                "parameter": parameter,
+                "unit": None,
+                "count": 0,
+                "min": None,
+                "median": None,
+                "max": None,
+                "measurement_ids": [],
+            }
+            _decorate_aggregate_row(row, gene, spec)
+            out.append(row)
     return out
+
+
+def _decorate_aggregate_row(row: dict, gene: str, spec: ParameterSpec) -> None:
+    """Attach the wording/caliber riders an aggregate row owes:
+
+    * rule 3 — rows of a frozen-layer channel carry the §6.7 boilerplate on
+      the row itself (counted **and** zero rows: library consumers render
+      rows standalone, and a zero-count PIEZO row is still a PIEZO row);
+    * A1 ratio-direction rule — direction-blind ratio rows omit the median
+      (cross-direction medians are meaningless) and say so in ``note``.
+    """
+    if gene in FROZEN_GENE_SYMBOLS:
+        row["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
+    if spec.direction_blind_ratio and row["count"] > 0:
+        row["median"] = None
+        row["note"] = RATIO_MEDIAN_NOTE
 
 
 #: Every table carrying a measurement evidence chain (searched in this
@@ -404,6 +476,9 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
 
 
 #: Column order of the comparison export (CSV header and JSON row order).
+#: ``note`` is empty except on rows carrying a caliber rider (e.g. the
+#: ratio-median omission); the frozen-layer disclosure rides CSV exports
+#: via stderr, not a column.
 _EXPORT_COLUMNS = (
     "gene",
     "family",
@@ -414,6 +489,7 @@ _EXPORT_COLUMNS = (
     "median",
     "max",
     "measurement_ids",
+    "note",
 )
 
 #: Parameters whose sign convention is disclosed alongside aggregates
@@ -431,8 +507,10 @@ def export(
       stays clean while the wording rule still holds everywhere.
       ``measurement_ids`` cells are ``;``-joined.
     * ``json`` — ``{"parameter": …, "rows": […], "frozen_layer_disclosure": …}``
-      (the disclosure field appears only when a frozen gene has rows;
-      threshold parameters add a ``sign_convention`` note).
+      (the disclosure field appears whenever a frozen gene is listed, zero-
+      count rows included; threshold parameters add a ``sign_convention``
+      note; direction-blind ratio rows carry a per-row ``note`` and no
+      median).
 
     No timestamps anywhere; identical inputs produce byte-identical output.
     """
@@ -447,7 +525,7 @@ def export(
                 [
                     ";".join(r["measurement_ids"])
                     if col == "measurement_ids"
-                    else r[col]
+                    else r.get(col, "")
                     for col in _EXPORT_COLUMNS
                 ]
             )
@@ -466,8 +544,10 @@ def export(
 
 
 def _touches_frozen(rows: list[dict]) -> bool:
-    """True when any counted row belongs to a frozen-layer channel."""
-    return any(r["gene"] in FROZEN_GENE_SYMBOLS and r["count"] > 0 for r in rows)
+    """True when any row — counted or zero — belongs to a frozen-layer
+    channel. Zero-count PIEZO rows are still PIEZO rows: exports listing
+    them carry the boilerplate (same policy as a zero-row PIEZO2 card)."""
+    return any(r["gene"] in FROZEN_GENE_SYMBOLS for r in rows)
 
 
 def _disclose_to_stderr(rows: list[dict], parameter: str) -> None:
@@ -605,6 +685,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             sys.stdout.write(_render_provenance(ev))
     except UnknownGeneError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except AmbiguousGeneError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except UnknownParameterError as exc:

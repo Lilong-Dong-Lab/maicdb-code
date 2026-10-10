@@ -268,18 +268,25 @@ evidence row. Semantics, all enforced by tests:
   (mmHg/psi, dyn/cm·mN/m, nm/um coexist by design); modalities are never
   pooled or inter-converted. Rows whose stored unit is NULL — and unit-less
   parameters such as `ion_selectivity_ratio` — aggregate under an empty
-  unit, reported like any other bucket. Genes with zero rows for a
-  parameter are reported (`count=0`), never hidden. The table aggregates
+  unit, reported like any other bucket. Direction-blind ratio parameters
+  (`ion_selectivity_ratio`, `ca_permeability`; `ratio_direction` NULL this
+  load) report count/min/max with the median omitted — cross-direction
+  medians are meaningless (A1 panel p4 semantics). Genes with zero rows for
+  a parameter are reported (`count=0`), never hidden. The table aggregates
   normalized columns; as-recorded value/unit strings stay per-row in
   channel cards and `provenance`. Threshold values keep their as-recorded
-  signs (disclosed; no |value| pooling).
+  signs (disclosed; no |value| pooling). A gene symbol spanning multiple
+  organisms (schema-supported) raises a clean `AmbiguousGeneError` instead
+  of pooling or picking one silently.
 - **Evidence chain everywhere** — every printed number carries its
   `measurement_id`, verbatim quote, location, confidence and extractor note;
   every aggregate row lists its `measurement_ids` (`;`-joined in CSV), one
   step from the quotes via `provenance`.
 - **Frozen-layer wording** — outputs touching PIEZO1/PIEZO2 attach the §6.7
-  boilerplate (CSV: stderr, so the data stream stays pure; JSON: a field)
-  and never render an affirmative verification status.
+  boilerplate on every path — channel cards, each PIEZO comparison row
+  (counted or zero), `provenance`, and the export document (CSV: stderr, so
+  the data stream stays pure; JSON: a field) — and never render an
+  affirmative verification status.
 - **Determinism** — same input, byte-identical stdout; no timestamps.
 
 Library consumers use the same functions directly:

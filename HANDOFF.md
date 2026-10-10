@@ -11,7 +11,7 @@
 > **M1 status: DONE (2026-10-09, branch `feat/query-library-m1`)** —
 > `src/maicdb/query.py` (`open_readonly` / `channel_card` /
 > `parameter_comparison` / `provenance` / `export`), CLI `maicdb-query`
-> (channel / export / provenance), `tests/test_query.py` (15 tests, real-DB
+> (channel / export / provenance), `tests/test_query.py` (19 tests, real-DB
 > pins cited to data-notes §2/§6 and census SQL; DB-hash guard proves the
 > artifact untouched). Both §2 example commands verified against
 > `db/maicdb.sqlite`; `export --format csv` byte-identical across runs

@@ -27,6 +27,8 @@ import sqlalchemy as sa
 from maicdb.query import (
     FROZEN_GENE_SYMBOLS,
     FROZEN_LAYER_DISCLOSURE,
+    RATIO_MEDIAN_NOTE,
+    AmbiguousGeneError,
     UnknownGeneError,
     UnknownParameterError,
     channel_card,
@@ -136,20 +138,37 @@ def test_frozen_layer_wording(engine):
 
     * PIEZO1/PIEZO2 cards carry the §6.7 boilerplate **verbatim**;
     * a non-frozen gene's card carries no disclosure;
-    * no card ever renders an affirmative verification status — there is
-      no ``verification``/``verified`` field anywhere in the payload (the
-      boilerplate itself contains "not been re-verified", so this is an
-      assertion about fields, not a substring hunt).
+    * no payload ever renders an affirmative verification status — no
+      ``verification``/``verified`` KEY anywhere, and no scalar VALUE that
+      *is* a status (``{"status": "Verified"}`` must fail). Prose may
+      legitimately contain the word (82 evidence quotes/extractor notes in
+      data-v1.0 do), so values are matched as exact statuses, not
+      substrings — the boilerplate's own "not been re-verified" passes.
+    * the same invariant holds on the provenance and comparison surfaces.
     """
+    # A value that *is* an affirmative verification status.
+    affirmative_statuses = {
+        "verified", "re-verified", "verification: verified",
+        "status: verified", "verified: true",
+    }
 
-    def keys_of(obj):
+    def affirmative_hits(obj):
         if isinstance(obj, dict):
             for k, v in obj.items():
-                yield k
-                yield from keys_of(v)
+                if k.lower().startswith("verif"):
+                    yield f"key:{k}"
+                yield from affirmative_hits(v)
         elif isinstance(obj, list):
             for item in obj:
-                yield from keys_of(item)
+                yield from affirmative_hits(item)
+        elif isinstance(obj, str) and obj.strip().lower() in affirmative_statuses:
+            yield f"value:{obj}"
+
+    # Walker semantics self-test: statuses caught, prose not.
+    assert list(affirmative_hits({"status": "Verified"}))
+    assert list(affirmative_hits({"quality": "VERIFIED"}))
+    assert not list(affirmative_hits({"note": "we verified the recording"}))
+    assert not list(affirmative_hits({"note": "not been re-verified"}))
 
     assert FROZEN_GENE_SYMBOLS == frozenset({"PIEZO1", "PIEZO2"})
     assert FROZEN_LAYER_DISCLOSURE == (
@@ -161,13 +180,16 @@ def test_frozen_layer_wording(engine):
     for gene in ("PIEZO1", "PIEZO2"):
         card = channel_card(engine, gene, parameters=["tau_inact"])
         assert card["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
-        # The no-verification-status walker runs on the PIEZO cards too —
+        # The no-verification-status walker runs on the PIEZO payloads too —
         # the rule is about piezo rows specifically.
-        assert not [k for k in keys_of(card) if k.lower().startswith("verif")]
+        assert not list(affirmative_hits(card))
 
     card = channel_card(engine, "TRAAK", parameters=["tau_inact"])
     assert "frozen_layer_disclosure" not in card
-    assert not [k for k in keys_of(card) if k.lower().startswith("verif")]
+    assert not list(affirmative_hits(card))
+
+    assert not list(affirmative_hits(provenance(engine, "PIEZO1-EX-00005")))
+    assert not list(affirmative_hits(parameter_comparison(engine, "tau_inact")))
 
 
 def test_parameter_comparison_per_unit_aggregates(engine):
@@ -221,6 +243,16 @@ def test_parameter_comparison_per_unit_aggregates(engine):
     zero = by_gene_unit[("PIEZO2", None)]
     assert zero["measurement_ids"] == []
 
+    # Rule 3 on the row surface: PIEZO rows carry the §6.7 boilerplate
+    # (counted and zero rows alike — library consumers render rows
+    # standalone); non-frozen rows do not.
+    assert (
+        by_gene_unit[("PIEZO1", "mmHg")]["frozen_layer_disclosure"]
+        == FROZEN_LAYER_DISCLOSURE
+    )
+    assert zero["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+    assert "frozen_layer_disclosure" not in msc_psi
+
 
 def test_parameter_comparison_fixed_unit_parameter(engine):
     """Fixed-unit parameters aggregate under their baked-in unit (τ in ms).
@@ -249,6 +281,10 @@ def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
       no unit column at all (registry ``unit_column=None``).
     * ``threshold_fold_shift`` — MscL carries BOTH buckets (4 rows unit
       NULL + 4 rows "%"), proving a NULL unit never pools with a stored one.
+    * direction-blind ratios (``ratio_direction`` NULL on every row —
+      loader-mapping §3.4): the median is OMITTED with a note (A1 panel p4
+      semantics: direction-unstated groups report count/min/max only);
+      fixed-unit parameters keep their medians and carry no note.
     """
     slope_rows = parameter_comparison(engine, "slope")
     assert sum(r["count"] for r in slope_rows) == 13
@@ -268,6 +304,22 @@ def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
     }
     # Every counted NULL-unit aggregate stays traceable (rule 2).
     assert all(r["unit"] is None and r["measurement_ids"] for r in counted)
+    # Direction-blind medians omitted, min/max kept (ASIC census:
+    # min 0.113, max 14.0 over 11 rows).
+    asic = next(r for r in ion_rows if r["gene"] == "ASIC")
+    assert asic["count"] == 11 and asic["min"] == 0.113 and asic["max"] == 14.0
+    assert asic["median"] is None
+    assert asic["note"] == RATIO_MEDIAN_NOTE
+    ca_rows = parameter_comparison(engine, "ca_permeability")
+    assert all(
+        r["median"] is None and r["note"] == RATIO_MEDIAN_NOTE
+        for r in ca_rows
+        if r["count"] > 0
+    )
+
+    tau_rows = parameter_comparison(engine, "tau_inact")
+    assert all("note" not in r for r in tau_rows)
+    assert all(r["median"] is not None for r in tau_rows if r["count"] > 0)
 
     tfs = {
         (r["gene"], r["unit"]): r
@@ -329,7 +381,7 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     assert csv_a == csv_b  # byte-identical (rule 6)
     lines = csv_a.splitlines()
     assert lines[0] == (
-        "gene,family,parameter,unit,count,min,median,max,measurement_ids"
+        "gene,family,parameter,unit,count,min,median,max,measurement_ids,note"
     )
     assert len(lines) == 14  # header + 13 data rows
     assert FROZEN_LAYER_DISCLOSURE in err_a
@@ -338,7 +390,7 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     import csv as csv_mod
 
     rows = list(csv_mod.reader(lines[1:]))
-    assert all(len(r) == 9 for r in rows)
+    assert all(len(r) == 10 for r in rows)
     # Every counted aggregate row is traceable: ids listed, ;-joined.
     msc_psi = next(r for r in rows if r[0] == "MscL" and r[3] == "psi")
     assert msc_psi[8].count(";") == 3  # 4 ids
@@ -362,6 +414,81 @@ def test_export_json_round_trip_and_disclosure(engine):
     assert "as recorded" in doc["sign_convention"]
     assert sum(r["count"] for r in doc["rows"]) == 152
     assert all(isinstance(r["measurement_ids"], list) for r in doc["rows"])
+
+
+def test_export_discloses_frozen_even_on_zero_count_piezo_rows(engine, capsys):
+    """``_touches_frozen`` counts zero-row PIEZO channels too: tau_act has
+    no PIEZO1/PIEZO2 rows in data-v1.0 (census ``SELECT COUNT(*) … WHERE
+    tau_act_ms IS NOT NULL AND gene_symbol IN ('PIEZO1','PIEZO2')`` → 0),
+    yet the export lists their count=0 rows — so the JSON carries the
+    disclosure field, the PIEZO zero rows carry it on the row itself, and
+    the CSV prints the §6.7 boilerplate to stderr (same policy as a
+    zero-row PIEZO2 card).
+    """
+    import json
+
+    doc = json.loads(export(engine, "tau_act", format="json"))
+    assert doc["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+    piezo_rows = [r for r in doc["rows"] if r["gene"] in FROZEN_GENE_SYMBOLS]
+    assert len(piezo_rows) == 2
+    assert all(
+        r["count"] == 0 and r["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+        for r in piezo_rows
+    )
+    assert "sign_convention" not in doc  # tau_act is not a threshold parameter
+
+    export(engine, "tau_act", format="csv")
+    err = capsys.readouterr().err
+    assert FROZEN_LAYER_DISCLOSURE in err
+    assert "sign convention" not in err
+
+
+def test_multi_organism_gene_symbol_fails_loudly():
+    """The schema splits one gene across organisms (UNIQUE(gene_symbol,
+    organism_taxid) — see test_schema's two-organism PIEZO1 split). The
+    data-v1.0 artifact has none, but a future artifact may: the query layer
+    must not silently pick one channel (card) or pool both organisms'
+    measurements (comparison) — both surfaces raise AmbiguousGeneError.
+    """
+    from maicdb.enums import Family
+    from maicdb.models import Base, Channel
+
+    eng = sa.create_engine("sqlite://")
+    Base.metadata.create_all(eng)
+    with eng.begin() as conn:
+        conn.execute(
+            sa.insert(Channel),
+            [
+                {
+                    "maicdb_id": "MAIC:CH:TST01",
+                    "gene_symbol": "PIEZO1",
+                    "organism": "Homo sapiens",
+                    "organism_taxid": 9606,
+                    "uniprot_accession": "Q92508",
+                    "sequence_length": 2521,
+                    "family": Family.PIEZO,
+                    "activation_mechanism": "Force-from-Lipids",
+                    "ortholog_group": "PIEZO1",
+                },
+                {
+                    "maicdb_id": "MAIC:CH:TST02",
+                    "gene_symbol": "PIEZO1",
+                    "organism": "Mus musculus",
+                    "organism_taxid": 10090,
+                    "uniprot_accession": None,
+                    "sequence_length": 2521,
+                    "family": Family.PIEZO,
+                    "activation_mechanism": "Force-from-Lipids",
+                    "ortholog_group": "PIEZO1",
+                },
+            ],
+        )
+
+    with pytest.raises(AmbiguousGeneError, match="Mus musculus"):
+        channel_card(eng, "PIEZO1", parameters=["p50"])
+    with pytest.raises(AmbiguousGeneError, match="2 organisms"):
+        parameter_comparison(eng, "p50")
+    eng.dispose()
 
 
 # --------------------------------------------------------------------------- #
