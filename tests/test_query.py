@@ -581,9 +581,10 @@ def test_schema_valid_null_states_render_and_export_cleanly():
     card = channel_card(eng, "PIEZO1", parameters=["slope"])
     assert "(unattributed)" in _render_card(card)
     # Tied NULL ids order by maicdb_id (TST00 "A quote" < TST01 "B quote"),
-    # not by insertion order (B was inserted first).
+    # not by insertion order (B was inserted first); SQLite sorts the NULL
+    # ids before the non-NULL ones, so the tie pair leads the card.
     quotes = [r["evidence_quote"] for r in card["parameters"]["slope"]["rows"]]
-    assert quotes[-2:] == ["A quote", "B quote"]
+    assert quotes[:2] == ["A quote", "B quote"]
     assert provenance(eng, None) is None  # clean miss, not an IS-NULL match
     eng.dispose()
 
