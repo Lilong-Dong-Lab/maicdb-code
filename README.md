@@ -19,6 +19,7 @@
 - [The MIMIC Standard](#the-mimic-standard)
 - [Therapeutic Applications](#therapeutic-applications)
 - [Repository Structure](#repository-structure)
+- [Querying the Database](#querying-the-database)
 - [Related Resources](#related-resources)
 - [Contributing](#contributing)
 - [References](#references)
@@ -214,6 +215,97 @@ maicdb-code/
 ├── scripts/               # Utility scripts
 ├── pyproject.toml         # Project configuration
 └── README.md              # This file
+```
+
+---
+
+## Querying the Database
+
+The `maicdb.query` library (`src/maicdb/query.py`) provides read-only,
+deterministic queries over the published artifact `db/maicdb.sqlite`
+(schema 0.2.0 · 1100 rows · CC-BY-4.0). The `maicdb-query` CLI is its first
+consumer; the website/API layers to come will wrap the same library.
+
+```bash
+# Channel card: identity + P50 rows with per-row provenance
+# (PYTHONPATH=src works around the known venv .pth hidden-flag quirk —
+#  see KNOWN-QUIRKS.md; a wheel install works without it)
+PYTHONPATH=src uv run maicdb-query channel PIEZO1 --parameter p50
+```
+
+```text
+PIEZO1 — Homo sapiens (family PIEZO)
+UniProt: Q92508
+ortholog group: PIEZO1
+NOTE: PIEZO1/PIEZO2 rows are frozen-layer data whose evidence quotes have not been re-verified; verification percentages cover the 10 non-frozen layers only.
+
+p50 — P50 pressure threshold (56 rows)
+    sign convention: values are as recorded (negative P50 = suction; K2P layers all-negative); no |value| pooling is performed (data notes §6.1)
+  PIEZO1-EX-00005  -28.0 mmHg  (as reported: -28.0 mm Hg)  confidence=high  n=21
+    quote: The current-pressure relationship is characterized by maximal opening at -60 mm Hg, with a pressure for half-maximal activation (P50) of -28.0 ± 1.8 mm Hg (Fig. 1F).
+    location: Results (Fig. 1F)
+    extractor_note: N2A 内源性 stretch-activated 电流的 P50（Piezo1 克隆前）；后续 Fig. 2 siRNA 敲低 Piezo1 将该内源性电流归因 Piezo1，故作为 PIEZO1 相关 own-data 入行。error_type 未在正文/图注声明（Fig. 1 系列图注惯例 mean±SEM），留空。maximal opening at −60 mm Hg 为刺激值记入 ctx。
+    condition_key: endogenous-N2A_cell-attached_suction_Boltzmann-P50_-80mV_Fig1F
+… (55 more rows; absent evidence fields print "…: (not recorded)" instead of being omitted)
+```
+
+```bash
+# Per-gene cross-comparison export (the numbers behind the A1 panels)
+PYTHONPATH=src uv run maicdb-query export --parameter tau_inact --format csv > out.csv
+```
+
+```csv
+gene,family,parameter,unit,count,min,median,max,measurement_ids,note
+ASIC,DEG_ENaC_ASIC,tau_inact,ms,14,48.0,520.0,3160.0,ASIC-00012;ASIC-00016;ASIC-00004;ASIC-00006;ASIC-00110;ASIC-00111;ASIC-00112;ASIC-00048;ASIC-00046;ASIC-00047;ASIC-00034;ASIC-00087;ASIC-00033;ASIC-00086,
+MscL,MSCL_MSCS,tau_inact,ms,1,1890.0,1890.0,1890.0,MSCL-EX-00015,
+MscS,MSCL_MSCS,tau_inact,ms,3,250.0,2000.0,2800.0,MSCS-EX-00049;MSCS-EX-00061;MSCS-EX-00048,
+OSCA,OSCA_TMEM63,tau_inact,ms,12,10.0,46.3,427.0,OSCA-EX-00002;OSCA-EX-00004;OSCA-EX-00081;OSCA-EX-00006;OSCA-EX-00010;OSCA-EX-00079;OSCA-EX-00014;OSCA-EX-00018;OSCA-EX-00043;OSCA-EX-00021;OSCA-EX-00024;OSCA-EX-00027,
+… (8 more rows, incl. zero-count genes reported with count=0)
+```
+
+The trailing `note` column is empty except on rows carrying a caliber
+rider — e.g. direction-blind ratio parameters, whose median is omitted
+with the reason stated in that column.
+
+`PYTHONPATH=src uv run maicdb-query provenance PIEZO1-EX-00005` prints a
+measurement's full evidence row. Semantics, all enforced by tests:
+
+- **Read-only** — the DB opens via the SQLite `mode=ro` URI; the query test
+  suite leaves the artifact's SHA-256 unchanged.
+- **Per-unit aggregation** — count/min/median/max group by stored unit
+  (mmHg/psi, dyn/cm·mN/m, nm/um coexist by design); modalities are never
+  pooled or inter-converted. Rows whose stored unit is NULL — and unit-less
+  parameters such as `ion_selectivity_ratio` — aggregate under an empty
+  unit, reported like any other bucket. Direction-blind ratio parameters
+  (`ion_selectivity_ratio`, `ca_permeability`; `ratio_direction` NULL this
+  load) report count/min/max with the median omitted — cross-direction
+  medians are meaningless (A1 panel p4 semantics). Genes with zero rows for
+  a parameter are reported (`count=0`), never hidden. The table aggregates
+  normalized columns; as-recorded value/unit strings stay per-row in
+  channel cards and `provenance`. Threshold values keep their as-recorded
+  signs (disclosed; no |value| pooling). A gene symbol spanning multiple
+  organisms (schema-supported) raises a clean `AmbiguousGeneError` instead
+  of pooling or picking one silently.
+- **Evidence chain everywhere** — channel cards and `provenance` print
+  each row's full chain (`measurement_id`, verbatim quote, location,
+  confidence, extractor note); every aggregate row lists its
+  `measurement_ids` (`;`-joined in CSV), one step from the quotes via
+  `provenance`.
+- **Frozen-layer wording** — outputs touching PIEZO1/PIEZO2 attach the §6.7
+  boilerplate on every path — channel cards, each PIEZO comparison row
+  (counted or zero), `provenance`, and the export document (CSV: stderr, so
+  the data stream stays pure; JSON: a field) — and never render an
+  affirmative verification status.
+- **Determinism** — same input, byte-identical stdout; no timestamps.
+
+Library consumers use the same functions directly:
+
+```python
+from maicdb.query import channel_card, export, open_readonly
+
+engine = open_readonly("db/maicdb.sqlite")
+card = channel_card(engine, "PIEZO1", parameters=["p50"])
+csv_text = export(engine, "tau_inact", format="csv")
 ```
 
 ---

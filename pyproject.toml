@@ -23,6 +23,7 @@ dev = ["pytest>=8"]
 maicdb-init-db = "maicdb.database:init_db_cli"
 maicdb-dump-schema = "maicdb.database:dump_schema_cli"
 maicdb-load = "maicdb.loader:main"
+maicdb-query = "maicdb.query:main"
 
 [build-system]
 requires = ["hatchling"]
