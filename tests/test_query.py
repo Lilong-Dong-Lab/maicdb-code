@@ -18,12 +18,17 @@ a missing DB, mirroring ``requires_vault`` in ``test_loader.py``).
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.orm import Session
 
+from maicdb.enums import Family
+from maicdb.models import Base, BiophysicsExperiment, Channel
 from maicdb.query import (
     FROZEN_GENE_SYMBOLS,
     FROZEN_LAYER_DISCLOSURE,
@@ -31,6 +36,7 @@ from maicdb.query import (
     AmbiguousGeneError,
     UnknownGeneError,
     UnknownParameterError,
+    _render_card,
     channel_card,
     export,
     main,
@@ -405,9 +411,7 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     assert FROZEN_LAYER_DISCLOSURE in err_a
     assert "sign convention" in err_a and "as recorded" in err_a
 
-    import csv as csv_mod
-
-    rows = list(csv_mod.reader(lines[1:]))
+    rows = list(csv.reader(lines[1:]))
     assert all(len(r) == 10 for r in rows)
     # Every counted aggregate row is traceable: ids listed, ;-joined.
     msc_psi = next(r for r in rows if r[0] == "MscL" and r[3] == "psi")
@@ -420,8 +424,6 @@ def test_export_json_round_trip_and_disclosure(engine):
     disclosure and the threshold sign-convention note as fields (p50
     touches PIEZO1), and is byte-stable.
     """
-    import json
-
     payload_a = export(engine, "p50", format="json")
     payload_b = export(engine, "p50", format="json")
     assert payload_a == payload_b
@@ -443,8 +445,6 @@ def test_export_discloses_frozen_even_on_zero_count_piezo_rows(engine, capsys):
     the CSV prints the §6.7 boilerplate to stderr (same policy as a
     zero-row PIEZO2 card).
     """
-    import json
-
     doc = json.loads(export(engine, "tau_act", format="json"))
     assert doc["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
     piezo_rows = [r for r in doc["rows"] if r["gene"] in FROZEN_GENE_SYMBOLS]
@@ -468,9 +468,6 @@ def test_multi_organism_gene_symbol_fails_loudly():
     must not silently pick one channel (card) or pool both organisms'
     measurements (comparison) — both surfaces raise AmbiguousGeneError.
     """
-    from maicdb.enums import Family
-    from maicdb.models import Base, Channel
-
     eng = sa.create_engine("sqlite://")
     Base.metadata.create_all(eng)
     with eng.begin() as conn:
@@ -525,12 +522,6 @@ def test_schema_valid_null_states_render_and_export_cleanly():
       ``maicdb_id`` tie-break — the card renders "A quote" before "B
       quote" although B was inserted first.
     """
-    from maicdb.enums import Family
-    from maicdb.models import Base, BiophysicsExperiment, Channel
-    from sqlalchemy.orm import Session
-
-    from maicdb.query import _render_card
-
     eng = sa.create_engine("sqlite://")
     Base.metadata.create_all(eng)
     with Session(eng) as sess:
@@ -673,7 +664,5 @@ def test_cli_provenance(capsys):
 def test_db_artifact_untouched_by_whole_suite():
     """HANDOFF §3 rule 1: the shipped artifact is never mutated — the DB
     file hash is unchanged by the entire query test suite."""
-    import hashlib
-
     assert _DB_HASH_BEFORE is not None
     assert hashlib.sha256(DB_PATH.read_bytes()).hexdigest() == _DB_HASH_BEFORE
