@@ -13,6 +13,10 @@ Binding rules (``HANDOFF.md`` §3):
 * **Frozen-layer wording** — PIEZO1/PIEZO2 evidence quotes are
   frozen-layer *unverified*; outputs touching those channels carry the
   §6.7 boilerplate and never render an affirmative verification status.
+  The *status* is what this layer computes and renders — verbatim curation
+  prose (extractor notes saying "verified this batch", quotes containing
+  the word) is source data carried unaltered, with the boilerplate as its
+  standing qualifier; this repo never rewrites vault text.
 * **No hardcoded data** — gene lists, counts and gap disclosures are
   computed from SQL, never transcribed.
 * **Caliber discipline** — one row = one curated measurement; aggregates
@@ -563,6 +567,13 @@ def _disclose_to_stderr(rows: list[dict], parameter: str) -> None:
 # --------------------------------------------------------------------------- #
 # Rendering + CLI (the library's first consumer)
 # --------------------------------------------------------------------------- #
+def _or_not_recorded(value: object) -> str:
+    """Render a nullable evidence-chain field explicitly — an absent quote,
+    location, or extractor note must not silently shorten the chain
+    (HANDOFF §2 lists all of them on every card row)."""
+    return "(not recorded)" if value is None else str(value)
+
+
 def _render_card(card: dict) -> str:
     """Human-readable channel card — deterministic plain text."""
     gene = card["gene"]
@@ -596,24 +607,29 @@ def _render_card(card: dict) -> str:
                 f"  {r['measurement_id']}  {r['value']} {r['unit'] or ''}"
                 f"{as_reported}  confidence={r['confidence']}  n={r['n']}"
             )
-            if r.get("evidence_quote"):
-                lines.append(f"    quote: {r['evidence_quote']}")
-            if r.get("evidence_location"):
-                lines.append(f"    location: {r['evidence_location']}")
-            if r.get("extractor_note"):
-                lines.append(f"    extractor_note: {r['extractor_note']}")
+            lines.append(f"    quote: {_or_not_recorded(r.get('evidence_quote'))}")
+            lines.append(f"    location: {_or_not_recorded(r.get('evidence_location'))}")
+            lines.append(
+                f"    extractor_note: {_or_not_recorded(r.get('extractor_note'))}"
+            )
     return "\n".join(lines) + "\n"
 
 
 def _render_provenance(ev: dict) -> str:
-    """Human-readable evidence row."""
+    """Human-readable evidence row. Evidence-chain fields render their
+    absence explicitly (``(not recorded)``); identity/aux fields stay
+    omitted when absent."""
     lines = [f"{ev['measurement_id']} ({ev['table']}, gene {ev['gene']})"]
     if "frozen_layer_disclosure" in ev:
         lines.append(f"NOTE: {ev['frozen_layer_disclosure']}")
-    for key in ("maicdb_id", "evidence_quote", "evidence_location",
-                "confidence", "extractor_note", "condition_key", "n"):
-        if ev.get(key) is not None:
-            lines.append(f"{key}: {ev[key]}")
+    evidence_keys = ("evidence_quote", "evidence_location",
+                     "confidence", "extractor_note")
+    for key in ("maicdb_id", *evidence_keys, "condition_key", "n"):
+        value = ev.get(key)
+        if key in evidence_keys:
+            lines.append(f"{key}: {_or_not_recorded(value)}")
+        elif value is not None:
+            lines.append(f"{key}: {value}")
     return "\n".join(lines) + "\n"
 
 

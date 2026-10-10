@@ -114,6 +114,13 @@ def test_channel_card_identity_and_p50_rows(engine):
     # Evidence chain is never optional on a rendered number.
     assert all(r["measurement_id"] and r["evidence_quote"] for r in p50["rows"])
 
+    # Nullable evidence fields stay present as None in the payload — two of
+    # the 56 PIEZO1 p50 rows have no extractor note (census: 00041/00042;
+    # ``SELECT measurement_id … WHERE extractor_note IS NULL``); the CLI
+    # renders them explicitly (see the CLI card test).
+    row41 = next(r for r in p50["rows"] if r["measurement_id"] == "PIEZO1-EX-00041")
+    assert row41["extractor_note"] is None
+
 
 def test_channel_card_unknown_gene_is_clean_error(engine):
     """Unknown gene: a clean lookup error, not an empty card (HANDOFF §5)."""
@@ -512,6 +519,9 @@ def test_cli_channel_card(capsys):
     assert "PIEZO1-EX-00005" in out
     assert "Results (Fig. 1F)" in out
     assert "not been re-verified" in out  # §6.7 boilerplate rendered
+    # Missing evidence fields render their absence explicitly (§2): the two
+    # note-less PIEZO1 p50 rows (00041/00042 — census in the card test).
+    assert out.count("extractor_note: (not recorded)") == 2
 
     assert main(["channel", "PIEZO1", "--parameter", "p50", *CLI_ARGS]) == 0
     assert capsys.readouterr().out == out  # byte-identical (rule 6)
@@ -557,6 +567,11 @@ def test_cli_provenance(capsys):
     captured = capsys.readouterr()
     assert rc != 0
     assert "NO-SUCH-MEASUREMENT" in captured.err
+
+    rc = main(["provenance", "PIEZO1-EX-00041", *CLI_ARGS])  # note-less row
+    out41 = capsys.readouterr().out
+    assert rc == 0
+    assert "extractor_note: (not recorded)" in out41
 
 
 def test_db_artifact_untouched_by_whole_suite():
