@@ -245,7 +245,8 @@ p50 — P50 pressure threshold (56 rows)
     quote: The current-pressure relationship is characterized by maximal opening at -60 mm Hg, with a pressure for half-maximal activation (P50) of -28.0 ± 1.8 mm Hg (Fig. 1F).
     location: Results (Fig. 1F)
     extractor_note: N2A 内源性 stretch-activated 电流的 P50（Piezo1 克隆前）；后续 Fig. 2 siRNA 敲低 Piezo1 将该内源性电流归因 Piezo1，故作为 PIEZO1 相关 own-data 入行。error_type 未在正文/图注声明（Fig. 1 系列图注惯例 mean±SEM），留空。maximal opening at −60 mm Hg 为刺激值记入 ctx。
-… (55 more rows; rows without a recorded note print "extractor_note: (not recorded)")
+    condition_key: endogenous-N2A_cell-attached_suction_Boltzmann-P50_-80mV_Fig1F
+… (55 more rows; absent evidence fields print "…: (not recorded)" instead of being omitted)
 ```
 
 ```bash

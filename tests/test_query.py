@@ -239,8 +239,11 @@ def test_parameter_comparison_per_unit_aggregates(engine):
         assert rows[0]["unit"] is None
         assert rows[0]["median"] is None
 
-    # Deterministic ordering: gene asc, then unit.
-    ordered = sorted(cmp_rows, key=lambda r: (r["gene"], r["unit"] or ""))
+    # Deterministic ordering: gene asc, then unit under a total order
+    # (None first, then empty string, then named units).
+    ordered = sorted(
+        cmp_rows, key=lambda r: (r["gene"], r["unit"] is not None, r["unit"] or "")
+    )
     assert [id(r) for r in cmp_rows] == [id(r) for r in ordered]
 
     # Rule 2: every aggregate is traceable — ids listed, sorted with values.
@@ -300,7 +303,9 @@ def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
     }
     assert all(r["unit"] is None for r in slope_rows if r["count"] > 0)
     # Deterministic ordering still holds with NULL units in play.
-    ordered = sorted(slope_rows, key=lambda r: (r["gene"], r["unit"] or ""))
+    ordered = sorted(
+        slope_rows, key=lambda r: (r["gene"], r["unit"] is not None, r["unit"] or "")
+    )
     assert [id(r) for r in slope_rows] == [id(r) for r in ordered]
 
     ion_rows = parameter_comparison(engine, "ion_selectivity_ratio")
@@ -354,6 +359,12 @@ def test_provenance_full_evidence_row(engine):
     assert ev["confidence"] == "high"
     assert ev["n"] == "21"
     assert ev["extractor_note"]
+
+    # Nullable evidence fields stay None in the payload and render
+    # explicitly: 445 biophysics rows have n IS NULL (census
+    # ``SELECT COUNT(*) … WHERE n IS NULL``; ASIC-00042 is the first).
+    ev_no_n = provenance(engine, "ASIC-00042")
+    assert ev_no_n["n"] is None
 
     assert provenance(engine, "NO-SUCH-MEASUREMENT") is None
 
@@ -498,6 +509,57 @@ def test_multi_organism_gene_symbol_fails_loudly():
     eng.dispose()
 
 
+def test_schema_valid_null_states_render_and_export_cleanly():
+    """Schema-valid NULL states data-v1.0 doesn't exercise (both verified
+    against an in-memory artifact):
+
+    * ``measurement_id IS NULL`` (nullable column; census: 0 rows in
+      data-v1.0) — the aggregate carries it, the CSV join renders an
+      explicit ``(unattributed)`` marker instead of crashing.
+    * unit ordering stays total with a NULL **and** empty-string unit
+      coexisting: None first, then "", then named units.
+    """
+    from maicdb.enums import Family
+    from maicdb.models import Base, BiophysicsExperiment, Channel
+    from sqlalchemy.orm import Session
+
+    eng = sa.create_engine("sqlite://")
+    Base.metadata.create_all(eng)
+    with Session(eng) as sess:
+        ch = Channel(
+            maicdb_id="MAIC:CH:TST03",
+            gene_symbol="PIEZO1",
+            organism="Homo sapiens",
+            family=Family.PIEZO,
+            activation_mechanism="Force-from-Lipids",
+        )
+        sess.add(ch)
+        sess.flush()
+        sess.add_all(
+            [
+                BiophysicsExperiment(
+                    maicdb_id="MAIC:BX:TST01", channel_id=ch.id,
+                    measurement_id=None, slope=1.0, slope_unit=None,
+                ),
+                BiophysicsExperiment(
+                    maicdb_id="MAIC:BX:TST02", channel_id=ch.id,
+                    measurement_id="PIEZO1-EX-TST02", slope=2.0, slope_unit="",
+                ),
+            ]
+        )
+        sess.commit()
+
+    cmp_rows = parameter_comparison(eng, "slope")
+    piezo = [r for r in cmp_rows if r["gene"] == "PIEZO1" and r["count"] > 0]
+    assert [r["unit"] for r in piezo] == [None, ""]
+    assert piezo[0]["measurement_ids"] == [None]
+
+    csv_text = export(eng, "slope", format="csv")
+    assert "(unattributed)" in csv_text
+    assert csv_text.count("\n") == 3  # header + 2 unit-bucket rows
+    eng.dispose()
+
+
 # --------------------------------------------------------------------------- #
 # CLI — maicdb-query (channel / export / provenance)
 # --------------------------------------------------------------------------- #
@@ -572,6 +634,11 @@ def test_cli_provenance(capsys):
     out41 = capsys.readouterr().out
     assert rc == 0
     assert "extractor_note: (not recorded)" in out41
+
+    rc = main(["provenance", "ASIC-00042", *CLI_ARGS])  # n-less row (445 like it)
+    out_n = capsys.readouterr().out
+    assert rc == 0
+    assert "n: (not recorded)" in out_n
 
 
 def test_db_artifact_untouched_by_whole_suite():

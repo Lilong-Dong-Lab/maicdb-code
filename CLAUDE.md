@@ -22,7 +22,7 @@ frozen corpus releases (currently tag **`data-v1.0`**, 1100 rows).
 ```bash
 uv sync                      # install deps
 uv pip install -e .          # editable install (REQUIRED before pytest in a fresh venv)
-uv run pytest tests/ -q      # the test suite (66: schema + loader + query; vault/artifact-dependent tests auto-skip)
+PYTHONPATH=src uv run pytest tests/ -q   # the test suite (67: schema + loader + query; vault/artifact-dependent tests auto-skip)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
 ```

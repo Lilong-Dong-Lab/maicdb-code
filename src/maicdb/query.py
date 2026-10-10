@@ -327,7 +327,8 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     are reported, never erased (rule 5; rendered as an empty CSV cell /
     JSON ``null``). Fixed-unit parameters (τ ms, pS, …) aggregate under
     their baked-in unit. Output ordering is deterministic: gene asc, then
-    unit (``None`` first within a gene).
+    unit under a total order — ``None`` first, then the empty string, then
+    named units.
     """
     _require_parameters([parameter])
     spec = PARAMETERS[parameter]
@@ -386,11 +387,13 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     out: list[dict] = []
     for gene, family in genes:
         family_name = _enum_str(family, "name")
-        # NULL units are their own bucket (reported, never erased — rule 5);
-        # ``key`` keeps the sort total and matches the tested ordering
-        # contract (``unit or ""`` → None sorts first within a gene).
+        # NULL units are their own bucket (reported, never erased — rule 5).
+        # ``key`` keeps the order TOTAL and documented: None first, then the
+        # empty string, then named units (``u or ""`` alone would tie None
+        # and "" and fall back to SQL row order).
         gene_units = sorted(
-            (u for (g, u) in grouped if g == gene), key=lambda u: u or ""
+            (u for (g, u) in grouped if g == gene),
+            key=lambda u: (u is not None, u or ""),
         )
         if gene_units:
             for unit in gene_units:
@@ -527,7 +530,12 @@ def export(
         for r in rows:
             writer.writerow(
                 [
-                    ";".join(r["measurement_ids"])
+                    # measurement_id is nullable: an unattributed row renders
+                    # an explicit marker instead of crashing the join.
+                    ";".join(
+                        mid if mid is not None else "(unattributed)"
+                        for mid in r["measurement_ids"]
+                    )
                     if col == "measurement_ids"
                     else r.get(col, "")
                     for col in _EXPORT_COLUMNS
@@ -605,31 +613,30 @@ def _render_card(card: dict) -> str:
                 )
             lines.append(
                 f"  {r['measurement_id']}  {r['value']} {r['unit'] or ''}"
-                f"{as_reported}  confidence={r['confidence']}  n={r['n']}"
+                f"{as_reported}  confidence={_or_not_recorded(r.get('confidence'))}"
+                f"  n={_or_not_recorded(r.get('n'))}"
             )
             lines.append(f"    quote: {_or_not_recorded(r.get('evidence_quote'))}")
             lines.append(f"    location: {_or_not_recorded(r.get('evidence_location'))}")
             lines.append(
                 f"    extractor_note: {_or_not_recorded(r.get('extractor_note'))}"
             )
+            lines.append(
+                f"    condition_key: {_or_not_recorded(r.get('condition_key'))}"
+            )
     return "\n".join(lines) + "\n"
 
 
 def _render_provenance(ev: dict) -> str:
-    """Human-readable evidence row. Evidence-chain fields render their
-    absence explicitly (``(not recorded)``); identity/aux fields stay
-    omitted when absent."""
+    """Human-readable evidence row — every evidence-chain field renders,
+    with absent ones explicit (``(not recorded)``), so the chain's shape is
+    constant per row (HANDOFF §2/§3 rule 2)."""
     lines = [f"{ev['measurement_id']} ({ev['table']}, gene {ev['gene']})"]
     if "frozen_layer_disclosure" in ev:
         lines.append(f"NOTE: {ev['frozen_layer_disclosure']}")
-    evidence_keys = ("evidence_quote", "evidence_location",
-                     "confidence", "extractor_note")
-    for key in ("maicdb_id", *evidence_keys, "condition_key", "n"):
-        value = ev.get(key)
-        if key in evidence_keys:
-            lines.append(f"{key}: {_or_not_recorded(value)}")
-        elif value is not None:
-            lines.append(f"{key}: {value}")
+    for key in ("maicdb_id", "evidence_quote", "evidence_location",
+                "confidence", "extractor_note", "condition_key", "n"):
+        lines.append(f"{key}: {_or_not_recorded(ev.get(key))}")
     return "\n".join(lines) + "\n"
 
 
