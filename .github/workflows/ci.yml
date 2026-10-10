@@ -23,7 +23,9 @@ jobs:
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
-          grep -q "60 passed, 7 skipped, 1 warning" pytest-summary.txt || {
+          # digit-boundary anchors on both ends: "160 passed" or "1 warning"
+          # inside "11 warnings" must NOT match the pin (vacuous-pass guard)
+          grep -qE "(^|[^0-9])60 passed, 7 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
             echo "::error::suite summary drifted from the pinned '60 passed, 7 skipped, 1 warning' — re-pin here and in KNOWN-QUIRKS quirk 3"
             exit 1
           }

@@ -34,7 +34,7 @@
 | ORM | `src/maicdb/models.py` | SQLAlchemy 2.0, all 10 tables; `BiophysicsExperiment`/`Bioactivity` carry the per-row **evidence chain** (`measurement_id`, `evidence_quote`, location, `confidence`, `extractor_note`, `condition_key`, `n`) — and, on `BiophysicsExperiment` **only**, `value_as_reported`/`unit_as_reported` (`Bioactivity`'s as-recorded pair is `activity_value`/`activity_units`) |
 | Engine / DDL | `src/maicdb/database.py` | `make_engine`/`create_all`/`render_ddl`; CLIs `maicdb-init-db`, `maicdb-dump-schema` |
 | Loader | `src/maicdb/loader.py` | `maicdb-load` CLI; freeze contract (tag-ancestor + frozen-content diff) |
-| Tests | `tests/` — **47 passed** | `PYTHONPATH=src uv run pytest tests/ -q` |
+| Tests | `tests/` — 47 at brief time (2026-09-21) | current count pinned in `.github/workflows/ci.yml` + KNOWN-QUIRKS quirk 3 |
 | Deps | `pyproject.toml` | `sqlalchemy>=2.0`, `pyyaml>=6`; dev `pytest`; hatchling; py ≥3.11 |
 
 ## 2. The M1 goal (vault handoff §4 + §7-M1)

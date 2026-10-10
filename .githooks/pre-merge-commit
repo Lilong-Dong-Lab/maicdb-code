@@ -1,0 +1,4 @@
+#!/bin/sh
+# Merge commits bypass pre-commit; this hook keeps local merges guarded
+# the same way (server-side GitHub merges are covered by CI on main).
+exec "$(dirname "$0")/run-suite.sh" "$@"
