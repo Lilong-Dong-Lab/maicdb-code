@@ -1,0 +1,12 @@
+#!/bin/sh
+# Repo pre-commit hook — enable once per clone:
+#   git config core.hooksPath .githooks
+# Bypass (emergencies only): git commit --no-verify
+#
+# Runs the full suite (~3–5 s) so a red suite never commits.
+# Origin: PR #10 round 5 shipped a red test because pytest and git commit
+# were chained without && (gate digest 2026-10-10, retro finding 1).
+PYTHONPATH=src uv run pytest tests/ -q || {
+    echo "pre-commit: test suite failed — commit blocked (--no-verify overrides)" >&2
+    exit 1
+}
