@@ -20,7 +20,7 @@ keywords:
   - database
 license: MIT
 preferred-citation:
-  type: dataset
+  type: data
   title: "MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0)"
   authors:
     - family-names: "Dong"
