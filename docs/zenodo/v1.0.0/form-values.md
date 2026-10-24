@@ -31,7 +31,7 @@ table below. Upload the **four files** from `dist/zenodo-1.0.0/`.
 | DOI: does your upload already have a DOI? | `No` | Do **not** press "Get a DOI now" — a reserved DOI has nowhere to go (ADR-0002: the DOI never enters the frozen artifact; issue #18 captures it after publish) |
 | Title | `MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0)` | mirrors `CITATION.cff` preferred-citation verbatim |
 | Additional titles | *(leave empty)* | |
-| Publication date | *(keep default — the draft date)* | Don't backdate. Semantics: data freeze 2026-09-01 (`db_meta`), GitHub release 2026-09-02, Zenodo date = the day the record is available on Zenodo |
+| Publication date | *(the publish day — keep the form default if you publish the same day you create the draft; if the draft sits for days, set the field to the actual publish day)* | The field means the day the record is first available on Zenodo. Don't backdate it to the GitHub release: data freeze 2026-09-01 (`db_meta`), GitHub release 2026-09-02, Zenodo date = Zenodo availability day |
 | Creators | see table below | humans only (ADR-0003) |
 | Description | see exact string below | plain text, paste as one block |
 | Languages | *(leave empty)* | |
@@ -49,10 +49,10 @@ table below. Upload the **four files** from `dist/zenodo-1.0.0/`.
 
 ### Creators (exactly two, in this order)
 
-| # | Family name | Given name | Affiliation | Identifier |
-|---|---|---|---|---|
-| 1 | `Dong` | `Lilong` | *(none)* | ORCID `0000-0002-9519-3495` |
-| 2 | `Li` | `Taiheng` | *(none)* | ORCID `0009-0003-3806-9441` |
+| # | Family name | Given name | Display | Affiliation | Identifier |
+|---|---|---|---|---|---|
+| 1 | `Dong` | `Lilong` | Dong, Lilong | *(none)* | ORCID `0000-0002-9519-3495` |
+| 2 | `Li` | `Taiheng` | Li, Taiheng | *(none)* | ORCID `0009-0003-3806-9441` |
 
 Enter each ORCID via the creator's identifier field (the form validates
 ORCIDs and can search them). No roles. Affiliations stay empty by decision
@@ -80,7 +80,7 @@ checksums Zenodo shows per file after upload.
 
 | File | Bytes | SHA256 | MD5 |
 |---|---|---|---|
-| `README.md` | 3284 | `61a48e0b70fb175e2bb664d8c992e05b16644b17713452a455ad0885a7a4703c` | `72c09972deadc1e098b8ff4e3561ac83` |
+| `README.md` | 3425 | `53f355b7fa23f00f55e14512daf40f07e6a213cd066c1fe89aba7c4a109276f9` | `f359170a5f85e30720b8a9f695b6ecc6` |
 | `load-manifest.json` | 1171 | `4e441bf0aac8c46a016b3eaacb486099bf720cbf22fa44a35b78e290e87658a9` | `3600746be0ce35c2bf309650c21335c0` |
 | `maicdb.sql` | 2176274 | `439841fc34b7820f6bf56eb32af1ca261e9c483c39778d5b14c9b0eb1326b712` | `51e7f1db2e12939da6672492f2d8185c` |
 | `maicdb.sqlite` | 3112960 | `4bf4966e9fbf6b975a188b7e4c986d51ac2e959a246d1a4dc17027ef11521569` | `16940157c5a7b37b6d74ffbe120f056b` |
@@ -116,6 +116,7 @@ checksums Zenodo shows per file after upload.
 | 10 | Four files; sizes and checksums match §3 | files | ☐ |
 | 11 | Auto-citation reads `Dong, L., & Li, T. (2026). MAIC-DB: … (Version 1.0.0) [Data set]. Zenodo.` | citation box | ☐ |
 | 12 | Nothing extra in the rendered record (no stray communities, contributors, funding) | whole page | ☐ |
+| 13 | Publication date shows the actual publish day (not a stale draft date) | sidebar | ☐ |
 
 ## 6. Corrections found on the sandbox (fill during rehearsal)
 
