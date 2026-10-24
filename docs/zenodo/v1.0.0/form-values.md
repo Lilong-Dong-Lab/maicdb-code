@@ -1,0 +1,127 @@
+# Zenodo record form values — MAIC-DB v1.0.0 (issue #17, ADR-0002)
+
+Every field the Zenodo deposit form shows, with the **exact string to
+enter**. Nothing is left to judgment at upload time. Field names follow the
+current Zenodo deposit form (help.zenodo.org → Deposit → Describe records;
+InvenioRDM). Where the sandbox form words a field differently, the *Value*
+column still applies. **Any field not in this table: leave it at its
+default (usually empty). Do not improvise.**
+
+The title, creators, ORCIDs, license and version strings mirror
+`CITATION.cff` (the canonical home, ADR-0003). The pins are enforced by
+`tests/test_zenodo_bundle.py` — edit both files together.
+
+## 1. Stage the bundle
+
+```bash
+bash scripts/stage-zenodo-bundle.sh
+```
+
+Extracts `maicdb.sqlite`, `maicdb.sql`, `load-manifest.json` from the
+`v1.0.0-data` tag (never the working tree), adds the record README as
+`README.md`, verifies every file byte-identical, and prints the checksum
+table below. Upload the **four files** from `dist/zenodo-1.0.0/`.
+
+## 2. Form values
+
+| Field | Value | Notes |
+|---|---|---|
+| Resource type | `Dataset` | |
+| Communities | *(leave empty)* | none curated; revisit later if wanted |
+| DOI: does your upload already have a DOI? | `No` | Do **not** press "Get a DOI now" — a reserved DOI has nowhere to go (ADR-0002: the DOI never enters the frozen artifact; issue #18 captures it after publish) |
+| Title | `MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0)` | mirrors `CITATION.cff` preferred-citation verbatim |
+| Additional titles | *(leave empty)* | |
+| Publication date | *(keep default — the draft date)* | Don't backdate. Semantics: data freeze 2026-09-01 (`db_meta`), GitHub release 2026-09-02, Zenodo date = the day the record is available on Zenodo |
+| Creators | see table below | humans only (ADR-0003) |
+| Description | see exact string below | plain text, paste as one block |
+| Languages | *(leave empty)* | |
+| Licenses and rights | `CC-BY-4.0` for **all four files** | data license only — no MIT anywhere in this record (code is not in the bundle; dual-license split is ADR-0001) |
+| Keywords / subjects | `mechanobiology`, `ion-channels`, `bioinformatics`, `database` | mirror `CITATION.cff` keywords verbatim, hyphen included |
+| Contributors | *(leave empty)* | Yujie Chen is acknowledged in the record README prose, not in metadata (ADR-0003) |
+| Publisher | *(leave empty)* | Zenodo fills "Zenodo" automatically |
+| Version | `1.0.0` | tag `v1.0.0-data` → version `1.0.0` (ADR-0002) |
+| Related identifiers | `https://github.com/Lilong-Dong-Lab/maicdb-code` — scheme `URL` — relation `Is supplemented by` | the repo goes public at M3; the link 404s until then (expected) |
+| Alternate identifiers | *(leave empty)* | |
+| References | *(leave empty)* | |
+| Funding | *(leave empty)* | |
+| Access right | `Open` | no embargo, no restrictions, no conditions of access |
+| Files | `README.md`, `load-manifest.json`, `maicdb.sql`, `maicdb.sqlite` from `dist/zenodo-1.0.0/` | all Open, all CC-BY-4.0 |
+
+### Creators (exactly two, in this order)
+
+| # | Family name | Given name | Affiliation | Identifier |
+|---|---|---|---|---|
+| 1 | `Dong` | `Lilong` | *(none)* | ORCID `0000-0002-9519-3495` |
+| 2 | `Li` | `Taiheng` | *(none)* | ORCID `0009-0003-3806-9441` |
+
+Enter each ORCID via the creator's identifier field (the form validates
+ORCIDs and can search them). No roles. Affiliations stay empty by decision
+(2026-10-24): the ORCID is the identity anchor; an affiliation inside the
+immutable record would have to be defended forever.
+
+### Description (exact string)
+
+```
+MAIC-DB (Mechanically Activated Ion Channel Database) is a curated database
+of biophysical and bioactivity measurements on mechanically activated ion
+channels, spanning 12 channel families (PIEZO1, PIEZO2, TRPV4, ASIC, MscS,
+MscL, OSCA, TMC, TRESK, TRAAK, TREK-1, TREK-2). Version 1.0.0 contains 1100
+curated measurement rows; every row carries a full evidence chain (verbatim
+source quote, location, confidence rating). The database ships as a plain
+SQLite file with a byte-stable SQL dump and the load manifest. Data
+license: CC-BY-4.0. Schema, deterministic loader, and query tooling:
+https://github.com/Lilong-Dong-Lab/maicdb-code
+```
+
+## 3. Checksums (cross-check after upload)
+
+Regenerate with the staging script — never hand-edit. Compare against the
+checksums Zenodo shows per file after upload.
+
+| File | Bytes | SHA256 | MD5 |
+|---|---|---|---|
+| `README.md` | 3284 | `61a48e0b70fb175e2bb664d8c992e05b16644b17713452a455ad0885a7a4703c` | `72c09972deadc1e098b8ff4e3561ac83` |
+| `load-manifest.json` | 1171 | `4e441bf0aac8c46a016b3eaacb486099bf720cbf22fa44a35b78e290e87658a9` | `3600746be0ce35c2bf309650c21335c0` |
+| `maicdb.sql` | 2176274 | `439841fc34b7820f6bf56eb32af1ca261e9c483c39778d5b14c9b0eb1326b712` | `51e7f1db2e12939da6672492f2d8185c` |
+| `maicdb.sqlite` | 3112960 | `4bf4966e9fbf6b975a188b7e4c986d51ac2e959a246d1a4dc17027ef11521569` | `16940157c5a7b37b6d74ffbe120f056b` |
+
+## 4. Sandbox rehearsal procedure (operator)
+
+1. Log in at <https://sandbox.zenodo.org> (separate sandbox account; its
+   contents are wiped periodically — that is the point).
+2. New upload → fill the form per §2 → upload the four files from
+   `dist/zenodo-1.0.0/`.
+3. **Save draft**, then open the preview. Check the rendered record
+   field-by-field against §5.
+4. **Publish on the sandbox** (disposable) to see the final render and the
+   auto-generated citation.
+5. Any mismatch: write it into §6, fix the repo file, re-run the staging
+   script (checksums change if the README changed), re-verify. Record
+   metadata is effectively immutable once published for real (ADR-0002) —
+   this pass is the safety net.
+
+## 5. Rendered-record checklist
+
+| # | Check | Where | Pass |
+|---|---|---|---|
+| 1 | Title renders exactly `MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0)` | record header | ☐ |
+| 2 | Creators: `Dong, Lilong` then `Li, Taiheng`, in order | byline | ☐ |
+| 3 | Each creator's ORCID shown as a validated link (`0000-0002-9519-3495`, `0009-0003-3806-9441`) | byline / creator popovers | ☐ |
+| 4 | License badge `CC-BY-4.0`, on the record and on each of the four files | sidebar + files list | ☐ |
+| 5 | Version `1.0.0` | sidebar | ☐ |
+| 6 | Resource type `Dataset` | sidebar | ☐ |
+| 7 | Description renders as clean paragraphs; the repo URL is a link | description block | ☐ |
+| 8 | Keywords: the four strings, hyphen in `ion-channels` kept | keywords | ☐ |
+| 9 | Related identifier: repo URL, relation `Is supplemented by` | identifiers | ☐ |
+| 10 | Four files; sizes and checksums match §3 | files | ☐ |
+| 11 | Auto-citation reads `Dong, L., & Li, T. (2026). MAIC-DB: … (Version 1.0.0) [Data set]. Zenodo.` | citation box | ☐ |
+| 12 | Nothing extra in the rendered record (no stray communities, contributors, funding) | whole page | ☐ |
+
+## 6. Corrections found on the sandbox (fill during rehearsal)
+
+| Field | Sandbox showed | Expected (§2) | Fix applied (file + commit) | Re-verified |
+|---|---|---|---|---|
+| | | | | |
+
+After the rehearsal is CLEAN, the real upload (zenodo.org, same values,
+same bundle) is issue #18.

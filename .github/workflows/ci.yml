@@ -10,6 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # full history + tags: the Zenodo staging tests verify the bundle
+          # against the v1.0.0-data tag blobs (tests/test_zenodo_bundle.py)
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
@@ -19,13 +23,13 @@ jobs:
         # tests auto-skip and db/maicdb.sqlite ships in-repo, so the query
         # suite runs in full. A count drift fails the pin on purpose: re-pin
         # here AND in KNOWN-QUIRKS quirk 3, per release. Local with-vault
-        # reference: 67 passed (at PR #10, 2026-10-10).
+        # reference: 72 passed (at PR #21, 2026-10-24).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
           # digit-boundary anchors on both ends: "160 passed" or "1 warning"
           # inside "11 warnings" must NOT match the pin (vacuous-pass guard)
-          grep -qE "(^|[^0-9])60 passed, 7 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
-            echo "::error::suite summary drifted from the pinned '60 passed, 7 skipped, 1 warning' — re-pin here and in KNOWN-QUIRKS quirk 3"
+          grep -qE "(^|[^0-9])65 passed, 7 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
+            echo "::error::suite summary drifted from the pinned '65 passed, 7 skipped, 1 warning' — re-pin here and in KNOWN-QUIRKS quirk 3"
             exit 1
           }
