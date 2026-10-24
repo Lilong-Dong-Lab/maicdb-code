@@ -158,6 +158,32 @@ def test_default_invocation_stages_into_dist():
     assert {p.name for p in out.iterdir()} == BUNDLE_FILES
 
 
+@requires_tag
+def test_out_guard_refuses_dist_root_and_preserves_siblings():
+    """``OUT="dist/"`` is refused — it must not rm -rf the dist/ tree.
+
+    Regression test for the gate-review MINOR (dead guard patterns): a
+    trailing-slash or absolute dist path normalizes to dist itself, which
+    the guard rejects; a sibling bundle staged next to it must survive.
+    """
+    sibling = REPO_ROOT / "dist" / "sibling-bundle"
+    sibling.mkdir(parents=True, exist_ok=True)
+    (sibling / "keep.txt").write_text("keep")
+    try:
+        for bad in ("dist/", str(REPO_ROOT / "dist") + "/"):
+            result = subprocess.run(
+                ["bash", str(STAGE_SCRIPT), TAG, bad],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 1, f"OUT={bad!r} must be refused"
+            assert "dist" in result.stderr
+            assert (sibling / "keep.txt").read_text() == "keep"
+    finally:
+        shutil.rmtree(sibling, ignore_errors=True)
+
+
 def test_form_values_pin_core_metadata():
     """The form-values doc mirrors the canonical citation strings verbatim.
 

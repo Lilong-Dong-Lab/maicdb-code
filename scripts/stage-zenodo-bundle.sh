@@ -36,16 +36,23 @@ for f in "${ARTIFACTS[@]}"; do
 done
 [ -f "$DOCS_README_REL" ] || fail "$DOCS_README_REL not found — draft it first"
 
-# OUT may only be a directory under the repo's dist/ (gitignored build
-# output). This refuses tracked directories (db/, docs/, src/ …), absolute
-# paths elsewhere, and any '..' component — before rm -rf touches anything.
+# OUT may only be a directory strictly under the repo's dist/ (gitignored
+# build output). This refuses tracked directories (db/, docs/, src/ …),
+# dist itself, absolute paths elsewhere, trailing slashes, and any '..'
+# component — before rm -rf touches anything. (Normalization first: the
+# guard patterns are anchored, so "dist/" or an absolute dist path must not
+# slip past them.)
 OUT="${OUT#./}"
+while [ "$OUT" != "${OUT%/}" ]; do OUT="${OUT%/}"; done
 case "$OUT" in
-    "$REPO_ROOT"/dist/* | dist/*) : ;;
-    *) fail "OUT must be a path under dist/ (got '$OUT')" ;;
+    "$REPO_ROOT"/*) OUT="${OUT#"$REPO_ROOT"/}" ;;
+esac
+case "$OUT" in
+    dist/*) : ;;
+    *) fail "OUT must be a subdirectory of dist/ (got '$OUT')" ;;
 esac
 case "/$OUT/" in
-    */../* | dist/ | dist//) fail "OUT must be a directory under dist/, without '..' (got '$OUT')" ;;
+    */../* | */./* | "/dist/") fail "OUT must be a directory strictly under dist/, without '.'/'..' components (got '$OUT')" ;;
 esac
 rm -rf -- "$OUT"
 mkdir -p "$OUT"
