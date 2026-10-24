@@ -33,15 +33,15 @@ table below. Upload the **four files** from `dist/zenodo-1.0.0/`.
 | Additional titles | *(leave empty)* | |
 | Publication date | *(the publish day — keep the form default if you publish the same day you create the draft; if the draft sits for days, set the field to the actual publish day)* | The field means the day the record is first available on Zenodo. Don't backdate it to the GitHub release: data freeze 2026-09-01 (`db_meta`), GitHub release 2026-09-02, Zenodo date = Zenodo availability day |
 | Creators | see table below | humans only (ADR-0003) |
-| Description | see exact string below | plain text, paste as one block |
+| Description | see exact string below | plain text, paste as one block; then select the repo URL and apply the editor's link (chain) button — a pasted plain URL stays plain text (2026-10-24 rehearsal, §5 item 7) |
 | Languages | *(leave empty)* | |
 | Licenses and rights | `CC-BY-4.0` for **all four files** | data license only — no MIT anywhere in this record (code is not in the bundle; dual-license split is ADR-0001) |
 | Keywords / subjects | `mechanobiology`, `ion-channels`, `bioinformatics`, `database` | mirror `CITATION.cff` keywords verbatim, hyphen included |
 | Contributors | *(leave empty)* | Yujie Chen is acknowledged in the record README prose, not in metadata (ADR-0003) |
-| Publisher | *(leave empty)* | Zenodo fills "Zenodo" automatically |
+| Publisher | `Zenodo` | 2026-10-24 sandbox rehearsal: Save blocks with "Missing publisher field required for DOI registration" — and real Zenodo records render Zenodo as publisher anyway |
 | Version | `1.0.0` | tag `v1.0.0-data` → version `1.0.0` (ADR-0002) |
 | Related identifiers | `https://github.com/Lilong-Dong-Lab/maicdb-code` — scheme `URL` — relation `Is supplemented by` | the repo goes public at M3; the link 404s until then (expected) |
-| Alternate identifiers | *(leave empty)* | |
+| Alternate identifiers | *(keep empty — if a row was added but left blank, delete the row; the artifact has no external identifiers yet)* | 2026-10-24 sandbox rehearsal: flagged on Save when an empty row sits in the list |
 | References | *(leave empty)* | |
 | Funding | *(leave empty)* | |
 | Access right | `Open` | no embargo, no restrictions, no conditions of access |
@@ -107,10 +107,10 @@ checksums Zenodo shows per file after upload.
 | 1 | Title renders exactly `MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0)` | record header | ☐ |
 | 2 | Creators: `Dong, Lilong` then `Li, Taiheng`, in order | byline | ☐ |
 | 3 | Each creator's ORCID shown as a validated link (`0000-0002-9519-3495`, `0009-0003-3806-9441`) | byline / creator popovers | ☐ |
-| 4 | License badge `CC-BY-4.0`, on the record and on each of the four files | sidebar + files list | ☐ |
+| 4 | License badge `CC-BY-4.0` — may render under its full name "Creative Commons Attribution 4.0 International" (2026-10-24 rehearsal), which counts as a pass | sidebar + files list | ☐ |
 | 5 | Version `1.0.0` | sidebar | ☐ |
 | 6 | Resource type `Dataset` | sidebar | ☐ |
-| 7 | Description renders as clean paragraphs; the repo URL is a link | description block | ☐ |
+| 7 | Description renders as clean paragraphs; the repo URL is a **hyperlink** — after pasting the block, select the URL and use the editor's link (chain) button (2026-10-24 rehearsal: a pasted plain URL stays plain text) | description block | ☐ |
 | 8 | Keywords: the four strings, hyphen in `ion-channels` kept | keywords | ☐ |
 | 9 | Related identifier: repo URL, relation `Is supplemented by` | identifiers | ☐ |
 | 10 | Four files; sizes and checksums match §3 | files | ☐ |
@@ -122,6 +122,24 @@ checksums Zenodo shows per file after upload.
 
 | Field | Sandbox showed | Expected (§2) | Fix applied (file + commit) | Re-verified |
 |---|---|---|---|---|
+| 4. License badge CC-BY-4.0 | Creative Commons Attribution 4.0 International | CC-BY-4.0 | RESOLVED — not a defect: the badge renders the license's full name; §5 item 4 wording relaxed 2026-10-24 | ☐ |
+| 7. Description renders as clean paragraphs; repo URL is a link | the repo URL is not a link | clean paragraphs + link | §2/§5 updated 2026-10-24: select the URL in the description editor and apply the link (chain) button on the real upload; plain text is the accepted fallback | ☐ |
+| Publisher | sandbox Save error: "Missing publisher field required for DOI registration" | `Zenodo` | §2 Publisher row updated 2026-10-24 | ☐ |
+| Alternate identifiers | sandbox Save error: "Missing data for required field (Identifier in alternate identifier)" — an added-but-empty row blocked validation | keep list empty; delete the empty row | §2 Alternate-identifiers row updated 2026-10-24 | ☐ |
+| Items 1–13 (checklists A + B + post-publish) | preview was BLOCKED by the two validation errors above — recorded as mismatches but not real field defects | — | re-verified in run 2: all pass except item 7 (see its resolved row above) | ☐ |
+| 1. Title renders exactly: MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0) | Unable to display preview. Please correct validation issues inRecommended information 1Alternate identifiers 1 | MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0) | *(pending — fold back in a repo session)* | |
+| 2. Creators 'Dong, Lilong' then 'Li, Taiheng', in order | "Missing publisher field required for DOI registration" and "Missing data for required field (Identifier in alternate identifier) | Dong, Lilong; Li, Taiheng | *(pending — fold back in a repo session)* | |
+| 3. Both ORCID links shown: 0000-0002-9519-3495, 0009-0003-3806-9441 | as issues specified above, save and preview give these warnings. | two validated ORCID links | *(pending — fold back in a repo session)* | |
+| 4. License badge CC-BY-4.0 | as above | CC-BY-4.0 | *(pending — fold back in a repo session)* | |
+| 5. Version 1.0.0 | as Above | 1.0.0 | *(pending — fold back in a repo session)* | |
+| 6. Resource type Dataset | as Above | Dataset | *(pending — fold back in a repo session)* | |
+| 7. Description renders as clean paragraphs; repo URL is a link | as Above | clean paragraphs + link | *(pending — fold back in a repo session)* | |
+| 8. Keywords: the four strings, hyphen in ion-channels kept | as Above | mechanobiology; ion-channels; bioinformatics; database | *(pending — fold back in a repo session)* | |
+| 9. Related identifier: repo URL, relation 'Is supplemented by' | as Above | https://github.com/Lilong-Dong-Lab/maicdb-code (Is supplemented by) | *(pending — fold back in a repo session)* | |
+| 10. Four files; sizes and checksums match §3 of form-values.md | can not preview in the last step | 4 files, checksums per §3 | *(pending — fold back in a repo session)* | |
+| 12. Nothing extra rendered (no communities, contributors, funding) | can not preview in the last step | no extra sections | *(pending — fold back in a repo session)* | |
+| 11. Auto-citation reads: Dong, L., & Li, T. (2026). MAIC-DB: … (Version 1.0.0) [Data set]. Zenodo. | stuck in the save and preview, missing key information in certain field. | Dong, L., & Li, T. (2026). MAIC-DB: … (Version 1.0.0) [Data set]. Zenodo. | *(pending — fold back in a repo session)* | |
+| 13. Publication date shows the actual publish day | stuck in the save and preview, missing key information in certain field. | the publish day | *(pending — fold back in a repo session)* | |
 | | | | | |
 
 After the rehearsal is CLEAN, the real upload (zenodo.org, same values,
