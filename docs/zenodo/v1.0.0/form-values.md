@@ -33,7 +33,7 @@ table below. Upload the **four files** from `dist/zenodo-1.0.0/`.
 | Additional titles | *(leave empty)* | |
 | Publication date | *(the publish day — keep the form default if you publish the same day you create the draft; if the draft sits for days, set the field to the actual publish day)* | The field means the day the record is first available on Zenodo. Don't backdate it to the GitHub release: data freeze 2026-09-01 (`db_meta`), GitHub release 2026-09-02, Zenodo date = Zenodo availability day |
 | Creators | see table below | humans only (ADR-0003) |
-| Description | see exact string below | plain text, paste as one block |
+| Description | see exact string below | plain text, paste as one block; then select the repo URL and apply the editor's link (chain) button — a pasted plain URL stays plain text (2026-10-24 rehearsal, §5 item 7) |
 | Languages | *(leave empty)* | |
 | Licenses and rights | `CC-BY-4.0` for **all four files** | data license only — no MIT anywhere in this record (code is not in the bundle; dual-license split is ADR-0001) |
 | Keywords / subjects | `mechanobiology`, `ion-channels`, `bioinformatics`, `database` | mirror `CITATION.cff` keywords verbatim, hyphen included |
@@ -126,7 +126,7 @@ checksums Zenodo shows per file after upload.
 | 7. Description renders as clean paragraphs; repo URL is a link | the repo URL is not a link | clean paragraphs + link | §2/§5 updated 2026-10-24: select the URL in the description editor and apply the link (chain) button on the real upload; plain text is the accepted fallback | ☐ |
 | Publisher | sandbox Save error: "Missing publisher field required for DOI registration" | `Zenodo` | §2 Publisher row updated 2026-10-24 | ☐ |
 | Alternate identifiers | sandbox Save error: "Missing data for required field (Identifier in alternate identifier)" — an added-but-empty row blocked validation | keep list empty; delete the empty row | §2 Alternate-identifiers row updated 2026-10-24 | ☐ |
-| Items 1–9 (checklist A) | preview was BLOCKED by the two validation errors above — recorded as mismatches but not real field defects | — | re-verify every item after the preview renders | ☐ |
+| Items 1–13 (checklists A + B + post-publish) | preview was BLOCKED by the two validation errors above — recorded as mismatches but not real field defects | — | re-verified in run 2: all pass except item 7 (see its resolved row above) | ☐ |
 | 1. Title renders exactly: MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0) | Unable to display preview. Please correct validation issues inRecommended information 1Alternate identifiers 1 | MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0) | *(pending — fold back in a repo session)* | |
 | 2. Creators 'Dong, Lilong' then 'Li, Taiheng', in order | "Missing publisher field required for DOI registration" and "Missing data for required field (Identifier in alternate identifier) | Dong, Lilong; Li, Taiheng | *(pending — fold back in a repo session)* | |
 | 3. Both ORCID links shown: 0000-0002-9519-3495, 0009-0003-3806-9441 | as issues specified above, save and preview give these warnings. | two validated ORCID links | *(pending — fold back in a repo session)* | |
