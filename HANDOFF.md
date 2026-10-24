@@ -136,6 +136,13 @@ Minimum API surface (names indicative, shape is the contract):
 
 ## 8. Out of scope for M1 (do not build)
 
-Website (M3) · Zenodo DOI / public-repo + code-license decisions (M2 — user
-decisions pending: MIT/Apache-2.0 vs current CC-BY-4.0) · MCP server / REST
-(M4). Keep the library shaped so all of these can wrap it; build none of them.
+Website (M3) · Zenodo DOI / public-repo + code-license decisions (M2) ·
+MCP server / REST (M4). Keep the library shaped so all of these can wrap it;
+build none of them.
+
+> **M2 status (2026-10-24)**: decisions settled and recorded in
+> `docs/adr/0001–0003` — MIT code / CC-BY-4.0 data; dataset DOI via manual
+> Zenodo upload (sandbox rehearsal first), repo public flip deferred to M3;
+> dual-axis `vX.Y.Z-data` versioning; Dong + Li as dataset creators with
+> agent contributions disclosed in the READMEs. Execution: issues #16–#19.
+> `GLOSSARY.md` defines the release/version vocabulary.

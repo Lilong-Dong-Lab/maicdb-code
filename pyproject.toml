@@ -4,13 +4,13 @@ version = "0.2.0"
 description = "Mechanically Activated Ion Channel Database (MAIC-DB) — schema and tooling"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "CC-BY-4.0" }
+license = { text = "MIT" }
 authors = [{ name = "Lilong-Dong-Lab" }]
 keywords = ["mechanobiology", "ion-channels", "bioinformatics", "database"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
