@@ -1,7 +1,8 @@
 # MAIC-DB: Mechanically Activated Ion Channel Database
 
 [![Status](https://img.shields.io/badge/Status-Active%20Development-green)]()
-[![License](https://img.shields.io/badge/License-Academic%20Research-blue)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Data: CC-BY-4.0](https://img.shields.io/badge/Data-CC--BY--4.0-blue.svg)](https://creativecommons.org/licenses/by/4.0/)
 
 **[English](README.md) | [简体中文](README_CN.md)**
 
@@ -22,6 +23,7 @@
 - [Querying the Database](#querying-the-database)
 - [Related Resources](#related-resources)
 - [Contributing](#contributing)
+- [Contributorship & AI Disclosure](#contributorship--ai-disclosure)
 - [References](#references)
 
 ---
@@ -340,6 +342,24 @@ Contributions welcome in:
 
 ---
 
+## Contributorship & AI Disclosure
+
+MAIC-DB is a human-directed project with substantial agent-executed work
+(decision record: [`docs/adr/0003`](docs/adr/0003-citation-and-credit-policy.md)).
+
+- **Lilong Dong** — project direction and corpus curation
+- **Taiheng Li** — curation and the cross-family usage example
+- **Yujie Chen** — early data work, acknowledged with thanks
+
+Much of the literature mining, code implementation, and review preparation
+was executed by AI agents (Claude Code, Codex) under human direction. Every
+merge passed an independent review gate: a fresh reviewer re-ran the
+reproduction commands and could block the merge on any finding. The
+published data artifact carries a per-row evidence chain (verbatim quote,
+location, confidence), so every number can be checked against its source.
+
+---
+
 ## References
 
 ### Key Literature
@@ -352,7 +372,14 @@ Contributions welcome in:
 
 ## License
 
-This project is provided for academic research purposes in mechanobiology and related fields.
+Code and data are licensed separately (decision record:
+[`docs/adr/0001`](docs/adr/0001-dual-license-code-mit-data-ccby.md)):
+
+- **Code** (schema, loader, query tooling, docs): **MIT** — see
+  [`LICENSE`](LICENSE).
+- **Data artifacts** in [`db/`](db/) and all exported data: **CC-BY-4.0**
+  ([Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/)),
+  as recorded in the artifact's `db_meta`.
 
 ---
 

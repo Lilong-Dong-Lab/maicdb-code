@@ -1,0 +1,35 @@
+# CITATION.cff — MAIC-DB
+# The dataset is the primary citable object (preferred-citation below).
+# Its DOI is backfilled after the Zenodo record is published (M2 ticket 3).
+# Code and data are licensed separately — see LICENSE and docs/adr/0001.
+cff-version: 1.2.0
+message: "If you use MAIC-DB, please cite the dataset. Data: CC-BY-4.0; code: MIT."
+title: "MAIC-DB: Mechanically Activated Ion Channel Database — schema, loader, and query tooling"
+authors:
+  - family-names: "Dong"
+    given-names: "Lilong"
+    orcid: "https://orcid.org/0000-0002-9519-3495"
+  - family-names: "Li"
+    given-names: "Taiheng"
+    orcid: "https://orcid.org/0009-0003-3806-9441"
+repository-code: "https://github.com/Lilong-Dong-Lab/maicdb-code"
+keywords:
+  - mechanobiology
+  - ion-channels
+  - bioinformatics
+  - database
+license: MIT
+preferred-citation:
+  type: dataset
+  title: "MAIC-DB: Mechanically Activated Ion Channel Database (data artifact v1.0.0)"
+  authors:
+    - family-names: "Dong"
+      given-names: "Lilong"
+      orcid: "https://orcid.org/0000-0002-9519-3495"
+    - family-names: "Li"
+      given-names: "Taiheng"
+      orcid: "https://orcid.org/0009-0003-3806-9441"
+  version: "1.0.0"
+  date-released: "2026-09-02"
+  license: CC-BY-4.0
+  # doi: 10.5281/zenodo.XXXXXXX  ← backfilled after publication (M2 ticket 3)

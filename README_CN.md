@@ -1,7 +1,8 @@
 # MAIC-DB：机械激活离子通道数据库
 
 [![状态](https://img.shields.io/badge/状态-活跃开发中-green)]()
-[![许可证](https://img.shields.io/badge/许可证-学术研究-blue)]()
+[![许可证: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![数据: CC-BY-4.0](https://img.shields.io/badge/Data-CC--BY--4.0-blue.svg)](https://creativecommons.org/licenses/by/4.0/)
 
 > [English](README.md) | **简体中文**
 
@@ -21,6 +22,7 @@
 - [代码仓库结构](#代码仓库结构)
 - [相关资源](#相关资源)
 - [贡献指南](#贡献指南)
+- [贡献者与 AI 披露](#贡献者与-ai-披露)
 - [参考文献](#参考文献)
 
 ---
@@ -248,6 +250,23 @@ maicdb-code/
 
 ---
 
+## 贡献者与 AI 披露
+
+MAIC-DB 是一个人主导、大量借助 AI 智能体完成的项目（决策记录：
+[`docs/adr/0003`](docs/adr/0003-citation-and-credit-policy.md)）。
+
+- **Lilong Dong** — 项目主导与语料策展
+- **Taiheng Li** — 策展工作与跨家族分析示例
+- **Yujie Chen** — 早期数据工作，特此致谢
+
+文献挖掘、代码实现与评审准备的大部分执行工作由 AI 智能体
+（Claude Code、Codex）在人的指导下完成。每次合并均通过独立评审
+关卡：由全新评审者重新运行复现命令，任何发现均可阻止合并。已发布
+的数据工件带有逐行证据链（原文引文、位置、置信度），每个数值均可
+回溯核对其来源。
+
+---
+
 ## 参考文献
 
 ### 核心文献
@@ -260,7 +279,14 @@ maicdb-code/
 
 ## 许可证
 
-本项目仅供机械生物学及相关领域的学术研究使用。
+代码与数据采用分开的许可证（决策记录：
+[`docs/adr/0001`](docs/adr/0001-dual-license-code-mit-data-ccby.md)）：
+
+- **代码**（schema、加载器、查询工具、文档）：**MIT** — 见
+  [`LICENSE`](LICENSE)。
+- [`db/`](db/) 中的**数据工件**及所有导出数据：**CC-BY-4.0**
+  （[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)），
+  已记录在数据工件的 `db_meta` 中。
 
 ---
 
