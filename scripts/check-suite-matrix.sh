@@ -33,11 +33,27 @@ while IFS= read -r line; do DECLARED+=("$line"); done < <(
 [ -x "$REPO_ROOT/.venv/bin/python" ] || fail ".venv missing — run uv sync first"
 command -v git >/dev/null 2>&1 || fail "git not found"
 
-matches_declared() { # summary -> success if it contains either signature
+matches_declared() { # summary -> success if it contains an ANCHORED signature
+    # Digit-boundary anchored, mirroring ci.yml's own grep: "178 passed"
+    # must NOT match a "78 passed" pin (vacuous-pass guard).
     local s="$1" d
-    for d in "${DECLARED[@]}"; do [[ "$s" == *"$d"* ]] && return 0; done
+    for d in "${DECLARED[@]}"; do
+        printf '%s' "$s" | grep -qE "(^|[^0-9])$d([^0-9]|$)" && return 0
+    done
     return 1
 }
+
+# Self-test for the anchoring — runs before any state is executed.
+self_test() {
+    local ok=1
+    matches_declared "========================= 78 passed, 7 skipped, 1 warning =========================" || ok=0
+    matches_declared "61 passed, 24 skipped, 1 warning" || ok=0
+    matches_declared "178 passed, 7 skipped, 1 warning" && ok=0
+    matches_declared "161 passed, 24 skipped, 1 warning" && ok=0
+    matches_declared "all good, no summary here" && ok=0
+    [ "$ok" -eq 1 ] || fail "self-test failed: matches_declared anchoring is broken"
+}
+self_test
 skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
 echo "Running the three suite states (each against the pins in $CI_FILE):"
