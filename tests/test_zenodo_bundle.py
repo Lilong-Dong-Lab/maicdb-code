@@ -9,10 +9,11 @@ editable home of the citation strings — ADR-0003). Tests skip when the tag
 is absent (shallow clone), mirroring ``requires_vault`` / ``requires_db``
 in the loader and query suites.
 
-Doc pins are anchored to table cells, not substrings: the operator copies
-these exact cells into the effectively-immutable Zenodo record, so a
-corrupted cell must fail the suite even when the string still occurs
-elsewhere in the doc.
+Doc pins are anchored to structure — table cells, YAML fields, README
+bullets — not substrings: operators copy these exact values into
+effectively-immutable surfaces (the Zenodo record, the citation files),
+so a corrupted value must fail the suite even when the string still
+occurs elsewhere in the doc.
 """
 
 from __future__ import annotations
@@ -34,6 +35,13 @@ README_SRC = DOC_DIR / "record-README.md"
 README_REL = README_SRC.relative_to(REPO_ROOT).as_posix()
 FORM_VALUES = DOC_DIR / "form-values.md"
 CITATION_CFF = REPO_ROOT / "CITATION.cff"
+
+#: The published dataset DOIs (issue #18; Zenodo record 23620159,
+#: published 2026-10-24). The version DOI pins v1.0.0; the concept DOI
+#: resolves to the latest data release (GLOSSARY). Pinned here so the
+#: three docs surfaces cannot drift apart.
+VERSION_DOI = "10.5281/zenodo.23620159"
+CONCEPT_DOI = "10.5281/zenodo.23620158"
 
 #: The published data release under rehearsal (GLOSSARY "data release").
 TAG = "v1.0.0-data"
@@ -92,6 +100,25 @@ def _row(doc: str, first_cell: str) -> list[str]:
 def _bt(cell: str) -> str:
     """Strip the backticks a cell wraps its value in."""
     return cell.replace("`", "")
+
+
+def _bullet(doc: str, lead: str) -> str:
+    """A markdown bullet plus its indented continuation lines.
+
+    Matched by its bold lead label (``- **Version DOI** …``) — the
+    structural anchor for the README Releases DOI pins.
+    """
+    lines = doc.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith(f"- **{lead}**"):
+            block = [line]
+            for cont in lines[i + 1:]:
+                if cont.startswith("  "):
+                    block.append(cont)
+                else:
+                    break
+            return "\n".join(block)
+    raise AssertionError(f"no bullet '- **{lead}**'")
 
 
 @pytest.fixture(scope="module")
@@ -251,6 +278,34 @@ def test_form_values_pin_core_metadata():
     # The repo URL the doc and record README point at is the CFF one.
     assert cff["repository-code"] in doc
     assert cff["repository-code"] in README_SRC.read_text()
+
+
+def test_doi_backfill_pins_the_published_dois_everywhere():
+    """The published DOIs agree across CFF field and both README bullets.
+
+    The DOI backfill (issue #18) writes each DOI into three independent
+    surfaces: CITATION.cff's ``preferred-citation`` ``doi`` field and the
+    Releases bullet in each README. Each is pinned to its designated
+    structure with cross-file equality against the constants above
+    (CODING_STANDARDS rule 1 names DOI backfills), so a typo in any one
+    surface fails here instead of shipping. Runs without the tag.
+    """
+    cff = yaml.safe_load(CITATION_CFF.read_text())
+    assert cff["preferred-citation"]["doi"] == VERSION_DOI
+
+    for name, version_lead, concept_lead in (
+        ("README.md", "Version DOI", "Concept DOI"),
+        ("README_CN.md", "版本 DOI", "概念 DOI"),
+    ):
+        doc = (REPO_ROOT / name).read_text()
+        assert (
+            f"[{VERSION_DOI}](https://doi.org/{VERSION_DOI})"
+            in _bullet(doc, version_lead)
+        ), f"{name}: version DOI bullet"
+        assert (
+            f"[{CONCEPT_DOI}](https://doi.org/{CONCEPT_DOI})"
+            in _bullet(doc, concept_lead)
+        ), f"{name}: concept DOI bullet"
 
 
 @requires_tag
