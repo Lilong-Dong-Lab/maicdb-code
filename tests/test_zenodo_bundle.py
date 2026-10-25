@@ -158,30 +158,64 @@ def test_default_invocation_stages_into_dist():
     assert {p.name for p in out.iterdir()} == BUNDLE_FILES
 
 
-@requires_tag
-def test_out_guard_refuses_dist_root_and_preserves_siblings():
-    """``OUT="dist/"`` is refused — it must not rm -rf the dist/ tree.
+#: Every OUT form the guard must refuse (the gate-review matrix): trailing
+#: slashes, dist itself in relative/absolute form, '.'/'..' segments, bare
+#: traversal, prefix-lookalikes. Normalization collapses the first group to
+#: `dist`, which guard 1 rejects; the rest fail on shape.
+REFUSAL_MATRIX = [
+    pytest.param("dist/", id="dist-trailing-slash"),
+    pytest.param("dist", id="dist-bare"),
+    pytest.param("dist///", id="dist-many-slashes"),
+    pytest.param("./dist/", id="dot-prefix"),
+    pytest.param("dist/.", id="dot-segment"),
+    pytest.param("dist/..", id="dotdot-segment"),
+    pytest.param("dist/zenodo-1.0.0/../../x", id="traversal"),
+    pytest.param("distx/bundle", id="distx-lookalike"),
+    pytest.param("distfoo", id="distfoo-lookalike"),
+    pytest.param(str(REPO_ROOT / "dist"), id="dist-absolute"),
+    pytest.param(str(REPO_ROOT / "dist") + "/", id="dist-absolute-trailing-slash"),
+]
 
-    Regression test for the gate-review MINOR (dead guard patterns): a
-    trailing-slash or absolute dist path normalizes to dist itself, which
-    the guard rejects; a sibling bundle staged next to it must survive.
+
+@requires_tag
+@pytest.mark.parametrize("bad_out", REFUSAL_MATRIX)
+def test_out_guard_refuses_each_form(bad_out: str):
+    """Each refusal-matrix OUT exits 1, stages nothing, spares siblings.
+
+    Locks the guard at the strength the gate review tested it (11 forms,
+    2026-10-24): a future normalization or pattern edit that re-opens any
+    of these forms fails here before an operator can hit it.
     """
     sibling = REPO_ROOT / "dist" / "sibling-bundle"
     sibling.mkdir(parents=True, exist_ok=True)
     (sibling / "keep.txt").write_text("keep")
     try:
-        for bad in ("dist/", str(REPO_ROOT / "dist") + "/"):
-            result = subprocess.run(
-                ["bash", str(STAGE_SCRIPT), TAG, bad],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-            )
-            assert result.returncode == 1, f"OUT={bad!r} must be refused"
-            assert "dist" in result.stderr
-            assert (sibling / "keep.txt").read_text() == "keep"
+        result = subprocess.run(
+            ["bash", str(STAGE_SCRIPT), TAG, bad_out],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 1, f"OUT={bad_out!r} must be refused"
+        assert "dist" in result.stderr
+        assert (sibling / "keep.txt").read_text() == "keep"
     finally:
         shutil.rmtree(sibling, ignore_errors=True)
+
+
+@requires_tag
+def test_out_guard_accepts_trailing_slash_on_valid_subpath():
+    """A trailing slash on a VALID dist subpath normalizes and works."""
+    out = REPO_ROOT / "dist" / "zenodo-1.0.0"
+    shutil.rmtree(out, ignore_errors=True)
+    result = subprocess.run(
+        ["bash", str(STAGE_SCRIPT), TAG, f"{out}/"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert {p.name for p in out.iterdir()} == BUNDLE_FILES
 
 
 def test_form_values_pin_core_metadata():

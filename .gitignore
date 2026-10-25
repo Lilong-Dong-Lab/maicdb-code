@@ -69,3 +69,9 @@ logs/
 
 # release artifacts override the sqlite ignore
 !db/maicdb.sqlite
+
+# session agent tooling (skills, agent config, skill lockfile) — machine-
+# local; flip to tracked if the team should share them
+.agents/
+.claude/
+skills-lock.json

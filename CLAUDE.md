@@ -41,7 +41,8 @@ install -e .` alone is NOT reliable — the flag comes back.)
 2. Changes → `uv run pytest tests/ -q` green → commit → push → `gh pr create`.
 3. **Independent review gate (mandatory before every merge)**: spawn a FRESH
    independent reviewer agent (no implementer context) with the PR diff, the
-   reproduction commands, and the vault defect-register path
+   reproduction commands, the repo's `CODING_STANDARDS.md` (reviewer rules),
+   and the vault defect-register path
    (`report/PR10-30_Retrospective_Review_2026-08-26_agent.md` in the vault).
    - CLEAN → write the digest into the VAULT's `report/` as
      `ReviewDigest_maicdb-code-<topic>_<date>_agent.md` (the vault is the
