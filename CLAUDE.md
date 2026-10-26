@@ -42,6 +42,9 @@ install -e .` alone is NOT reliable — the flag comes back.)
    --jq .permissions.push`) — the 2026-10-24 DOI-backfill branch was built
    on a read-only machine and had to be recreated elsewhere.
 2. Changes → `uv run pytest tests/ -q` green → commit → push → `gh pr create`.
+   If the issue carries a trigger/deferral clause ("do NOT do before…"),
+   the PR body states the adjudication: who overrode it, and why the change
+   is safe to land anyway.
 3. **Independent review gate (mandatory before every merge)**: spawn a FRESH
    independent reviewer agent (no implementer context) with the PR diff, the
    reproduction commands, the repo's `CODING_STANDARDS.md` (reviewer rules),

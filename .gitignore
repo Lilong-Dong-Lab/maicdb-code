@@ -71,9 +71,13 @@ logs/
 !db/maicdb.sqlite
 
 # session agent tooling (skills, agent config, skill lockfile) — machine-
-# local; flip to tracked if the team should share them
+# local; flip to tracked if the team should share them. Exception (retro
+# 2026-10-26): settings.json + hooks/ are tracked — team-wide agent
+# guardrails (chained gh pr create+merge block).
 .agents/
-.claude/
+.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
 skills-lock.json
 
 # Agent scratch space (session experiments, captured values) — machine-local;
