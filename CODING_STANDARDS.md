@@ -40,5 +40,7 @@ jq restyle, PR #24 stat glyphs, PR #26 body stat).
 *Mechanical subset:* stat-shaped lines (``N files changed, X insertions(+),
 Y deletions(-)`` and the compact ``N files +X/-Y``) are machine-checked in
 CI — the stat-lines step re-derives the whole-diff and per-commit stats
-and fails on any pasted line that matches neither. The reviewer drill
-therefore targets every other claim shape; paste stat lines unwrapped.
+and fails on any pasted line that matches neither. Only the PR's own
+stats verify: a historical or sub-range stat line matches no re-derivation
+and fails the step, so don't paste those. The reviewer drill therefore
+targets every other claim shape; paste stat lines unwrapped.

@@ -5,6 +5,10 @@
 # #22/#82; 2026-10-26 #26/#88 — third instance, retro finding).
 # The fix is procedural: create the PR, merge it as its own approved command.
 # Installed via .claude/settings.json (PreToolUse, matcher Bash).
+command -v jq >/dev/null 2>&1 || {
+    echo "hook: jq not found — chained-pr-merge guard inactive (install jq)" >&2
+    exit 0
+}
 cmd=$(jq -r '.tool_input.command // empty')
 # Match command-position occurrences only (line start or after a shell
 # separator), so a quoted/prose mention of either phrase — e.g. inside a
