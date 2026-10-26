@@ -461,6 +461,26 @@ def test_export_discloses_frozen_even_on_zero_count_piezo_rows(engine, capsys):
     assert "sign convention" not in err
 
 
+def test_export_csv_disclose_false_silences_stderr(engine, capsys):
+    """``disclose=False`` is the in-process escape hatch (gate digest
+    NIT-1, issue #11): the §6.7 boilerplate and the sign-convention note
+    stay off stderr, the stdout bytes match the default run exactly, and
+    the JSON document is unchanged — its disclosures ride as fields
+    regardless.
+    """
+    default_csv = export(engine, "p50", format="csv")
+    capsys.readouterr()  # discard the default run's stderr
+
+    quiet_csv = export(engine, "p50", format="csv", disclose=False)
+    assert capsys.readouterr().err == ""
+    assert quiet_csv == default_csv  # data stream untouched
+
+    doc_quiet = json.loads(export(engine, "p50", format="json", disclose=False))
+    doc_loud = json.loads(export(engine, "p50", format="json"))
+    assert doc_quiet == doc_loud
+    assert doc_quiet["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+
+
 def test_multi_organism_gene_symbol_fails_loudly():
     """The schema splits one gene across organisms (UNIQUE(gene_symbol,
     organism_taxid) — see test_schema's two-organism PIEZO1 split). The
