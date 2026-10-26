@@ -37,7 +37,10 @@ install -e .` alone is NOT reliable — the flag comes back.)
 
 ## Git/PR workflow (same discipline as the vault)
 
-1. `git checkout -b feat/<topic>` (or `fix/…`) from latest `main`.
+1. `git checkout -b feat/<topic>` (or `fix/…`) from latest `main`. Confirm
+   the machine can push first (`gh api repos/Lilong-Dong-Lab/maicdb-code
+   --jq .permissions.push`) — the 2026-10-24 DOI-backfill branch was built
+   on a read-only machine and had to be recreated elsewhere.
 2. Changes → `uv run pytest tests/ -q` green → commit → push → `gh pr create`.
 3. **Independent review gate (mandatory before every merge)**: spawn a FRESH
    independent reviewer agent (no implementer context) with the PR diff, the
