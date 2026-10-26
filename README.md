@@ -397,4 +397,11 @@ byte-stable `maicdb.sql`, `load-manifest.json`. Regeneration, provenance and
 every mapping decision: [`db/README.md`](db/README.md) and
 [`docs/loader-mapping.md`](docs/loader-mapping.md).
 
-**Project Status**: v1.0 data published | active development (query tooling next)
+Published on Zenodo 2026-10-24:
+
+- **Version DOI** (pins v1.0.0 — cite for reproducibility against exact
+  data): [10.5281/zenodo.23620159](https://doi.org/10.5281/zenodo.23620159)
+- **Concept DOI** (always resolves to the latest data release):
+  [10.5281/zenodo.23620158](https://doi.org/10.5281/zenodo.23620158)
+
+**Project Status**: v1.0 data published | active development (website next)

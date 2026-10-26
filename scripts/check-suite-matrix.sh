@@ -44,12 +44,17 @@ matches_declared() { # summary -> success if it contains an ANCHORED signature
 }
 
 # Self-test for the anchoring — runs before any state is executed.
+# Vectors derive from DECLARED, so a re-pin cannot break the checker
+# itself (found live on PR #24: hardcoded 78/61 vectors failed the
+# moment the pins moved). "1$d" probes the leading digit boundary —
+# "179 passed" must NOT match a "79 passed" pin.
 self_test() {
-    local ok=1
-    matches_declared "========================= 78 passed, 7 skipped, 1 warning =========================" || ok=0
-    matches_declared "61 passed, 24 skipped, 1 warning" || ok=0
-    matches_declared "178 passed, 7 skipped, 1 warning" && ok=0
-    matches_declared "161 passed, 24 skipped, 1 warning" && ok=0
+    local ok=1 d
+    for d in "${DECLARED[@]}"; do
+        matches_declared "========================= $d =========================" || ok=0
+        matches_declared "1$d" && ok=0
+    done
+    matches_declared "2 passed, 0 skipped, 1 warning" && ok=0
     matches_declared "all good, no summary here" && ok=0
     [ "$ok" -eq 1 ] || fail "self-test failed: matches_declared anchoring is broken"
 }
