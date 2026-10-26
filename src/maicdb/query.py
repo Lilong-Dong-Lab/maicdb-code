@@ -519,7 +519,11 @@ _THRESHOLD_PARAMETERS = frozenset({"p50", "t50", "x50", "delta_p50"})
 
 
 def export(
-    engine: Engine, parameter: str, format: Literal["csv", "json"] = "csv"
+    engine: Engine,
+    parameter: str,
+    format: Literal["csv", "json"] = "csv",
+    *,
+    disclose: bool = True,
 ) -> str:
     """Deterministic serialization of a parameter comparison (rule 6).
 
@@ -532,6 +536,11 @@ def export(
       count rows included; threshold parameters add a ``sign_convention``
       note; direction-blind ratio rows carry a per-row ``note`` and no
       median).
+
+    ``disclose=False`` is the in-process escape hatch (gate digest NIT-1):
+    it silences the CSV stderr companion, so an embedded consumer owns the
+    wording rule itself. The CLI keeps the default. JSON is unaffected —
+    its disclosures ride as fields either way.
 
     No timestamps anywhere; identical inputs produce byte-identical output.
     """
@@ -555,7 +564,8 @@ def export(
                     for col in _EXPORT_COLUMNS
                 ]
             )
-        _disclose_to_stderr(rows, parameter)
+        if disclose:
+            _disclose_to_stderr(rows, parameter)
         return buf.getvalue()
 
     if format == "json":

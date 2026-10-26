@@ -310,6 +310,10 @@ card = channel_card(engine, "PIEZO1", parameters=["p50"])
 csv_text = export(engine, "tau_inact", format="csv")
 ```
 
+Calling `export` in-process? Pass `disclose=False` to suppress the CSV
+stderr disclosure — you then own the wording rule. JSON disclosures ride
+as fields either way.
+
 ---
 
 ## Related Resources
