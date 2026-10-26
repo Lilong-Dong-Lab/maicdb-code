@@ -39,6 +39,37 @@ jobs:
             fi
             exit 1
           }
+      - name: Stat lines in PR body / commit messages match a fresh re-run
+        # CODING_STANDARDS rule 2, fourth strike (PR #26 body, 2026-10-26):
+        # a hand-written stat line ("4 files +41/−8") contradicted the real
+        # `git diff --shortstat`. Stat-shaped lines are a fixed syntactic
+        # pattern, so they are machine-checked here: every stat line pasted
+        # in the PR body or a commit message must equal a fresh re-derivation
+        # — the whole-diff stat or any single commit's stat in the range.
+        # Paste stat lines unwrapped: a line-wrapped stat is not matched.
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          RANGE="origin/${{ github.base_ref }}...HEAD"
+          PAT='[0-9]+ files? changed(, [0-9]+ insertions?\(\+\))?(, [0-9]+ deletions?\(-\))?|[0-9]+ files \+[0-9]+/[−-][0-9]+'
+          norm() { sed 's|−|-|g'; }
+          PASTED="$( { gh pr view "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --json body --jq .body; git log --format=%B "$RANGE"; } | grep -oE "$PAT" | norm | sort -u )"
+          if [ -z "$PASTED" ]; then echo "no stat-shaped lines to verify"; exit 0; fi
+          numstat_compact() { awk '$1=="-" {f++; next} {f++; a+=$1; d+=$2} END {if (f) printf "%d files +%d/-%d\n", f, a, d}'; }
+          ACCEPTED="$( { git diff "$RANGE" --shortstat; git diff "$RANGE" --numstat | numstat_compact; while read -r sha; do git show --shortstat --format= "$sha"; git show --numstat --format= "$sha" | numstat_compact; done < <(git log --format=%H "$RANGE"); } | grep -oE "$PAT" | norm | sort -u )"
+          STATUS=0
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            if grep -qxF "$line" <<<"$ACCEPTED"; then
+              echo "ok: $line"
+            else
+              echo "::error::stat line '$line' matches no fresh re-run (whole diff or any single commit in $RANGE) — CODING_STANDARDS rule 2"
+              STATUS=1
+            fi
+          done <<<"$PASTED"
+          exit $STATUS
       - name: CITATION.cff schema validation
         # The CFF is a live citation surface (GitHub renders it; the DOI
         # is pinned) — validated ad hoc until PR #24's gate ran

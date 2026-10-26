@@ -34,5 +34,11 @@ green suite (observed, PR #22 gate).
 that satisfies each; an unpointed claim is a finding. Machine-output
 lines in a commit message, PR body, or digest (diff stats, suite
 summaries, command output) are pasted from a re-run of the command — a
-retyped summary is a finding (three strikes: PR #22 ledger cell, PR #83
-jq restyle, PR #24 stat glyphs).
+retyped summary is a finding (four strikes: PR #22 ledger cell, PR #83
+jq restyle, PR #24 stat glyphs, PR #26 body stat).
+
+*Mechanical subset:* stat-shaped lines (``N files changed, X insertions(+),
+Y deletions(-)`` and the compact ``N files +X/-Y``) are machine-checked in
+CI — the stat-lines step re-derives the whole-diff and per-commit stats
+and fails on any pasted line that matches neither. The reviewer drill
+therefore targets every other claim shape; paste stat lines unwrapped.
