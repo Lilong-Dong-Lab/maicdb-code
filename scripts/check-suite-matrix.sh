@@ -1,19 +1,35 @@
 #!/usr/bin/env bash
 # check-suite-matrix.sh — derive the three suite-state signatures by
 # EXECUTION and compare them against the pins declared in
-# .github/workflows/ci.yml (the single source of truth).
+# .github/workflows/ci.yml (the single source of truth), the local
+# reference comment in the same file, and the human-facing mirror of the
+# pins in KNOWN-QUIRKS.md quirk 3.
 #
 # Born 2026-10-24 (retro): the no-tag signature was once extrapolated
 # from a stale test count (62/12 vs the real 61/13) — this script makes
 # the pin discipline observational, not arithmetical.
 #
 # States:
-#   local    full suite, vault if present            (reported, not pinned)
+#   local    full suite, vault if present            (must match ci.yml's
+#            "Local with-vault reference" comment)
 #   novault  MAICDB_VAULT=/nonexistent               (must match a ci.yml pin)
 #   notag    shallow --no-tags clone of this HEAD    (must match the other pin;
 #            more skips than novault — the signature ci.yml's error names)
 #
 # Usage: scripts/check-suite-matrix.sh    (after `uv sync`; needs git)
+# A bare `sh` invocation re-execs into bash below.
+
+# Re-exec into bash when the running shell lacks process substitution:
+# `sh scripts/check-suite-matrix.sh` died on the <() below before any
+# check ran (found live 2026-10-26). $BASH_VERSION alone is the wrong
+# test — macOS /bin/sh is bash in POSIX mode, which sets it while still
+# disabling <() — and a raw probe subshell still parses fatal. eval
+# defers parsing: its syntax error is contained (non-zero status), so
+# the probe is safe in every shell.
+if ! eval ': <( : )' 2>/dev/null; then
+    exec bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,6 +46,19 @@ while IFS= read -r line; do DECLARED+=("$line"); done < <(
 )
 [ "${#DECLARED[@]}" -eq 2 ] ||
     fail "expected exactly 2 declared signatures in $CI_FILE, found ${#DECLARED[@]}: ${DECLARED[*]}"
+
+# --- pin copies: KNOWN-QUIRKS quirk 3 mirrors the pins for humans ------
+# ci.yml is authoritative, but its pins are re-stated in quirk 3 and a
+# drifted copy is how that line went stale once already. Anchored to the
+# quirk-3 table row (CODING_STANDARDS rule 1: structure, not a whole-file
+# substring).
+QUIRK3_ROW="$(grep -E '^\| 3 \|' KNOWN-QUIRKS.md)" ||
+    fail "KNOWN-QUIRKS.md: no '| 3 |' table row found"
+for d in "${DECLARED[@]}"; do
+    printf '%s' "$QUIRK3_ROW" | grep -qF "$d" ||
+        fail "KNOWN-QUIRKS.md quirk 3 drifted from $CI_FILE: missing '$d'"
+done
+
 [ -x "$REPO_ROOT/.venv/bin/python" ] || fail ".venv missing — run uv sync first"
 command -v git >/dev/null 2>&1 || fail "git not found"
 
@@ -63,9 +92,15 @@ skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
 echo "Running the three suite states (each against the pins in $CI_FILE):"
 
-# --- state 1: local (vault if present) — reported, not pinned -----------
+# --- state 1: local (vault if present) — pinned to ci.yml's reference ---
 LOCAL_SUMMARY="$(PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tail -1)"
 note "local   : $LOCAL_SUMMARY"
+LOCAL_REF="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$CI_FILE")"
+[ -n "$LOCAL_REF" ] ||
+    fail "$CI_FILE: no 'Local with-vault reference: N passed' comment found"
+LOCAL_PASSED="$(sed -E 's/.*[^0-9]([0-9]+) passed.*/\1/' <<<"$LOCAL_SUMMARY")"
+[ "$LOCAL_PASSED" = "$LOCAL_REF" ] ||
+    fail "local run says $LOCAL_PASSED passed but $CI_FILE's reference comment pins $LOCAL_REF — if the run is genuine, re-pin the comment and KNOWN-QUIRKS quirk 3 together (bash scripts/check-suite-matrix.sh derives, never arithmetic)"
 
 # --- state 2: no vault (the CI condition, tags present) ------------------
 NOVAULT_SUMMARY="$(PYTHONPATH=src MAICDB_VAULT=/nonexistent uv run pytest tests/ -q 2>&1 | tail -1)"
@@ -93,4 +128,5 @@ matches_declared "$NOTAG_SUMMARY" ||
     fail "notag must have strictly more skips than novault (the tag-gated tests) — signatures collapsed: '${NOVAULT_SUMMARY}' vs '${NOTAG_SUMMARY}'"
 
 echo
-echo "matrix OK — both executed signatures match the declared pins, and they differ."
+echo "matrix OK — both executed signatures match the declared pins and differ,"
+echo "the local reference matches ci.yml, and quirk 3 mirrors the pins."

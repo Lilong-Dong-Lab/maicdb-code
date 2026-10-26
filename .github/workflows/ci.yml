@@ -39,3 +39,8 @@ jobs:
             fi
             exit 1
           }
+      - name: CITATION.cff schema validation
+        # The CFF is a live citation surface (GitHub renders it; the DOI
+        # is pinned) — validated ad hoc until PR #24's gate ran
+        # `uvx cffconvert` by hand. Tool-only dep (uvx; no pyproject change).
+        run: uvx cffconvert --validate

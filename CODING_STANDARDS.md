@@ -31,4 +31,8 @@ diff touched only §5 — the operator's fill script stayed wrong under a
 green suite (observed, PR #22 gate).
 
 *Reviewer drill:* for each fix, list its claims, then point at the hunk
-that satisfies each; an unpointed claim is a finding.
+that satisfies each; an unpointed claim is a finding. Machine-output
+lines in a commit message, PR body, or digest (diff stats, suite
+summaries, command output) are pasted from a re-run of the command — a
+retyped summary is a finding (three strikes: PR #22 ledger cell, PR #83
+jq restyle, PR #24 stat glyphs).

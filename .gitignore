@@ -75,3 +75,7 @@ logs/
 .agents/
 .claude/
 skills-lock.json
+
+# Agent scratch space (session experiments, captured values) — machine-local;
+# the vault repo already ignores its own
+.scratch/
