@@ -18,6 +18,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync
+      - name: Declared suite pins are exactly two and mirrored (static)
+        run: bash scripts/check-suite-matrix.sh --pins
       - name: Test suite (summary pinned — KNOWN-QUIRKS quirk 3)
         # CI runs without the vault checkout: the 7 vault-dependent loader
         # tests auto-skip and db/maicdb.sqlite ships in-repo, so the query

@@ -10,6 +10,10 @@ command -v uv >/dev/null 2>&1 || {
     echo "hook: uv not found on PATH — install uv (astral.sh/uv) or bypass with --no-verify" >&2
     exit 1
 }
+bash "$(dirname "$0")/../scripts/check-suite-matrix.sh" --pins || {
+    echo "hook: declared suite pins drifted (see scripts/check-suite-matrix.sh) — blocked (--no-verify overrides)" >&2
+    exit 1
+}
 PYTHONPATH=src uv run pytest tests/ -q || {
     echo "hook: test suite failed — blocked (--no-verify overrides)" >&2
     exit 1
