@@ -147,7 +147,7 @@ def commit_message_findings(repo: str) -> list[dict]:
         parts = record.split("\t", 3)
         if len(parts) < 3:
             continue
-        cid, date, subject = parts[0], parts[1], parts[2]
+        cid, date, subject = parts[0].strip(), parts[1], parts[2]
         for hit in scan_text(record):
             findings.append({
                 "kind": "commit-message", "pattern": hit.pattern, "blob": "-",

@@ -30,9 +30,11 @@ uv run scripts/secret-scan.py          # exit 0 = CLEAN, exit 1 = FINDINGS
   filename — all detected, benign lines ignored.
 
 **Scope caveat (accepted, not an omission):** binary blobs are not
-content-scanned. The only one in history is `db/maicdb.sqlite` — the
-published CC-BY data artifact, derived from the vault corpus; it carries no
-credentials by construction. The scan also covers only objects reachable
+content-scanned, and text blobs over 4 MiB are skipped — both are counted
+and listed by path in the report. The only binary in history is
+`db/maicdb.sqlite` — the published CC-BY data artifact, derived from the
+vault corpus; it carries no credentials by construction. The scan also
+covers only objects reachable
 from refs: commits orphaned by force-push (e.g. still held on GitHub under
 `refs/pull/*`) are not scanned — if history was ever force-pushed, check
 those refs or accept the residual risk explicitly at flip time.
