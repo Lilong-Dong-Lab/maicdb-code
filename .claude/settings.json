@@ -8,6 +8,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-chained-pr-merge.sh\"",
             "statusMessage": "Checking for chained gh pr create+merge"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-checkout-discard.sh\"",
+            "statusMessage": "Checking for checkout/restore that would discard uncommitted work"
           }
         ]
       }
