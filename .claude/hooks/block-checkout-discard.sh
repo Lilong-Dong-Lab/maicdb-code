@@ -12,6 +12,12 @@
 #   - Command-position matching only (line start or after ; && || | ( ) /
 #     newline), so a prose mention inside a commit message does not trip
 #     the guard — same lesson as block-chained-pr-merge.sh (2026-10-26).
+#   - git global-option prefixes are skipped before the subcommand match,
+#     else `git -C <dir> checkout -- f` classifies as `-C` and never fires
+#     (gate MINOR, PR #30). The risk oracle (git status) runs in the
+#     hook's own cwd: a -C target at a DIFFERENT repo than the hook's cwd
+#     fails open — accepted; the hazard this guard exists for is work in
+#     the session's own repo.
 #   - A bare `git checkout <ref>` is a branch switch: git refuses or
 #     carries changes, never discards — allowed unless -f/--force.
 #   - `git status --porcelain --untracked-files=no` is the risk oracle:
@@ -44,13 +50,25 @@ tree_dirty() { [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)"
 printf '%s\n' "$cmd" | sed 's/&&/;/g' | tr ';|()' '\n\n\n\n' |
 while IFS= read -r line; do
     set -- $line
-    [ "$#" -ge 3 ] || continue
+    [ "$#" -ge 2 ] || continue
     [ "$1" = "git" ] || continue
-    case $2 in
-        checkout|restore|switch) subcmd=$2 ;;
+    shift
+    # Skip git global-option prefixes; value-taking opts consume their
+    # argument (`git -C <dir> checkout -- f` must classify by subcommand).
+    while [ "$#" -gt 0 ]; do
+        case $1 in
+            -C|-c|--git-dir|--work-tree|--namespace|--super-prefix)
+                if [ "$#" -ge 2 ]; then shift 2; else break; fi ;;
+            -*) shift ;;
+            *) break ;;
+        esac
+    done
+    [ "$#" -ge 2 ] || continue
+    case $1 in
+        checkout|restore|switch) subcmd=$1 ;;
         *) continue ;;
     esac
-    shift 2
+    shift
     after_dd=0; force=0; discard=0; paths=""
     for tok in "$@"; do
         if [ "$tok" = "--" ]; then after_dd=1; continue; fi
