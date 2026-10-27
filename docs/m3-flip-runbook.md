@@ -32,7 +32,10 @@ uv run scripts/secret-scan.py          # exit 0 = CLEAN, exit 1 = FINDINGS
 **Scope caveat (accepted, not an omission):** binary blobs are not
 content-scanned. The only one in history is `db/maicdb.sqlite` — the
 published CC-BY data artifact, derived from the vault corpus; it carries no
-credentials by construction.
+credentials by construction. The scan also covers only objects reachable
+from refs: commits orphaned by force-push (e.g. still held on GitHub under
+`refs/pull/*`) are not scanned — if history was ever force-pushed, check
+those refs or accept the residual risk explicitly at flip time.
 
 **If the flip-time run reports findings:** stop. Resolution means history
 rewriting — explicit maintainer sign-off territory (issue #19 out-of-scope
@@ -41,7 +44,10 @@ line). Do not flip with unresolved findings.
 **Recorded result 2026-10-27 (at main `669928e`, 80 commits, 32 refs):**
 CLEAN — 186 text blobs scanned, 0 content findings, 0 filename flags,
 1 binary blob skipped (`db/maicdb.sqlite`). The flip-time re-run supersedes
-this record.
+this record. Expected difference at flip time: the re-run will list **1
+advisory filename flag — `scripts/secret-scan.py` itself** (it matches the
+scanner's own `^secret` path flag; the 2026-10-27 record predates the
+script). Advisory only — the gate is the exit code, which stays 0.
 
 ## 2. Internal-doc decisions (AC 2 — human)
 
