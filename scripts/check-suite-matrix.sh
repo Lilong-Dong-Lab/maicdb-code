@@ -47,6 +47,16 @@ while IFS= read -r line; do DECLARED+=("$line"); done < <(
 [ "${#DECLARED[@]}" -eq 2 ] ||
     fail "expected exactly 2 declared signatures in $CI_FILE, found ${#DECLARED[@]}: ${DECLARED[*]}"
 
+# Shorthand copies (no ", 1 warning" suffix) inside quoted error strings
+# must be a declared signature's prefix (gate NIT-2, PR #31: a re-pin that
+# forgets the shorthand copy leaves a stale operator-facing error message
+# the full-form detector cannot see).
+while IFS= read -r sh; do
+    [ -n "$sh" ] || continue
+    printf '%s\n' "${DECLARED[@]}" | grep -qF "$sh," ||
+        fail "$CI_FILE: shorthand literal '$sh' matches no declared signature — re-pin the error-message literals too"
+done < <(grep -oE "'[0-9]+ passed, [0-9]+ skipped'" "$CI_FILE" | tr -d "'" | sort -u)
+
 # --- pin copies: KNOWN-QUIRKS quirk 3 mirrors the pins for humans ------
 # ci.yml is authoritative, but its pins are re-stated in quirk 3 and a
 # drifted copy is how that line went stale once already. Anchored to the
@@ -58,9 +68,6 @@ for d in "${DECLARED[@]}"; do
     printf '%s' "$QUIRK3_ROW" | grep -qF "$d" ||
         fail "KNOWN-QUIRKS.md quirk 3 drifted from $CI_FILE: missing '$d'"
 done
-
-[ -x "$REPO_ROOT/.venv/bin/python" ] || fail ".venv missing — run uv sync first"
-command -v git >/dev/null 2>&1 || fail "git not found"
 
 matches_declared() { # summary -> success if it contains an ANCHORED signature
     # Digit-boundary anchored, mirroring ci.yml's own grep: "178 passed"
@@ -95,11 +102,17 @@ self_test
 # strings, which the execution states never read (found live 2026-10-26,
 # census-pin PR: a re-pin missed the drift-error literal; only a manual
 # full run of this script caught it, so the guard now runs on every
-# commit). 2026-10-26 retro.
+# commit). Needs no venv and no git objects (gate NIT-1, PR #31: the
+# env checks sit below this block on purpose — a fresh clone's first
+# commit checks pins without blocking on uv sync).
+# 2026-10-26 retro.
 if [ "${1:-}" = "--pins" ]; then
     echo "pins OK — exactly 2 declared signatures in $CI_FILE, quirk-3 mirror matches: ${DECLARED[*]}"
     exit 0
 fi
+
+[ -x "$REPO_ROOT/.venv/bin/python" ] || fail ".venv missing — run uv sync first"
+command -v git >/dev/null 2>&1 || fail "git not found"
 
 skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
