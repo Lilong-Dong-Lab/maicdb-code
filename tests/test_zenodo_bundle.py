@@ -1,4 +1,5 @@
-"""Tests for the Zenodo upload staging (issue #17, ADR-0002/-0003).
+"""Tests for the Zenodo upload staging (issue #17, ADR-0002/-0003) and the
+published-artifact content pins (issue #28).
 
 Public seam: ``scripts/stage-zenodo-bundle.sh`` (subprocess) and the
 staged/docs artifacts it governs. Provenance for every pinned value here is
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import sqlite3
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -168,6 +170,41 @@ def test_staged_readme_is_the_committed_source(staged: Path):
     """
     blob = _git_bytes("cat-file", "blob", f"HEAD:{README_REL}")
     assert (staged / "README.md").read_bytes() == blob
+
+
+@requires_tag
+def test_pinned_artifact_has_zero_null_measurement_id_rows():
+    """The census #12 is parked on stays zero in the published artifact.
+
+    Re-derives the contract census (issue #28, verbatim):
+
+        SELECT COUNT(*) FROM biophysics_experiment
+        WHERE measurement_id IS NULL
+
+    against the ``db/maicdb.sqlite`` blob at the ``v1.0.0-data`` tag —
+    the git object, not the working tree, mirroring the byte-identity
+    test above. Pinned value on ``v1.0.0-data``: 0 (census verified
+    2026-10-26). A non-zero count fails the suite and names #12, the
+    parked consumer of the signal — #12's trigger was a human-memory
+    task ("re-run the census at every release"); this makes it
+    deterministic.
+    """
+    blob = _git_bytes("cat-file", "blob", f"{TAG}:db/maicdb.sqlite")
+    con = sqlite3.connect(":memory:")
+    try:
+        con.deserialize(blob)
+        (count,) = con.execute(
+            "SELECT COUNT(*) FROM biophysics_experiment"
+            " WHERE measurement_id IS NULL"
+        ).fetchone()
+    finally:
+        con.close()
+    assert count == 0, (
+        f"{count} biophysics_experiment rows have NULL measurement_id in "
+        f"the pinned {TAG} artifact — #12's dormant trigger has fired: "
+        "implement the #12 card payload (maicdb_id, "
+        "provenance_by_maicdb_id())"
+    )
 
 
 @requires_tag
