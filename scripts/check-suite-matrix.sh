@@ -88,6 +88,19 @@ self_test() {
     [ "$ok" -eq 1 ] || fail "self-test failed: matches_declared anchoring is broken"
 }
 self_test
+
+# --- static mode (--pins): declared-pin sanity only, no suite execution --
+# Wired into .githooks/run-suite.sh and CI. Catches stray signature-shaped
+# literals anywhere in ci.yml — including copies inside error-message
+# strings, which the execution states never read (found live 2026-10-26,
+# census-pin PR: a re-pin missed the drift-error literal; only a manual
+# full run of this script caught it, so the guard now runs on every
+# commit). 2026-10-26 retro.
+if [ "${1:-}" = "--pins" ]; then
+    echo "pins OK — exactly 2 declared signatures in $CI_FILE, quirk-3 mirror matches: ${DECLARED[*]}"
+    exit 0
+fi
+
 skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
 echo "Running the three suite states (each against the pins in $CI_FILE):"

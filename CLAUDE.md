@@ -25,7 +25,7 @@ uv pip install -e .          # editable install (REQUIRED before pytest in a fre
 PYTHONPATH=src uv run pytest tests/ -q   # the test suite (vault/artifact-dependent tests auto-skip; CI pins the summary — .github/workflows/ci.yml + KNOWN-QUIRKS quirk 3)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
-git config core.hooksPath .githooks  # once per clone — pre-commit runs the suite
+git config core.hooksPath .githooks  # once per clone — pre-commit runs the pins check + the suite
 ```
 
 **Known env anomaly (root-caused 2026-09-02)**: the venv's `.pth` files can
