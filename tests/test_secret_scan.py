@@ -5,9 +5,11 @@ Public seam: ``scripts/secret-scan.py`` (subprocess), mirroring
 
 Provenance: none — every "secret" here is a synthetic fixture string built
 by these tests, never cited to the vault or the published artifact. The
-M3 runbook's recorded scan result is reproduced by
-``test_this_repo_stays_clean``, which doubles as a standing net: any
-commit that introduces scanner-matching content fails the suite.
+M3 runbook's flip gate is re-checked in standing form by
+``test_this_repo_stays_clean`` (exit 0 / CLEAN / zero content findings —
+not the runbook's recorded counts, which are pinned there, superseded at
+each flip-time re-run): any commit that introduces scanner-matching
+content fails the suite.
 
 The planted constants below are deliberately built by CONCATENATION so the
 committed source of this very file never matches the scanner's patterns
