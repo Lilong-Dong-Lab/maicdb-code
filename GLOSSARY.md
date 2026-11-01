@@ -39,3 +39,20 @@ _Avoid_: umbrella DOI, master DOI
 The Zenodo DOI pinned to one data release version. Cite this to make an
 analysis reproducible against exact data.
 _Avoid_: record DOI, per-release DOI
+
+**Channel**:
+The browsing and citation unit of the database — one mechanically activated
+ion channel entity (12 in v1.0.0), named by its gene symbol and carrying
+organism, UniProt accession, family, and ortholog group.
+_Avoid_: gene (a gene symbol names a channel; it is not a separate entity)
+
+**Family**:
+The grouping of channels — 7 in v1.0.0 (e.g. PIEZO, K2P) — recorded as the
+`family` attribute of a channel.
+_Avoid_: channel family (older docs said "12 channel families"; that phrase
+counted channels, not families)
+
+**Gene symbol**:
+The human-readable name of a channel (e.g. PIEZO1, TREK-1) — an identifying
+attribute of a channel, not a standalone entity.
+_Avoid_: gene (when it implies a separate table, page, or count axis)
