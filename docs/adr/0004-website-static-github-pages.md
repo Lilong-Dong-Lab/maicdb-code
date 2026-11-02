@@ -4,12 +4,14 @@ The M3 website renders the published artifact — 1,100 rows, 3 MB of
 SQLite — so the whole dataset ships to the browser and the site can be
 fully static: prebuilt JSON + client-side search (vault `handoff.md` §5;
 §10: "never build a hosted backend you can avoid"). The binding constraint
-is the **build output: static files, no server runtime**. The framework
-(Astro, Next.js static export, plain Vite, ...) is an M3 implementation
-choice, not architecture — the JSON contract is the architecture.
+is the **build output: static files, no server runtime**. The build
+toolchain is an implementation choice settled inside that constraint by
+the M3 website spec (`docs/m3-website-spec.md` §3-Q1, PR #34: Python +
+Jinja2 static build, vanilla JS, no framework, no Node toolchain) — this
+ADR pins the constraint, the spec settles the implementation within it.
 `maicdb.query` (Python) runs at build time in CI against the tagged
 `db/maicdb.sqlite`; the website is another thin consumer of the same
-library, like the CLI, with zero query reimplementation.
+library, like the CLI, with zero query reimplementation (spec §1).
 
 Hosting on GitHub Pages follows from this repo being the public surface:
 $0, deploys from GitHub Actions inside the existing PR → independent-
@@ -39,8 +41,10 @@ flip (ADR-0002, issue #19).
 
 - CI regenerates the site's JSON from the tagged `db/maicdb.sqlite` —
   deterministic, PR-gated, never hand-edited (the README-transcript rule).
-  A framework may be chosen per developer ergonomics inside the M3
-  ticket, provided its output is static.
+  The implementation is the spec's, not this ADR's: Q1 settles Python +
+  Jinja2 → static HTML, vanilla JS, site code in `site/`, Jinja2 as the
+  sole new (build-time) dependency. The spec's non-goals (§2: no
+  server-side component; MCP/REST are M4) restate this ADR's constraint.
 - Site publishing inherits the flip gate: the site renders the
   already-published artifact only, and the vault stays private
   (ADR-0002). Pre-submission publicity is intended for a resource paper,
