@@ -28,20 +28,21 @@ from tests.test_site_build import (
     requires_db,
     run_build,
 )
-from tests.test_site_pages import render_fixture
+from tests.test_site_pages import _strings, render_fixture
 
 SITE_DIR = REPO_ROOT / "site"
-
-
-def _strings(locale: str) -> dict:
-    return json.loads(
-        (SITE_DIR / f"strings.{locale}.json").read_text(encoding="utf-8")
-    )
 
 
 #: Python twin of the JS matcher in site/assets/site.js (searchEntries):
 #: case-insensitive substring over the Q9 field set. Kept in lockstep by
 #: review — the two must not drift.
+#:
+#: Q9 reading note (adjudicated): "channel name/aliases/UniProt + family"
+#: includes the channel's OWN family attribute in the channel entry's
+#: searchable fields, so querying a family name recalls both the family
+#: entry (browse anchor) and its member channels. If the gate reads Q9
+#: strictly as name/aliases/UniProt only, drop ``entry["family"]`` here
+#: AND in the JS twin.
 def searchEntries(entries: list[dict], query: str) -> list[dict]:
     q = query.strip().lower()
     if not q:

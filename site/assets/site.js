@@ -12,6 +12,12 @@
 // tests/test_site_search.py (same fields, same lowercase substring
 // rule); the two must not drift. Results group by type and link into
 // the page's own locale tree via the data-root prefix.
+//
+// Q9 reading note: "channel name/aliases/UniProt + family" includes the
+// channel's own family attribute among the channel entry's searchable
+// fields — querying a family name recalls the family entry (browse
+// anchor) AND its member channels. The Python twin carries the same
+// note; change both or neither.
 function openAnchorTarget() {
   var hash = window.location.hash;
   if (!hash || hash.length < 2) return;

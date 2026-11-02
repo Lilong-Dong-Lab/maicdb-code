@@ -24,7 +24,7 @@ import json
 from pathlib import Path
 
 from tests.test_site_build import REPO_ROOT, requires_db, run_build
-from tests.test_site_pages import render_fixture
+from tests.test_site_pages import _strings, render_fixture
 
 SITE_DIR = REPO_ROOT / "site"
 
@@ -37,12 +37,6 @@ DOWNLOAD_FILES = [
     "db/load-manifest.json",
     "CITATION.cff",
 ]
-
-
-def _strings(locale: str) -> dict:
-    return json.loads(
-        (SITE_DIR / f"strings.{locale}.json").read_text(encoding="utf-8")
-    )
 
 
 def _page(out: Path, locale: str) -> str:
@@ -87,9 +81,10 @@ def test_downloads_files_copied_into_both_trees_and_linked(tmp_path):
 
 def test_downloads_sizes_displayed_in_si_units(tmp_path):
     """Each file row shows its size, SI-formatted (one decimal, 1000-based
-    — kB/MB, matching ``ls -h``); pinned to the published artifacts'
-    byte sizes (see the stat provenance above), so a formatting change
-    or a stale manifest fails the row, not just the string."""
+    kB/MB — the ``ls --si`` convention, NOT the 1024-based ``ls -h``);
+    pinned to the published artifacts' byte sizes (see the stat
+    provenance above), so a formatting change or a stale manifest fails
+    the row, not just the string."""
     out = render_fixture(tmp_path)
     for locale in ("en", "zh"):
         html = _page(out, locale)

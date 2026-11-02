@@ -92,8 +92,9 @@ _DOWNLOAD_FILES = (
 
 
 def _human_size(n_bytes: int) -> str:
-    """SI 单位（1000 进位）的人类可读大小，保留一位小数；字节整数显示
-    （与 ``ls -h`` 同口径）。例：1171 → ``1.2 kB``、3112960 → ``3.1 MB``。"""
+    """SI 单位（1000 进位，kB/MB——即 ``ls --si`` 口径，非 1024 进位的
+    ``ls -h``）的人类可读大小，保留一位小数；字节整数显示。
+    例：1171 → ``1.2 kB``、3112960 → ``3.1 MB``。"""
     size = float(n_bytes)
     for unit in ("B", "kB", "MB", "GB"):
         if size < 1000:
