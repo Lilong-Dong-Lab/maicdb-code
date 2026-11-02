@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ comparison.parameter }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="parameter-page">
+  <h1>{{ comparison.parameter }} — {{ entry.label }}</h1>
+
+  {# Issue #13 disclosure: units are as-recorded, buckets are never
+     merged — normalization stays a human curation decision. #}
+  <p class="unit-disclosure">{{ strings.param_unit_disclosure }}</p>
+  {% if comparison.sign_convention is defined %}
+  <p class="sign-note">{{ strings.card_sign_convention_label }} {{ strings.sign_convention_note }}</p>
+  {% endif %}
+  {# direction-blind ratio params: median omitted with the note (the
+     library attaches the note per row; the page discloses it once) #}
+  {% if has_ratio_note %}
+  <p class="sign-note">{{ strings.ratio_median_note }}</p>
+  {% endif %}
+  {% if comparison.frozen_layer_disclosure is defined %}
+  <aside class="frozen-banner">
+    <strong>{{ strings.card_frozen_label }}</strong> — {{ comparison.frozen_layer_disclosure }}
+  </aside>
+  {% endif %}
+
+  {# One row per (gene, stored unit) bucket — units never merged;
+     zero-count genes stay listed (reported, not hidden). The count cell
+     expands to the bucket's measurement_ids, each deep-linking to its
+     evidence row on the channel card (spec Q10). #}
+  <table class="cmp-table">
+    <thead>
+      <tr>
+        <th scope="col">{{ strings.param_col_gene }}</th>
+        <th scope="col">{{ strings.param_col_family }}</th>
+        <th scope="col">{{ strings.param_col_unit }}</th>
+        <th scope="col">{{ strings.param_col_n }}</th>
+        <th scope="col">{{ strings.param_col_min }}</th>
+        <th scope="col">{{ strings.param_col_median }}</th>
+        <th scope="col">{{ strings.param_col_max }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in comparison.rows %}
+      <tr{% if r.count == 0 %} class="zero-rows"{% endif %}>
+        <th scope="row">{{ r.gene }}</th>
+        <td>{{ r.family }}</td>
+        <td>{{ r.unit if r.unit is not none else "—" }}</td>
+        <td>
+          {% if r.measurement_ids %}
+          <details class="cmp-ids">
+            <summary>{{ r.count }}</summary>
+            <ul>
+              {% for mid in r.measurement_ids %}
+              <li><a href="{{ root }}/channels/{{ gene_slugs[r.gene] }}/#{{ mid }}">{{ mid }}</a></li>
+              {% endfor %}
+            </ul>
+          </details>
+          {% else %}{{ r.count }}{% endif %}
+        </td>
+        <td>{{ r.min if r.min is not none else "—" }}</td>
+        <td>{{ r.median if r.median is not none else "—" }}</td>
+        <td>{{ r.max if r.max is not none else "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endblock %}
