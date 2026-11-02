@@ -78,6 +78,29 @@ _LICENSE_URLS = {
     "CC-BY-4.0": "https://creativecommons.org/licenses/by/4.0/",
 }
 
+#: Downloads-page artifact manifest (M3-T6, issue #41): repo-relative
+#: source paths, copied byte-identically into every locale tree so the
+#: page's links resolve inside the tree each page is served from
+#: (relative paths only, spec Q6). Sizes shown next to the links are
+#: derived from these same files — never transcribed.
+_DOWNLOAD_FILES = (
+    "db/maicdb.sqlite",
+    "db/maicdb.sql",
+    "db/load-manifest.json",
+    "CITATION.cff",
+)
+
+
+def _human_size(n_bytes: int) -> str:
+    """SI 单位（1000 进位）的人类可读大小，保留一位小数；字节整数显示
+    （与 ``ls -h`` 同口径）。例：1171 → ``1.2 kB``、3112960 → ``3.1 MB``。"""
+    size = float(n_bytes)
+    for unit in ("B", "kB", "MB", "GB"):
+        if size < 1000:
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1000
+    return f"{size:.1f} TB"
+
 
 def _site_facts(repo_root: Path) -> dict:
     """Footer identifier block, read from the repo's canonical sources
@@ -100,6 +123,7 @@ def _site_facts(repo_root: Path) -> dict:
         "license_data": preferred["license"],
         "license_code_url": _LICENSE_URLS[cff["license"]],
         "license_data_url": _LICENSE_URLS[preferred["license"]],
+        "dataset_version": f"v{preferred['version']}",
         "dataset_doi": doi,
         "dataset_doi_url": f"https://doi.org/{doi}",
         "concept_doi": concept_doi,
@@ -128,24 +152,30 @@ def _alt_href(page_dir: str, locale: str) -> str:
     return posixpath.relpath(_tree_prefix(page_dir, other), _tree_prefix(page_dir, locale))
 
 
-def _site_pages(index: dict, data_dir: Path) -> list[tuple[str, str, dict]]:
+def _site_pages(
+    index: dict, data_dir: Path, download_files: list[dict]
+) -> list[tuple[str, str, dict]]:
     """The page list: (template, tree-relative directory, extra context).
 
-    Singleton pages first (home, browse, parameter index), then one card
-    page per channel in index order (family → gene_symbol — the data
-    layer's deterministic order), then one comparison page per parameter
-    in registry order. The card context carries the channel's index entry
-    (browse counts for the qualitative rider) and the threshold-parameter
-    names, so the template never re-derives that set from the CLI's rule;
-    the comparison context carries the parameter's index entry, a
-    gene→slug map (Q10 deep links into the channel cards, derived from
-    the index — the page never queries the DB), and whether any row
-    carries the ratio-median note (disclosed once per page, not per row).
+    Singleton pages first (home, browse, parameter index, downloads),
+    then one card page per channel in index order (family → gene_symbol
+    — the data layer's deterministic order), then one comparison page
+    per parameter in registry order. The card context carries the
+    channel's index entry (browse counts for the qualitative rider) and
+    the threshold-parameter names, so the template never re-derives that
+    set from the CLI's rule; the comparison context carries the
+    parameter's index entry, a gene→slug map (Q10 deep links into the
+    channel cards, derived from the index — the page never queries the
+    DB), and whether any row carries the ratio-median note (disclosed
+    once per page, not per row); the downloads context carries the
+    artifact manifest (path + SI size) built by ``render_site`` from the
+    repo's real files.
     """
     pages: list[tuple[str, str, dict]] = [
         ("home.html", "", {}),
         ("browse.html", "channels", {}),
         ("parameters.html", "parameters", {}),
+        ("downloads.html", "downloads", {"download_files": download_files}),
     ]
     gene_slugs = {
         entry["gene_symbol"]: entry["slug"]
@@ -198,9 +228,21 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
     references only), and writes ``<out_dir>/[zh/]<page>/index.html``.
     StrictUndefined makes a missing dictionary key a build error, so an
     untranslated string cannot ship silently.
+
+    M3-T6 additions, both per locale tree so every page stays inside
+    its own tree (relative links only, spec Q6): the downloads
+    artifacts (``_DOWNLOAD_FILES``, byte-identical copies from the
+    repo, linked from the downloads page with their SI sizes) and a
+    copy of the data layer's ``search-index.json`` at the tree root
+    (the deployed root is the rendered tree, so the client-side search
+    could not fetch it from ``_data/``).
     """
     index = json.loads((data_dir / "index.json").read_text(encoding="utf-8"))
-    pages = _site_pages(index, data_dir)
+    download_files = [
+        {"path": rel, "size": _human_size((repo_root / rel).stat().st_size)}
+        for rel in _DOWNLOAD_FILES
+    ]
+    pages = _site_pages(index, data_dir, download_files)
     env = Environment(
         loader=FileSystemLoader(site_dir / "templates"),
         autoescape=True,
@@ -217,6 +259,14 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
     for locale, (tree_dir, alt_locale) in _LOCALES.items():
         tree = out_dir / tree_dir
         shutil.copytree(site_dir / "assets", tree / "assets", dirs_exist_ok=True)
+        for rel in _DOWNLOAD_FILES:
+            dest = tree / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(repo_root / rel, dest)
+            written.append(dest)
+        search_copy = tree / "search-index.json"
+        shutil.copyfile(data_dir / "search-index.json", search_copy)
+        written.append(search_copy)
         for template, page_dir, extra in pages:
             page = tree / page_dir / "index.html"
             page.parent.mkdir(parents=True, exist_ok=True)
@@ -261,11 +311,16 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         # Home-scale census (SQL, never transcribed — ticket #38): one
         # measurement = one row across the three fact tables; the
         # publications count is the normalized citation table itself.
+        # The unmapped share rides along for the downloads disclosure
+        # (M3-T6): 16 archived rows mapped to no registered parameter
+        # block, disclosed by count with no page of their own (Q11).
+        fact_counts = {
+            model: conn.scalar(select(func.count()).select_from(model))
+            for model in (BiophysicsExperiment, Bioactivity, UnmappedMeasurement)
+        }
         totals = {
-            "n_measurements": sum(
-                conn.scalar(select(func.count()).select_from(model))
-                for model in (BiophysicsExperiment, Bioactivity, UnmappedMeasurement)
-            ),
+            "n_measurements": sum(fact_counts.values()),
+            "n_unmapped": fact_counts[UnmappedMeasurement],
             "n_channels": len(genes),
             "n_families": conn.scalar(
                 select(func.count()).select_from(

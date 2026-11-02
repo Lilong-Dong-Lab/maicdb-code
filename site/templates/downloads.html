@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.nav_downloads }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<section class="downloads-page">
+  <h1>{{ strings.downloads_heading }}</h1>
+  <p class="index-intro">{{ strings.downloads_intro }}</p>
+
+  <h2>{{ strings.downloads_files_heading }}</h2>
+  <ul class="download-files">
+    {% for file in download_files %}
+    <li>
+      <a class="file-path" href="{{ root }}/{{ file.path }}" download>{{ file.path }}</a>
+      <span class="file-size">{{ file.size }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h2>{{ strings.downloads_doi_heading }}</h2>
+  <ul class="doi-list">
+    <li>
+      {{ strings.downloads_doi_version_label }} {{ site.dataset_version }}:
+      <a href="{{ site.dataset_doi_url }}">{{ site.dataset_doi }}</a>
+    </li>
+    <li>
+      {{ strings.downloads_doi_concept_label }}:
+      <a href="{{ site.concept_doi_url }}">{{ site.concept_doi }}</a>
+    </li>
+  </ul>
+
+  <h2>{{ strings.downloads_license_heading }}</h2>
+  <ul class="license-list">
+    <li>{{ strings.downloads_license_data_label }} <a href="{{ site.license_data_url }}">{{ site.license_data }}</a></li>
+    <li>{{ strings.downloads_license_code_label }} <a href="{{ site.license_code_url }}">{{ site.license_code }}</a></li>
+  </ul>
+
+  <h2>{{ strings.downloads_unmapped_heading }}</h2>
+  <p class="unmapped-note">
+    <span class="stat-value">{{ totals.n_unmapped }}</span>
+    {{ strings.downloads_unmapped_note }}
+  </p>
+</section>
+{% endblock %}

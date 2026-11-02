@@ -299,6 +299,7 @@ def test_build_emits_home_totals(tmp_path):
     totals = json.loads((out / "_data" / "index.json").read_text())["totals"]
     assert totals == {
         "n_measurements": 1100,
+        "n_unmapped": 16,
         "n_channels": 12,
         "n_families": 7,
         "n_publications": 211,

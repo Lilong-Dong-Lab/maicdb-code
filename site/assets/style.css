@@ -69,6 +69,42 @@ a:hover { color: #063c71; }
   border-radius: 0.25rem;
 }
 
+/* Global search dropdown (M3-T6): relative container in the header,
+   absolutely-positioned results panel below the input. */
+.site-search { position: relative; }
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 18rem;
+  max-height: 60vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
+  padding: 0.25rem 0.875rem 0.625rem;
+  z-index: 10;
+}
+
+.search-group h3 {
+  font-size: 0.75rem;
+  margin: 0.625rem 0 0.25rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.search-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.search-group li { padding: 0.125rem 0; }
+.search-empty { margin: 0.5rem 0 0.25rem; color: #555; }
+
 .home-stats { padding: 1rem 0; }
 
 .home-stats ul {
@@ -303,6 +339,54 @@ a:hover { color: #063c71; }
   padding: 0;
   font-family: ui-monospace, monospace;
   font-size: 0.8rem;
+}
+
+/* Downloads page (M3-T6). */
+.downloads-page h1 { font-size: 1.5rem; margin: 1.5rem 0 0.5rem; }
+
+.downloads-page h2 {
+  font-size: 1.15rem;
+  margin: 2rem 0 0.75rem;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.25rem;
+}
+
+.download-files {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+
+.download-files li {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.download-files .file-path {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+
+.download-files .file-size { color: #555; font-size: 0.875rem; }
+
+.doi-list,
+.license-list {
+  margin: 0.5rem 0;
+}
+
+.doi-list li,
+.license-list li { padding: 0.25rem 0; }
+
+.unmapped-note { max-width: 42rem; }
+
+.unmapped-note .stat-value {
+  display: inline;
+  font-size: 1.1rem;
+  margin-right: 0.25rem;
 }
 
 /* Footer: license / DOI / AI disclosure. */

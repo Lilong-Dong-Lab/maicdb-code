@@ -4,8 +4,14 @@
 // row is a <details> whose id is the row's measurement_id. A URL like
 // /channels/piezo1/#PIEZO1-EX-00004 opens that row's details block and
 // scrolls to it — on load and on later same-page hash changes.
-// T6 wires the global search here (client-side substring match over the
-// build-time search-index.json, spec Q9).
+//
+// Global search (spec Q9, M3-T6): the build writes a flat
+// search-index.json at each locale tree's root (site/build.py copies
+// the data layer's index — the deployed root is the rendered tree).
+// The match below is the twin of searchEntries() in
+// tests/test_site_search.py (same fields, same lowercase substring
+// rule); the two must not drift. Results group by type and link into
+// the page's own locale tree via the data-root prefix.
 function openAnchorTarget() {
   var hash = window.location.hash;
   if (!hash || hash.length < 2) return;
@@ -16,5 +22,112 @@ function openAnchorTarget() {
   target.scrollIntoView();
 }
 
+function searchEntries(entries, query) {
+  var q = query.trim().toLowerCase();
+  if (!q) return [];
+  return entries.filter(function (entry) {
+    var fields;
+    if (entry.type === "channel") {
+      fields = [entry.label].concat(entry.aliases || [], entry.uniprots || [], [entry.family]);
+    } else if (entry.type === "family") {
+      fields = [entry.label];
+    } else {
+      fields = [entry.name, entry.label];
+    }
+    return fields.some(function (field) {
+      return field.toLowerCase().indexOf(q) !== -1;
+    });
+  });
+}
+
+function initSearch() {
+  var form = document.querySelector(".site-search");
+  var input = document.getElementById("site-search");
+  var box = document.getElementById("site-search-results");
+  if (!form || !input || !box) return;
+  var root = form.getAttribute("data-root") || ".";
+  var groupLabels = {
+    channel: form.getAttribute("data-label-channel"),
+    family: form.getAttribute("data-label-family"),
+    parameter: form.getAttribute("data-label-parameter"),
+  };
+  var noResultsLabel = form.getAttribute("data-label-no-results");
+  var entries = null;
+
+  fetch(root + "/search-index.json")
+    .then(function (response) { return response.json(); })
+    .then(function (doc) { entries = doc.entries; })
+    .catch(function () {
+      // file:// 预览下 fetch 不可用——静默降级：搜索框仍在，只是无结果
+      // （部署在 Pages 上总是 http(s)，正常加载）。
+    });
+
+  function resultLabel(entry) {
+    if (entry.type === "parameter") return entry.label + " (" + entry.name + ")";
+    return entry.label;
+  }
+
+  function render(hits) {
+    box.textContent = "";
+    if (!hits.length) {
+      var empty = document.createElement("p");
+      empty.className = "search-empty";
+      empty.textContent = noResultsLabel;
+      box.appendChild(empty);
+    } else {
+      ["channel", "family", "parameter"].forEach(function (type) {
+        var group = hits.filter(function (entry) { return entry.type === type; });
+        if (!group.length) return;
+        var section = document.createElement("section");
+        section.className = "search-group";
+        var heading = document.createElement("h3");
+        heading.textContent = groupLabels[type];
+        section.appendChild(heading);
+        var list = document.createElement("ul");
+        group.forEach(function (entry) {
+          var item = document.createElement("li");
+          var link = document.createElement("a");
+          link.href = root + entry.url;
+          link.textContent = resultLabel(entry);
+          item.appendChild(link);
+          list.appendChild(item);
+        });
+        section.appendChild(list);
+        box.appendChild(section);
+      });
+    }
+    box.hidden = false;
+  }
+
+  function hideResults() {
+    box.hidden = true;
+    box.textContent = "";
+  }
+
+  input.addEventListener("input", function () {
+    if (entries === null) return;
+    if (!input.value.trim()) {
+      hideResults();
+      return;
+    }
+    render(searchEntries(entries, input.value));
+  });
+  // 聚焦时若已有查询词则重新展示（点击页面其他处关闭后）
+  input.addEventListener("focus", function () {
+    if (entries !== null && input.value.trim()) {
+      render(searchEntries(entries, input.value));
+    }
+  });
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") hideResults();
+  });
+  document.addEventListener("click", function (event) {
+    if (!form.contains(event.target)) hideResults();
+  });
+  // 搜索结果页不存在（spec Q9 无独立页面），表单提交只做刷新——阻止
+  form.addEventListener("submit", function (event) { event.preventDefault(); });
+}
+
 window.addEventListener("DOMContentLoaded", openAnchorTarget);
 window.addEventListener("hashchange", openAnchorTarget);
+window.addEventListener("DOMContentLoaded", initSearch);

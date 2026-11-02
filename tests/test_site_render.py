@@ -33,13 +33,16 @@ SITE_DIR = REPO_ROOT / "site"
 TEMPLATES_DIR = SITE_DIR / "templates"
 
 #: HTML technical attribute values / doctype tokens that are not UI copy
-#: (machine-facing vocabulary, never shown as prose).
+#: (machine-facing vocabulary, never shown as prose). ``off`` is the
+#: ``autocomplete`` enum value (M3-T6's search box), like ``search`` is
+#: the ``type`` enum.
 _TECHNICAL_LITERALS = frozenset(
     {
         "utf-8",
         "width=device-width, initial-scale=1",
         "search",
         "stylesheet",
+        "off",
     }
 )
 
