@@ -116,6 +116,17 @@ command -v git >/dev/null 2>&1 || fail "git not found"
 
 skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
+# Dirty tree = no verdict, so fail up front instead of warning after the
+# runs: the notag state (below) clones HEAD, so uncommitted test/pin
+# changes never reach it — and the stale HEAD can pair with the
+# still-uncommitted old pin into a FALSE "matrix OK" (observed live
+# 2026-11-02, PR #50 gate MAJOR: the notag run echoed the pre-change pin,
+# and the invalid "unchanged" conclusion reached the PR body until the
+# gate reviewer's clean-tree run exited 1). --pins (pre-commit + CI)
+# exits above and never reaches this block.
+[ -z "$(git status --porcelain)" ] ||
+    fail "dirty working tree — the notag state clones HEAD, so uncommitted test/pin changes are not reflected in it (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run."
+
 echo "Running the three suite states (each against the pins in $CI_FILE):"
 
 # --- state 1: local (vault if present) — pinned to ci.yml's reference ---
@@ -155,11 +166,6 @@ matches_declared "$NOVAULT_SUMMARY" || {
 }
 
 # --- state 3: no tag (shallow clone of this HEAD) ------------------------
-if [ -n "$(git status --porcelain)" ]; then
-    note "WARNING: dirty working tree — the notag state clones HEAD, so"
-    note "uncommitted test/pin changes are NOT reflected in it. Commit first,"
-    note "then re-run for a verdict on the pushed state."
-fi
 TMP_CLONE="$(mktemp -d)"
 trap 'rm -rf "$TMP_CLONE"' EXIT
 git clone --depth 1 --no-tags --quiet "file://$REPO_ROOT" "$TMP_CLONE"
