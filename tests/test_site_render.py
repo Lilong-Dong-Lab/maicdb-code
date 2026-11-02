@@ -26,9 +26,8 @@ of the citation strings per ADR-0003.
 
 import re
 from html.parser import HTMLParser
-from pathlib import Path
 
-from tests.test_site_build import REPO_ROOT, requires_db, run_build
+from tests.test_site_build import REPO_ROOT
 
 SITE_DIR = REPO_ROOT / "site"
 TEMPLATES_DIR = SITE_DIR / "templates"

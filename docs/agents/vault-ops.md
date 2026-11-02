@@ -18,7 +18,16 @@ re-clone attempt was abandoned at 55 MB when the existing checkout was found).
 ## Digest PR recipe (workflow step 3's "small vault docs PR")
 
 Never commit on the user's checkout. Use a throwaway **worktree** off local
-`main` (kept fast-forwarded via `git fetch . origin/main:main` when needed):
+`main`. Fast-forward main with BOTH steps — `git fetch . origin/main:main`
+alone only catches up to the local `origin/main` tracking ref, which itself
+stays stale until fetched from the remote (the 2026-11-02 M3-T5 digest round
+built a worktree three digest PRs behind on exactly this, then paid a
+rebuild + branch-name collision to recover):
+
+```bash
+git -C ~/Project_DataBase_MAICDB fetch origin --prune
+git -C ~/Project_DataBase_MAICDB fetch . origin/main:main
+```
 
 ```bash
 git -C ~/Project_DataBase_MAICDB worktree add -b docs/reviewdigest-maicdb-<topic> /tmp/vault-wt-<topic> main

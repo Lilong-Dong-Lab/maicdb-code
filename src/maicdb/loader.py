@@ -29,7 +29,6 @@ from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from maicdb.accessions import AccessionGenerator, AccessionPrefix
@@ -55,7 +54,6 @@ from maicdb.models import (
     Structure,
     UnmappedMeasurement,
     Variant,
-    Base,
 )
 from maicdb.database import make_engine, create_all
 
@@ -70,7 +68,7 @@ SCHEMA_VERSION = "0.2.0"
 LAYERS = ["piezo1", "piezo2", "trpv4", "asic", "mscs", "mscl", "osca",
           "tmc", "tresk", "traak", "trek-1", "trek-2"]
 
-LAYER_TO_CONFIG = {l: l.replace("-", "") for l in LAYERS}
+LAYER_TO_CONFIG = {layer: layer.replace("-", "") for layer in LAYERS}
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -640,7 +638,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                     experiment_label=_experiment_label(r),
                     source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
                     publication_id=pubs[r["doi"]].id, created_at=FREEZE_EPOCH)
-                common(r, bx); mimic(r, bx)
+                common(r, bx)
+                mimic(r, bx)
                 _route_biophysics(r, bx)
                 s.add(bx)
             elif table == "bioactivity":
@@ -690,7 +689,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         experiment_label=_experiment_label(r),
                         source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
                         publication_id=pubs[r["doi"]].id, created_at=FREEZE_EPOCH)
-                    common(r, bx); mimic(r, bx)
+                    common(r, bx)
+                    mimic(r, bx)
                     _route_gap_migration(r, bx)
                     s.add(bx)
                 else:

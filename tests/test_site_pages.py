@@ -23,7 +23,6 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
-import pytest
 
 from tests.test_site_build import REPO_ROOT, requires_db, run_build
 
