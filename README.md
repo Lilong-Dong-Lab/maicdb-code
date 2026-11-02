@@ -395,8 +395,8 @@ Code and data are licensed separately (decision record:
 
 The first published database: schema v0.2 loaded from the vault's frozen
 `data-v1.0` corpus (1100 curated measurement rows across 12 mechanically
-activated ion channel families, 205+6 publications, full per-row evidence
-chain, CC-BY-4.0). Artifacts in [`db/`](db/) — `maicdb.sqlite`,
+activated ion channels in 7 families, 205+6 publications, full per-row
+evidence chain, CC-BY-4.0). Artifacts in [`db/`](db/) — `maicdb.sqlite`,
 byte-stable `maicdb.sql`, `load-manifest.json`. Regeneration, provenance and
 every mapping decision: [`db/README.md`](db/README.md) and
 [`docs/loader-mapping.md`](docs/loader-mapping.md).
