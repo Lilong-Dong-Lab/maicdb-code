@@ -44,7 +44,11 @@ install -e .` alone is NOT reliable — the flag comes back.)
 2. Changes → `uv run pytest tests/ -q` green → commit → push → `gh pr create`.
    If the issue carries a trigger/deferral clause ("do NOT do before…"),
    the PR body states the adjudication: who overrode it, and why the change
-   is safe to land anyway.
+   is safe to land anyway. When a ticket cites such a source issue, the
+   clause's wording goes into the ticket verbatim; an implementer picking
+   up a ticket reads the source issue before scoping the work (a ticket
+   paraphrase silently widened #12's scope, caught only at implementation
+   time, 2026-11-02).
 3. **Independent review gate (mandatory before every merge)**: spawn a FRESH
    independent reviewer agent (no implementer context) with the PR diff, the
    reproduction commands, the repo's `CODING_STANDARDS.md` (reviewer rules),
@@ -93,3 +97,7 @@ Default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, 
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
+
+### Vault operations
+
+Where the vault checkout lives on this machine, the worktree recipe for digest PRs (merge order: digest first), and the cross-repo shell discipline (`git -C`, no `;` across repo boundaries). See `docs/agents/vault-ops.md` before touching the vault from maicdb-code work.

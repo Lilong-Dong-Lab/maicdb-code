@@ -2,7 +2,7 @@
 
 Read by the independent review gate on every PR. Only judgement calls live
 here — anything a deterministic check can enforce belongs in a script, test,
-or CI job instead (born 2026-10-25, retro on PRs #21/#22; both rules below
+or CI job instead (born 2026-10-25, retro on PRs #21/#22; the rules below
 are fixes for mistakes the gates actually caught).
 
 ## 1. Doc pins anchor to structure
@@ -44,3 +44,24 @@ and fails on any pasted line that matches neither. Only the PR's own
 stats verify: a historical or sub-range stat line matches no re-derivation
 and fails the step, so don't paste those. The reviewer drill therefore
 targets every other claim shape; paste stat lines unwrapped.
+
+## 3. Docstring/PR-body behavioral claims point into the implementation
+
+Every behavioral claim a diff ships — a module docstring's output list, a
+source citation ("taken from X, which is written in Y"), a CLI default, a
+cross-file consistency statement ("matches spec §6") — is individually
+pointable in the implementation of that same diff. Write the docstring
+from the code, not from the plan.
+
+*Failure prevented:* five gate findings across two PRs were all this
+class, none caught by rules 1–2 — PR #34: EN wording residue the CN twin
+had fixed, a column name standing in for a registry name, a false claim
+about the data-notes language; PR #46: a build docstring listing files
+the build never writes. A T3 consumer reading any of those claims as a
+contract builds on fiction.
+
+*Reviewer drill:* for each new/changed docstring or PR-body claim about
+behavior, point at the line that makes it true — the output list entry at
+its `_dump`/write site, the citation at the cited source itself, the
+default at the `add_argument`. An unpointable claim, or a claim the twin
+surface (EN/CN, docstring/spec) contradicts, is a finding.
