@@ -704,6 +704,112 @@ def test_cli_provenance(capsys):
     assert "n: (not recorded)" in out_n
 
 
+def test_bioactivity_card_pins(engine):
+    """``bioactivity_card`` — compound↔channel rows with the full evidence
+    chain, for the M3-T4 card page's bioactivity block (spec §3 Q11).
+
+    Pinned against the artifact (data-v1.0, read-only census SQL):
+
+        SELECT c.gene_symbol, COUNT(*) FROM bioactivity b
+          JOIN channel c ON b.channel_id = c.id GROUP BY 1 ORDER BY 2 DESC;
+        → TRPV4 37, TRESK 34, ASIC 24, TMC 19, PIEZO1 14, TREK-1 4,
+          OSCA 2, MscS 1, TRAAK 1 (9 genes; PIEZO2/MscL/TREK-2 absent).
+
+    Exemplar row (``SELECT * FROM bioactivity WHERE maicdb_id='MAIC:BA:00001'``
+    + compound join): ASIC-00025, Hi1a IC50 0.4 nM, relation '=', confidence
+    'high', n '8'. Columns all-NULL this release (census 136/136) stay out
+    of the payload: pchembl, assay_format, cell_line, target_species,
+    target_chembl_id.
+    """
+    from maicdb.query import bioactivity_card
+
+    asic = bioactivity_card(engine, "ASIC")
+    assert asic["gene"] == "ASIC"
+    assert asic["n_rows"] == 24
+    assert "frozen_layer_disclosure" not in asic
+
+    row = next(r for r in asic["rows"] if r["maicdb_id"] == "MAIC:BA:00001")
+    assert row["measurement_id"] == "ASIC-00025"
+    assert row["compound_name"] == (
+        "Hi1a (recombinant double-knot spider-venom peptide, Hadronyche infensa)"
+    )
+    assert row["activity_type"] == "IC50"
+    assert row["activity_value"] == 0.4
+    assert row["activity_units"] == "nM"
+    assert row["relation"] == "="
+    assert row["source_db"] == "LITERATURE"
+    assert row["assay_description"].startswith("Hi1a inhibition of homomeric rASIC1a")
+    assert row["evidence_quote"].startswith("Fitting a Hill equation")
+    assert row["evidence_location"] == 'Results, "Discovery of Hi1a" + Fig. 1D legend'
+    assert row["confidence"] == "high"
+    assert row["extractor_note"].startswith("stimulus_type as-printed")
+    assert row["condition_key"] == "ic50_hi1a_rASIC1a_homomer_oocyte_tevc_ph6.0"
+    assert row["n"] == "8"
+    # every row carries the whole chain (census: 0/136 NULL on quote and ids)
+    assert all(r["measurement_id"] and r["evidence_quote"] for r in asic["rows"])
+
+    # frozen channel: the §6.7 disclosure follows the evidence itself
+    piezo1 = bioactivity_card(engine, "PIEZO1")
+    assert piezo1["n_rows"] == 14
+    assert piezo1["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+
+    # zero-row gene: reported, not hidden — n_rows 0, empty rows
+    mscl = bioactivity_card(engine, "MscL")
+    assert mscl == {"gene": "MscL", "n_rows": 0, "rows": []}
+
+
+def test_bioactivity_card_null_measurement_id_orders_stably():
+    """Schema-valid NULL states data-v1.0 doesn't exercise (in-memory
+    artifact): a NULL ``measurement_id`` bioactivity row still renders
+    (defensive completeness, issue #12's caliber) and the row order stays
+    byte-stable — ``(measurement_id, maicdb_id)`` with the NOT NULL unique
+    ``maicdb_id`` as tie-break, NULLs first (SQLite total order), the same
+    ordering contract as ``channel_card``."""
+    from maicdb.enums import Family
+    from maicdb.models import Bioactivity, Compound
+    from maicdb.query import bioactivity_card
+
+    eng = sa.create_engine("sqlite://")
+    Base.metadata.create_all(eng)
+    with Session(eng) as sess:
+        ch = Channel(
+            maicdb_id="MAIC:CH:TST10",
+            gene_symbol="PIEZO1",
+            organism="Homo sapiens",
+            family=Family.PIEZO,
+        )
+        cp = Compound(maicdb_id="MAIC:CP:TST01", name="Test compound")
+        sess.add_all((ch, cp))
+        sess.flush()
+        sess.add_all(
+            [
+                Bioactivity(
+                    maicdb_id="MAIC:BA:TST02",
+                    compound_id=cp.id,
+                    channel_id=ch.id,
+                    measurement_id="PIEZO1-EX-00099",
+                    evidence_quote="B quote",
+                ),
+                Bioactivity(
+                    maicdb_id="MAIC:BA:TST01",
+                    compound_id=cp.id,
+                    channel_id=ch.id,
+                    measurement_id=None,
+                    evidence_quote="A quote (unattributed)",
+                ),
+            ]
+        )
+        sess.commit()
+
+    card = bioactivity_card(eng, "PIEZO1")
+    assert card["n_rows"] == 2
+    # NULL id first (SQLite NULLS-first on ASC), then the named id
+    assert [r["measurement_id"] for r in card["rows"]] == [None, "PIEZO1-EX-00099"]
+    assert card["rows"][0]["evidence_quote"] == "A quote (unattributed)"
+    assert card["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
+    eng.dispose()
+
+
 def test_db_artifact_untouched_by_whole_suite():
     """HANDOFF §3 rule 1: the shipped artifact is never mutated — the DB
     file hash is unchanged by the entire query test suite."""

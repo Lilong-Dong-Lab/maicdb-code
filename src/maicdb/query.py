@@ -46,7 +46,13 @@ from urllib.parse import quote
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Connection, Engine
 
-from maicdb.models import BiophysicsExperiment, Bioactivity, Channel, UnmappedMeasurement
+from maicdb.models import (
+    BiophysicsExperiment,
+    Bioactivity,
+    Channel,
+    Compound,
+    UnmappedMeasurement,
+)
 
 __all__ = [
     "open_readonly",
@@ -55,11 +61,13 @@ __all__ = [
     "FROZEN_GENE_SYMBOLS",
     "FROZEN_LAYER_DISCLOSURE",
     "SIGN_CONVENTION_NOTE",
+    "THRESHOLD_PARAMETERS",
     "RATIO_MEDIAN_NOTE",
     "UnknownGeneError",
     "AmbiguousGeneError",
     "UnknownParameterError",
     "channel_card",
+    "bioactivity_card",
     "parameter_comparison",
     "provenance",
     "export",
@@ -313,6 +321,67 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
     return card
 
 
+def bioactivity_card(engine: Engine, gene: str) -> dict:
+    """Compound↔channel measurement rows for *gene* — the card page's
+    bioactivity block (spec §3 Q11).
+
+    Rows carry the compound name, the measured activity
+    (``activity_type``/``activity_value``/``activity_units``/``relation``),
+    the verbatim ``assay_description``, and the full evidence chain
+    (:data:`_EVIDENCE_COLUMNS`) — the same per-row contract as
+    :func:`channel_card`, so a page renders both block kinds with one
+    expansion pattern. Ordering matches it too: ``(measurement_id,
+    maicdb_id)`` with the NOT NULL unique ``maicdb_id`` as tie-break.
+
+    A zero-row gene reports ``{"n_rows": 0, "rows": []}`` — the CALLER
+    decides visibility (spec Q11 shows the bioactivity block only where
+    data exists; the 16 parameter blocks, by contrast, are never hidden).
+    A frozen-layer gene's bioactivity rows are PIEZO rows: the §6.7
+    boilerplate rides the payload (rule 3 — the wording follows the
+    evidence itself, the same policy as :func:`provenance`).
+
+    Name-stored vocabularies render by their stored member NAME
+    (``activity_type`` ``"KD"``, ``source_db`` ``"LITERATURE"``) — the
+    DB-stored form, the rule :func:`_gene_identity` applies to ``family``.
+    Columns all-NULL in data-v1.0 (``pchembl``, ``assay_format``,
+    ``cell_line``, ``target_species``, ``target_chembl_id`` — census
+    136/136) stay out of the payload: they owe the page nothing until
+    data exists.
+    """
+    with engine.connect() as conn:
+        # Unknown/ambiguous gene → the same clean errors as channel_card
+        # (an empty bioactivity card must not mask a typo'd gene symbol).
+        _gene_identity(conn, gene)
+        rows = [
+            dict(r)
+            for r in conn.execute(
+                select(
+                    Bioactivity.maicdb_id,
+                    Bioactivity.measurement_id,
+                    Compound.name.label("compound_name"),
+                    Bioactivity.activity_type,
+                    Bioactivity.activity_value,
+                    Bioactivity.activity_units,
+                    Bioactivity.relation,
+                    Bioactivity.source_db,
+                    Bioactivity.assay_description,
+                    *(getattr(Bioactivity, c) for c in _EVIDENCE_COLUMNS),
+                )
+                .join(Channel, Bioactivity.channel_id == Channel.id)
+                .join(Compound, Bioactivity.compound_id == Compound.id)
+                .where(Channel.gene_symbol == gene)
+                .order_by(Bioactivity.measurement_id, Bioactivity.maicdb_id)
+            ).mappings()
+        ]
+        for r in rows:
+            r["activity_type"] = _enum_name(r["activity_type"])
+            r["source_db"] = _enum_name(r["source_db"])
+    card: dict = {"gene": gene, "n_rows": len(rows), "rows": rows}
+    if gene in FROZEN_GENE_SYMBOLS:
+        card["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
+    return card
+
+
 def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
     """Gene × parameter aggregate table: count/min/median/max **per stored
     unit**, every channel row included (zero-count genes reported, not
@@ -516,9 +585,11 @@ _EXPORT_COLUMNS = (
     "note",
 )
 
-#: Parameters whose sign convention is disclosed alongside aggregates
-#: (vault data notes §6.1 — thresholds keep as-recorded signs).
-_THRESHOLD_PARAMETERS = frozenset({"p50", "t50", "x50", "delta_p50"})
+#: Parameters whose sign convention is disclosed alongside the values
+#: (vault data notes §6.1 — thresholds keep as-recorded signs). Public:
+#: the site card page (M3-T4) renders the same note on the same set as the
+#: CLI, and must not re-derive the membership by hand.
+THRESHOLD_PARAMETERS = frozenset({"p50", "t50", "x50", "delta_p50"})
 
 
 def export(
@@ -573,7 +644,7 @@ def export(
 
     if format == "json":
         doc: dict = {"parameter": parameter, "rows": rows}
-        if parameter in _THRESHOLD_PARAMETERS:
+        if parameter in THRESHOLD_PARAMETERS:
             doc["sign_convention"] = SIGN_CONVENTION_NOTE
         if _touches_frozen(rows):
             doc["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
@@ -593,7 +664,7 @@ def _disclose_to_stderr(rows: list[dict], parameter: str) -> None:
     """CSV companion for the wording rule: the boilerplate must accompany
     piezo numbers, but stdout must remain pure data (rule 6). Threshold
     parameters also disclose the sign convention (§6.1)."""
-    if parameter in _THRESHOLD_PARAMETERS:
+    if parameter in THRESHOLD_PARAMETERS:
         print(f"sign convention: {SIGN_CONVENTION_NOTE}", file=sys.stderr)
     if _touches_frozen(rows):
         print(FROZEN_LAYER_DISCLOSURE, file=sys.stderr)
@@ -636,7 +707,7 @@ def _render_card(card: dict) -> str:
             f"{name} — {block['label']} ({block['n_rows']} row"
             f"{'s' if block['n_rows'] != 1 else ''}){suffix}"
         )
-        if name in _THRESHOLD_PARAMETERS:
+        if name in THRESHOLD_PARAMETERS:
             lines.append(f"    sign convention: {SIGN_CONVENTION_NOTE}")
         for r in block["rows"]:
             as_reported = ""
