@@ -206,29 +206,13 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
 
 
 # --------------------------------------------------------------------------- #
-# render_site() — fixture-driven (no DB); the seam T4–T7 keep consuming
+# render_site() — fixture-driven (no DB); the seam T4–T7 keep consuming.
+# Since T4 the fixture data layer is the synthetic index + card payloads
+# defined in test_site_pages.py (render_site reads channel JSONs).
 # --------------------------------------------------------------------------- #
-FIXTURE_INDEX = {
-    # Synthetic values — NOT real-data provenance. The four totals happen
-    # to mirror the artifact census (SQL in this file's docstring) so the
-    # assertions read like the real page; the per-channel counts below
-    # are deliberately arbitrary.
-    "totals": {
-        "n_measurements": 1100,
-        "n_channels": 12,
-        "n_families": 7,
-        "n_publications": 211,
-    },
-    "families": [
-        {
-            "family": "PIEZO",
-            "channels": [
-                {"slug": "piezo1", "n_parameterized_rows": 9},
-                {"slug": "piezo2", "n_parameterized_rows": 8},
-            ],
-        }
-    ],
-}
+from tests.test_site_pages import SYNTH_CARDS, SYNTH_INDEX  # noqa: E402
+
+FIXTURE_INDEX = SYNTH_INDEX
 
 
 def load_build_module():
@@ -248,10 +232,14 @@ def load_build_module():
 def render_fixture(tmp_path: Path) -> Path:
     """Materialize the fixture data layer and render both locale trees."""
     data_dir = tmp_path / "_data"
-    data_dir.mkdir(parents=True)
+    (data_dir / "channels").mkdir(parents=True)
     (data_dir / "index.json").write_text(
         json.dumps(FIXTURE_INDEX), encoding="utf-8"
     )
+    for slug, card in SYNTH_CARDS.items():
+        (data_dir / "channels" / f"{slug}.json").write_text(
+            json.dumps(card), encoding="utf-8"
+        )
     out_dir = tmp_path / "_site"
     load_build_module().render_site(
         data_dir=data_dir,
@@ -279,8 +267,8 @@ def test_render_home_both_locales_from_fixture(tmp_path):
     assert ">1100<" in en and ">12<" in en and ">7<" in en and ">211<" in en
     assert "条策划测量" in zh
     # family entry links point at the browse-page anchors (data, not copy)
-    assert "href=\"./channels/#PIEZO\"" in en
-    assert "(2)" in en  # the fixture's PIEZO family holds two channels
+    assert "href=\"./channels/#TESTFAM\"" in en
+    assert "(2)" in en  # the fixture's TESTFAM family holds two channels
     # search box present with the localized placeholder (T6 wires it)
     assert "placeholder=\"Search channels, families, parameters…\"" in en
     # footer identifiers come from CITATION.cff and README Releases
