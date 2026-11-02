@@ -19,8 +19,6 @@ library builds the data, pages never reimplement it.
 
 ## 2. Non-goals (v1)
 
-- Bilingual site (EN only; README_CN keeps covering CN readers; a CN build
-  is a possible follow-up ticket, non-blocking).
 - Custom domain (Pages project site
   `https://lilong-dong-lab.github.io/maicdb-code/` with relative-path
   assets; custom domain is a possible follow-up ticket).
@@ -35,7 +33,7 @@ library builds the data, pages never reimplement it.
 |---|---|
 | Q1 | Python + Jinja2 build → static HTML; vanilla JS, no framework, no Node toolchain. Site code lives in this repo, `site/`. Sole new Python dep: Jinja2 (build-time; justified in the first site PR). |
 | Q2 | Data split: one JSON per channel (12) + one aggregate index; hierarchy family(7) → channel(12) → measurement(1100). |
-| Q3 | EN-only at launch. |
+| Q3 | **Bilingual deliverable** (revised 2026-11-02: M3 ships EN + ZH). Architecture is i18n-ready from day one: UI strings only ever in locale dictionaries (`strings.en.json` / `strings.zh.json`), Chinese pages under the `/zh/` prefix (EN unprefixed), the build loops over locales, every page carries a language switcher. Short UI strings are translated inside each page ticket; curated-content translation (channel summaries, parameter labels, frozen-layer wording) is one dedicated ticket. Evidence quotes are **never** translated (verbatim principle); Chinese extractor notes display as-recorded in both locales. |
 | Q4 | Issue #12 is NOT a blocker: the v1.0.0 artifact has **zero** NULL `measurement_id` rows (census pinned by PR #29) and card rows already carry `measurement_id`. Fix opportunistically inside the data-layer ticket. |
 | Q5 | Issue #13: render as-recorded unit buckets with explicit UI disclosure ("buckets split by unit"); normalization is the parallel human line, lands with a future data release. |
 | Q6 | GitHub Pages project site; all assets relative paths. |
@@ -79,6 +77,9 @@ library builds the data, pages never reimplement it.
                           unit buckets disclosed
 /downloads/               data artifact files, Zenodo DOIs, CITATION.cff,
                           unmapped disclosure
+/zh/…                     Chinese edition of every page
+                          (/zh/channels/piezo1/ etc.); language switcher
+                          links each page to its counterpart
 ```
 
 ### Channel card (the core page)
@@ -109,7 +110,14 @@ results link to card / parameter pages.
   existing DB-hash guard to cover the build).
 - Outputs: `site/_data/index.json` (family→channel→parameter counts),
   `site/_data/channels/<slug>.json` (one per channel, card payload),
-  `site/_data/search-index.json`, plus rendered HTML.
+  `site/_data/search-index.json`, plus rendered HTML **per locale**
+  (`_site/` for EN, `_site/zh/` for ZH).
+- **Translations are a presentation layer, never a data change**: the
+  data artifact is untouched. Curated Chinese text (channel summaries,
+  parameter labels, frozen-layer wording) lives in a site-side
+  `zh-content.json`; the Chinese §6.7 frozen-layer wording is taken
+  from the vault data-notes source (which is written in Chinese), not
+  back-translated from the English boilerplate.
 - Byte-stable contract: same DB + same code → byte-identical outputs
   (no timestamps); pytest asserts it, mirroring the loader/`export`
   contracts. Suite pins re-derived via `scripts/check-suite-matrix.sh`
@@ -123,26 +131,35 @@ results link to card / parameter pages.
 - `tests/test_site_build.py` (name indicative): build twice → identical
   bytes; per-page smoke assertions (12 card pages exist, PIEZO cards
   carry the frozen banner, unit buckets disclosed on comparison pages,
-  anchor ids = measurement_ids); fixture values cite data-notes /
-  census SQL per the repo's provenance rule for real-data claims.
+  anchor ids = measurement_ids); bilingual assertions (both locale
+  trees built, every EN page has a `/zh/` counterpart and a switcher
+  link); fixture values cite data-notes / census SQL per the repo's
+  provenance rule for real-data claims.
 - Existing suite stays green; CI pins updated once, in the CI ticket.
 
 ## 8. Ticket graph (GitHub Issues; agent-ready unless marked human)
 
 ```
-T2 data layer (build script + JSON outputs + #12 fix)
-T3 site skeleton (templates, layout, home, assets, build entry)
+T2 data layer (build script + JSON outputs + #12 fix + locale loop)
+T3 site skeleton (templates, layout, home, assets, build entry,
+                  locale dictionaries + language switcher)
         ├─ T4 browse + channel card pages      (blocked by T2, T3)
         ├─ T5 parameter comparison pages       (blocked by T2, T3)
         ├─ T6 downloads page + global search   (blocked by T2, T3)
         └─ T7 CI build pipeline (deploy job disabled pre-flip)
                                              (blocked by T2, T3)
+T-LOC curated Chinese content (summaries, parameter labels, §6.7
+    wording from data-notes source; UI strings already per-ticket)
+                                             (blocked by T4, T5, T6)
 T8 PUBLIC FLIP — runbook §1–§5  [HUMAN, ready-for-human]
-T9 deploy to Pages + public acceptance    (blocked by T7, T8)
+T9 deploy to Pages + public acceptance, BOTH locales
+                                            (blocked by T7, T8, T-LOC)
 ```
 
 Each page ticket (T4–T6) follows the repo discipline: branch → suite
 green → PR → fresh independent reviewer → vault digest → merge. The flip
 (T8) executes `docs/m3-flip-runbook.md` verbatim; T9 re-runs §1's scan,
-enables the deploy job, and performs the §3.4 post-flip spot-checks.
-M3 is complete when T9's public acceptance passes.
+enables the deploy job, and performs the §3.4 post-flip spot-checks in
+both locales. M3 is complete when T9's public acceptance passes on the
+EN and ZH trees. Scope note: the bilingual deliverable puts M3 at the
+upper end of the roadmap's 2–3 rounds (≈3).
