@@ -5,12 +5,16 @@ outputs (``sort_keys`` + ``indent=2`` JSON, no timestamps), mirroring
 the loader/export byte-stability rules. The artifact is opened read-only
 and never touched (a DB-hash guard covers the whole suite).
 
-Outputs (spec §6):
+Build outputs, under ``<out>/_data/`` (spec §6; default ``--out site``
+puts data at ``site/_data/`` — rendered HTML later joins at
+``site/_site/`` and ``site/_site/zh/``, which is T3):
 - ``_data/index.json``            family(7) → channel(12) → parameter counts
 - ``_data/channels/<slug>.json``  one card payload per channel (×12)
 - ``_data/search-index.json``     flat search index (spec Q9)
-- ``_data/strings.{en,zh}.json``  UI copy dictionaries (locale loop
-                                  skeleton — rendering is T3+)
+
+NOT build outputs: ``site/strings.{en,zh}.json`` are repo source files
+(UI copy dictionaries, parity-tested in tests/test_site_build.py) that
+T3's renderer consumes — the data layer here is locale-neutral.
 """
 
 import argparse
@@ -22,11 +26,6 @@ from sqlalchemy import select
 
 from maicdb.models import Channel
 from maicdb.query import PARAMETERS, channel_card, open_readonly
-
-#: UI-copy locales (spec Q3: bilingual deliverable; EN unprefixed, ZH
-#: under /zh/). The data layer itself is locale-neutral — this tuple
-#: exists so the build entry already loops the way T3's renderer will.
-LOCALES = ("en", "zh")
 
 
 def slugify(gene_symbol: str) -> str:
@@ -133,7 +132,7 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default="db/maicdb.sqlite")
-    parser.add_argument("--out", default="site/_site")
+    parser.add_argument("--out", default="site")
     args = parser.parse_args(argv)
     build(Path(args.db), Path(args.out))
     return 0

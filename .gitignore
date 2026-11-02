@@ -83,3 +83,6 @@ skills-lock.json
 # Agent scratch space (session experiments, captured values) — machine-local;
 # the vault repo already ignores its own
 .scratch/
+
+# Site build outputs (site/build.py default; generated, never committed)
+site/_data/

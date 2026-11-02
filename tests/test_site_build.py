@@ -1,10 +1,26 @@
 """Site data-layer build tests (M3-T2, issue #37).
 
 Real-data provenance: every pinned value below comes from the published
-artifact (data-v1.0, vault head 5a8ff0e) via the census SQL documented in
-``docs/m3-website-spec.md`` §4 — independently re-derived read-only by the
-spec gate review (vault digest
+artifact (data-v1.0, vault head 5a8ff0e) via read-only census SQL,
+re-derived independently by the spec gate review (vault digest
 ``report/ReviewDigest_maicdb-code-m3-website-spec_2026-11-02_agent.md``).
+The qualitative-row caliber, verbatim (issue #37's found caliber —
+spec §4 records the results):
+
+    SELECT c.gene_symbol, e.measurement_id, e.value_as_reported
+      FROM biophysics_experiment e JOIN channel c ON e.channel_id = c.id
+     WHERE e.p50_value IS NULL AND e.t50_value IS NULL
+       AND e.x50_value IS NULL AND e.slope IS NULL
+       AND e.tau_act_ms IS NULL AND e.tau_inact_ms IS NULL
+       AND e.tau_deact_ms IS NULL AND e.conductance_ps IS NULL
+       AND e.reversal_potential_mv IS NULL AND e.delta_p50_value IS NULL
+       AND e.ion_selectivity_ratio IS NULL AND e.ca_permeability IS NULL
+       AND e.threshold_fold_shift_value IS NULL
+       AND e.macroscopic_rise_time_ms IS NULL
+       AND e.thermal_threshold_c IS NULL
+       AND e.osmotic_threshold_value IS NULL
+    → 12 rows (1×PIEZO2, 1×ASIC, 1×TREK-1, 3×TREK-2, 6×TRPV4); hence
+      948 table rows − 12 = 936 parameterized rows.
 """
 
 import hashlib
