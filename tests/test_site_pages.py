@@ -562,9 +562,16 @@ _AFFIRMATIVE_STATUSES = {
     "verification: verified",
     "status: verified",
     "verified: true",
+    # 中文对应（T-LOC）——EN 5 形式逐一 port（rule 4 translation rule：
+    # 原向量集是契约，一个不落）：已核验/已验证=verified，
+    # 核验：已核验=verification: verified，状态：已验证=status: verified，
+    # 已再核验=re-verified，已核验：真=verified: true
     "已核验",
     "已验证",
     "核验：已核验",
+    "状态：已验证",
+    "已再核验",
+    "已核验：真",
 }
 
 
@@ -625,10 +632,15 @@ def test_status_scanner_rejects_affirmative_forms():
     # bare status — the same exact-match boundary as the M1 walker
     assert not list(affirmative_status_hits("<p>Verified.</p>"))
     # Chinese status forms (T-LOC): whole-value hits in text and in any
-    # attribute; negation/punctuated prose stays outside the set
+    # attribute; negation/punctuated prose stays outside the set. Every
+    # EN form has its zh counterpart pinned (rule 4 translation rule —
+    # the gate found the first cut ported only 3 of 5).
     assert list(affirmative_status_hits("<p>已核验</p>"))
     assert list(affirmative_status_hits('<span aria-label="已验证">x</span>'))
     assert list(affirmative_status_hits("<p>核验：已核验</p>"))
+    assert list(affirmative_status_hits("<p>状态：已验证</p>"))
+    assert list(affirmative_status_hits("<p>已再核验</p>"))
+    assert list(affirmative_status_hits("<p>已核验：真</p>"))
     assert not list(affirmative_status_hits("<p>已核验。</p>"))
     assert not list(affirmative_status_hits("<p>尚未经过核验</p>"))
 
