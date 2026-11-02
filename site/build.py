@@ -9,12 +9,19 @@ the whole suite).
 
 Build outputs (spec §6; default ``--out site``):
 - ``site/_data/index.json``            family(7) → channel(12) → counts
-                                        + home-scale ``totals``
+                                        + home-scale ``totals`` + the
+                                        parameter index (16, M3-T5)
 - ``site/_data/channels/<slug>.json``  one card payload per channel (×12,
                                         bioactivity block where rows exist)
+- ``site/_data/parameters/<name>.json`` one comparison payload per
+                                        registered parameter (×16, M3-T5)
+                                        — the library's ``export`` JSON
+                                        written verbatim
 - ``site/_data/search-index.json``     flat search index (spec Q9)
 - ``site/_site/``                      rendered pages, EN (unprefixed):
-                                        home, browse, 12 channel cards
+                                        home, browse, 12 channel cards,
+                                        parameter index + 16 comparison
+                                        pages (M3-T5)
 - ``site/_site/zh/``                   the ZH edition of every page
 
 The render loop consumes the data layer's JSON (a page never queries the
@@ -46,6 +53,7 @@ from maicdb.query import (
     THRESHOLD_PARAMETERS,
     bioactivity_card,
     channel_card,
+    export,
     open_readonly,
 )
 
@@ -123,16 +131,27 @@ def _alt_href(page_dir: str, locale: str) -> str:
 def _site_pages(index: dict, data_dir: Path) -> list[tuple[str, str, dict]]:
     """The page list: (template, tree-relative directory, extra context).
 
-    Singleton pages first (home, browse), then one card page per channel
-    in index order (family → gene_symbol — the data layer's deterministic
-    order). The card context carries the channel's index entry (browse
-    counts for the qualitative rider) and the threshold-parameter names,
-    so the template never re-derives that set from the CLI's rule.
+    Singleton pages first (home, browse, parameter index), then one card
+    page per channel in index order (family → gene_symbol — the data
+    layer's deterministic order), then one comparison page per parameter
+    in registry order. The card context carries the channel's index entry
+    (browse counts for the qualitative rider) and the threshold-parameter
+    names, so the template never re-derives that set from the CLI's rule;
+    the comparison context carries the parameter's index entry, a
+    gene→slug map (Q10 deep links into the channel cards, derived from
+    the index — the page never queries the DB), and whether any row
+    carries the ratio-median note (disclosed once per page, not per row).
     """
     pages: list[tuple[str, str, dict]] = [
         ("home.html", "", {}),
         ("browse.html", "channels", {}),
+        ("parameters.html", "parameters", {}),
     ]
+    gene_slugs = {
+        entry["gene_symbol"]: entry["slug"]
+        for fam in index["families"]
+        for entry in fam["channels"]
+    }
     for fam in index["families"]:
         for entry in fam["channels"]:
             slug = entry["slug"]
@@ -150,18 +169,35 @@ def _site_pages(index: dict, data_dir: Path) -> list[tuple[str, str, dict]]:
                     },
                 )
             )
+    for param in index["parameters"]:
+        name = param["name"]
+        comparison = json.loads(
+            (data_dir / "parameters" / f"{name}.json").read_text(encoding="utf-8")
+        )
+        pages.append(
+            (
+                "parameter.html",
+                f"parameters/{name}",
+                {
+                    "comparison": comparison,
+                    "entry": param,
+                    "gene_slugs": gene_slugs,
+                    "has_ratio_note": any("note" in r for r in comparison["rows"]),
+                },
+            )
+        )
     return pages
 
 
 def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) -> list[Path]:
     """Render every page kind into both locale trees under *out_dir*.
 
-    Reads ``<data_dir>/index.json`` and the per-channel card JSONs (the
-    data layer — a page never queries the DB), copies ``site/assets/``
-    into each tree (relative references only), and writes
-    ``<out_dir>/[zh/]<page>/index.html``. StrictUndefined makes a missing
-    dictionary key a build error, so an untranslated string cannot ship
-    silently.
+    Reads ``<data_dir>/index.json``, the per-channel card JSONs and the
+    per-parameter comparison JSONs (the data layer — a page never
+    queries the DB), copies ``site/assets/`` into each tree (relative
+    references only), and writes ``<out_dir>/[zh/]<page>/index.html``.
+    StrictUndefined makes a missing dictionary key a build error, so an
+    untranslated string cannot ship silently.
     """
     index = json.loads((data_dir / "index.json").read_text(encoding="utf-8"))
     pages = _site_pages(index, data_dir)
@@ -194,6 +230,7 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
                     site=site,
                     totals=index["totals"],
                     families=index["families"],
+                    parameters=index["parameters"],
                     **extra,
                 )
                 + "\n",
@@ -337,8 +374,30 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
             }
         )
 
+    # Parameter comparisons (M3-T5): the library's ``export`` JSON output
+    # written VERBATIM, one file per registered parameter — the page and
+    # the CLI export cannot drift (the same bytes feed both). The index
+    # entry's ``n_rows`` sums the comparison's per-bucket counts,
+    # computed — never transcribed (HANDOFF §3 rule 4).
+    params_dir = data_dir / "parameters"
+    params_dir.mkdir(parents=True, exist_ok=True)
+    parameter_index = []
+    for name, spec in PARAMETERS.items():
+        doc = export(engine, name, format="json")
+        path = params_dir / f"{name}.json"
+        path.write_text(doc, encoding="utf-8")
+        written.append(path)
+        parameter_index.append(
+            {
+                "name": name,
+                "label": spec.label,
+                "n_rows": sum(r["count"] for r in json.loads(doc)["rows"]),
+            }
+        )
+
     index = {
         "families": [families[fam] for fam in sorted(families)],
+        "parameters": parameter_index,
         "totals": totals,
     }
     index_path = data_dir / "index.json"

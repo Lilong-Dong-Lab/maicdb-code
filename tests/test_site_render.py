@@ -34,13 +34,17 @@ SITE_DIR = REPO_ROOT / "site"
 TEMPLATES_DIR = SITE_DIR / "templates"
 
 #: HTML technical attribute values / doctype tokens that are not UI copy
-#: (machine-facing vocabulary, never shown as prose).
+#: (machine-facing vocabulary, never shown as prose). ``row``/``col`` are
+#: the ``scope`` attribute's fixed enum on table headings (M3-T5's
+#: comparison table) — a11y metadata, rendered by no browser as text.
 _TECHNICAL_LITERALS = frozenset(
     {
         "utf-8",
         "width=device-width, initial-scale=1",
         "search",
         "stylesheet",
+        "row",
+        "col",
     }
 )
 

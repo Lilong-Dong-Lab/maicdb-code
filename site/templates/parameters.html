@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.nav_parameters }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<section class="parameters-index">
+  <h1>{{ strings.parameters_heading }}</h1>
+  <p class="index-intro">{{ strings.parameters_index_intro }}</p>
+  <ul class="parameter-list">
+    {% for param in parameters %}
+    <li>
+      <a class="param-name" href="{{ root }}/parameters/{{ param.name }}/">{{ param.name }}</a>
+      <span class="param-label">{{ param.label }}</span>
+      <span class="param-rows">{{ param.n_rows }} {{ strings.param_rows_label }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

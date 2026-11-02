@@ -173,12 +173,113 @@ SYNTH_INDEX = {
             ],
         }
     ],
+    # parameter index (M3-T5): n_rows = sum of the comparison's per-bucket
+    # counts (the data layer derives it the same way, never hand-copied)
+    "parameters": [
+        {
+            "name": "p50",
+            "label": "synthetic P50 threshold",
+            "n_rows": 3,
+        },
+        {
+            "name": "ion_selectivity_ratio",
+            "label": "synthetic ion selectivity ratio",
+            "n_rows": 3,
+        },
+    ],
 }
 
 #: The synthetic cards, keyed by slug; test_site_render's home-page
 #: fixture renders the same data layer (render_site reads channel
 #: JSONs since T4 — the helpers are shared, not forked).
 SYNTH_CARDS = {"frozen1": FROZEN1_CARD, "plain2": PLAIN2_CARD}
+
+#: Synthetic parameter-comparison docs (M3-T5), mirroring the library's
+#: ``export(format="json")`` payload shape — the data layer writes that
+#: output verbatim, so the fixture must match it field for field:
+#: doc-level ``sign_convention`` (threshold params) / ``frozen_layer_
+#: disclosure`` (a comparison always lists PIEZO rows, zero-count ones
+#: included), per-row ``note`` + ``median=None`` on direction-blind
+#: ratio rows, ``unit=None`` buckets for unit-less/NULL-unit params.
+#: All values synthetic; real-data pins live in test_site_parameters.py.
+SYNTH_P50_COMPARISON = {
+    "parameter": "p50",
+    "rows": [
+        {
+            "gene": "FROZEN1",
+            "family": "TESTFAM",
+            "parameter": "p50",
+            "unit": "mmHg",
+            "count": 2,
+            "min": -30.0,
+            "median": -25.0,
+            "max": -20.0,
+            "measurement_ids": ["FROZEN1-EX-00001", "FROZEN1-EX-00004"],
+            "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
+        },
+        {
+            "gene": "FROZEN1",
+            "family": "TESTFAM",
+            "parameter": "p50",
+            "unit": "psi",
+            "count": 1,
+            "min": -1.5,
+            "median": -1.5,
+            "max": -1.5,
+            "measurement_ids": ["FROZEN1-EX-00005"],
+            "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
+        },
+        {
+            "gene": "PLAIN2",
+            "family": "TESTFAM",
+            "parameter": "p50",
+            "unit": None,
+            "count": 0,
+            "min": None,
+            "median": None,
+            "max": None,
+            "measurement_ids": [],
+        },
+    ],
+    "sign_convention": "synthetic sign-convention wording",
+    "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
+}
+
+SYNTH_RATIO_COMPARISON = {
+    "parameter": "ion_selectivity_ratio",
+    "rows": [
+        {
+            "gene": "PLAIN2",
+            "family": "TESTFAM",
+            "parameter": "ion_selectivity_ratio",
+            "unit": None,
+            "count": 3,
+            "min": 1.2,
+            "median": None,
+            "max": 40.0,
+            "measurement_ids": ["PLAIN2-EX-00001", "PLAIN2-EX-00002", "PLAIN2-EX-00003"],
+            "note": "synthetic ratio-median note",
+        },
+        {
+            "gene": "FROZEN1",
+            "family": "TESTFAM",
+            "parameter": "ion_selectivity_ratio",
+            "unit": None,
+            "count": 0,
+            "min": None,
+            "median": None,
+            "max": None,
+            "measurement_ids": [],
+            "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
+        },
+    ],
+    "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
+}
+
+SYNTH_PARAMETERS: dict[str, dict] = {
+    "p50": SYNTH_P50_COMPARISON,
+    "ion_selectivity_ratio": SYNTH_RATIO_COMPARISON,
+}
 
 
 def load_build_module():
@@ -195,16 +296,21 @@ def load_build_module():
 
 
 def render_fixture(tmp_path: Path) -> Path:
-    """Materialize the synthetic data layer (index + channel JSONs) and
-    render both locale trees."""
+    """Materialize the synthetic data layer (index + channel JSONs +
+    parameter-comparison JSONs) and render both locale trees."""
     data_dir = tmp_path / "_data"
     (data_dir / "channels").mkdir(parents=True)
+    (data_dir / "parameters").mkdir(parents=True)
     (data_dir / "index.json").write_text(
         json.dumps(SYNTH_INDEX), encoding="utf-8"
     )
     for slug, card in SYNTH_CARDS.items():
         (data_dir / "channels" / f"{slug}.json").write_text(
             json.dumps(card), encoding="utf-8"
+        )
+    for name, comparison in SYNTH_PARAMETERS.items():
+        (data_dir / "parameters" / f"{name}.json").write_text(
+            json.dumps(comparison), encoding="utf-8"
         )
     out_dir = tmp_path / "_site"
     load_build_module().render_site(
