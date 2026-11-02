@@ -29,6 +29,7 @@ NOT build outputs: ``site/strings.{en,zh}.json`` are repo source files
 import argparse
 import json
 import posixpath
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -53,8 +54,10 @@ def slugify(gene_symbol: str) -> str:
 #: append their page kinds here (browse, cards, parameters, downloads).
 _PAGES: tuple[tuple[str, str], ...] = (("home.html", ""),)
 
-#: Locale order; EN is the unprefixed tree, ZH lives under ``zh/``.
-_LOCALES = ("en", "zh")
+#: Locale layout: locale → (tree directory under the site root, its
+#: counterpart locale). EN is the unprefixed tree, ZH lives under ``zh/``;
+#: iteration order is the render order.
+_LOCALES: dict[str, tuple[str, str]] = {"en": ("", "zh"), "zh": ("zh", "en")}
 
 #: License landing pages for the footer links (stable public URLs; the
 #: license *names* themselves come from CITATION.cff with the data).
@@ -64,13 +67,22 @@ _LICENSE_URLS = {
 }
 
 
-def _site_facts(cff_path: Path) -> dict:
-    """Footer identifier block, read from CITATION.cff (ADR-0003: the
-    canonical, editable home of the citation strings — the site never
-    hardcodes license names or DOIs)."""
-    cff = yaml.safe_load(cff_path.read_text(encoding="utf-8"))
+def _site_facts(repo_root: Path) -> dict:
+    """Footer identifier block, read from the repo's canonical sources
+    (ADR-0003; the site never hardcodes license names or DOIs):
+    CITATION.cff for the license names and the dataset version DOI,
+    the README's Releases section for the concept DOI (the CFF header
+    delegates it there)."""
+    cff = yaml.safe_load((repo_root / "CITATION.cff").read_text(encoding="utf-8"))
     preferred = cff["preferred-citation"]
     doi = str(preferred["doi"])
+    readme = (repo_root / "README.md").read_text(encoding="utf-8")
+    # README Releases carries it as a markdown link on the line under the
+    # "**Concept DOI**" label; DOTALL + lazy match grabs the link text DOI.
+    concept = re.search(r"Concept DOI.*?(10\.\d{4,}/zenodo\.\d+)", readme, re.DOTALL)
+    if concept is None:
+        raise ValueError("concept DOI not found in README Releases")
+    concept_doi = concept.group(1)
     return {
         "license_code": cff["license"],
         "license_data": preferred["license"],
@@ -78,6 +90,8 @@ def _site_facts(cff_path: Path) -> dict:
         "license_data_url": _LICENSE_URLS[preferred["license"]],
         "dataset_doi": doi,
         "dataset_doi_url": f"https://doi.org/{doi}",
+        "concept_doi": concept_doi,
+        "concept_doi_url": f"https://doi.org/{concept_doi}",
         "repo_url": cff["repository-code"],
     }
 
@@ -85,7 +99,7 @@ def _site_facts(cff_path: Path) -> dict:
 def _tree_prefix(page_dir: str, locale: str) -> str:
     """POSIX path of *page_dir* inside its locale tree (``zh`` prefix for
     the ZH edition, none for EN)."""
-    return posixpath.normpath(posixpath.join("zh" if locale == "zh" else ".", page_dir))
+    return posixpath.normpath(posixpath.join(_LOCALES[locale][0] or ".", page_dir))
 
 
 def _root_prefix(page_dir: str) -> str:
@@ -98,11 +112,11 @@ def _root_prefix(page_dir: str) -> str:
 def _alt_href(page_dir: str, locale: str) -> str:
     """Language-switcher target: the same page in the other locale tree
     (relative; the template appends the trailing slash)."""
-    other = "zh" if locale == "en" else "en"
+    other = _LOCALES[locale][1]
     return posixpath.relpath(_tree_prefix(page_dir, other), _tree_prefix(page_dir, locale))
 
 
-def render_site(data_dir: Path, out_dir: Path, site_dir: Path, cff_path: Path) -> list[Path]:
+def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) -> list[Path]:
     """Render every page kind into both locale trees under *out_dir*.
 
     Reads ``<data_dir>/index.json`` (the T2 data layer — a page never
@@ -122,11 +136,11 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, cff_path: Path) -
         code: json.loads((site_dir / f"strings.{code}.json").read_text(encoding="utf-8"))
         for code in _LOCALES
     }
-    site = _site_facts(cff_path)
+    site = _site_facts(repo_root)
 
     written: list[Path] = []
-    for locale in _LOCALES:
-        tree = out_dir / (locale if locale == "zh" else "")
+    for locale, (tree_dir, alt_locale) in _LOCALES.items():
+        tree = out_dir / tree_dir
         shutil.copytree(site_dir / "assets", tree / "assets", dirs_exist_ok=True)
         for template, page_dir in _PAGES:
             page = tree / page_dir / "index.html"
@@ -135,7 +149,7 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, cff_path: Path) -
                 env.get_template(template).render(
                     strings=strings[locale],
                     lang=locale,
-                    alt_lang="zh" if locale == "en" else "en",
+                    alt_lang=alt_locale,
                     root=_root_prefix(page_dir),
                     alt=_alt_href(page_dir, locale),
                     site=site,
@@ -268,7 +282,7 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
             data_dir=data_dir,
             out_dir=out_dir / "_site",
             site_dir=Path(__file__).resolve().parent,
-            cff_path=Path(__file__).resolve().parent.parent / "CITATION.cff",
+            repo_root=Path(__file__).resolve().parent.parent,
         )
     )
     return written

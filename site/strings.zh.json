@@ -18,6 +18,7 @@
   "home_download_entry": "数据下载与引用",
   "footer_license_label": "许可：",
   "footer_dataset_label": "数据集 DOI：",
+  "footer_concept_label": "概念 DOI：",
   "footer_ai_disclosure": "大量文献挖掘、代码实现与评审准备工作由 AI 代理在人类指导下完成；每次合并均通过独立评审门。",
   "footer_ai_link": "贡献者与 AI 披露"
 }

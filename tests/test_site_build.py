@@ -26,6 +26,8 @@ spec §4 records the results):
 import hashlib
 import json
 import os
+import posixpath
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -218,9 +220,15 @@ def test_build_emits_home_totals(tmp_path):
     SQL — never a transcribed number (ticket #38: the 1100/12/7/211
     overview comes from the data layer, not the template).
 
-    Pinned to the artifact census (spec §4, census SQL in this file's
-    docstring): 1100 = 948 biophysics + 136 bioactivity + 16 unmapped;
-    211 = publication rows; 12 channels; 7 families.
+    Pinned to the artifact census (spec §4). Census SQL, re-runnable
+    read-only against db/maicdb.sqlite:
+
+        SELECT (SELECT COUNT(*) FROM biophysics_experiment)   -- 948
+             + (SELECT COUNT(*) FROM bioactivity)             -- 136
+             + (SELECT COUNT(*) FROM unmapped_measurement);   --  16  → 1100
+        SELECT COUNT(*) FROM publication;                     -- 211
+        SELECT COUNT(*) FROM channel;                         --  12
+        SELECT COUNT(DISTINCT family) FROM channel;           --   7
     """
     out = tmp_path / "out"
     run_build(out)
@@ -247,16 +255,19 @@ def test_build_renders_home_in_both_locale_trees(tmp_path):
         assert ">1100<" in html and ">12<" in html
         assert ">7<" in html and ">211<" in html
     # all 7 real family names surface as entry links (census §4)
-    for family in ("PIEZO", "TRP", "TMC", "K2P"):
+    for family in (
+        "DEG_ENaC_ASIC", "K2P", "MSCL_MSCS", "OSCA_TMEM63", "PIEZO", "TMC", "TRP",
+    ):
         assert family in en
 
 
 @requires_db
 def test_every_en_page_has_zh_counterpart_and_switcher(tmp_path):
     """Locale invariant over the WHOLE rendered tree, not just home:
-    every EN page has a ``zh/`` counterpart, and each page's switcher
-    points at its counterpart (ticket acceptance; T4–T7 pages inherit
-    this contract by construction)."""
+    every EN page has a ``zh/`` counterpart file, and each page's
+    language switcher — the ``lang-switch`` anchor itself, not any
+    relative link — resolves exactly to the counterpart page (ticket
+    acceptance; T4–T7 pages inherit this contract by construction)."""
     out = tmp_path / "out"
     run_build(out)
     site = out / "_site"
@@ -272,10 +283,19 @@ def test_every_en_page_has_zh_counterpart_and_switcher(tmp_path):
         zh_page = site / zh_rel
         assert zh_page.is_file(), f"missing ZH counterpart for {rel}"
         zh_html = zh_page.read_text(encoding="utf-8")
-        # switcher hrefs are relative and mutually inverse (zh tree sits
-        # one level under the EN tree root)
-        assert "href=\"zh/" in en_html or "href=\"../" in en_html
-        assert "href=\"../" in zh_html
+        page_dir = rel.parent.as_posix()
+
+        def switcher_target(html: str, tree_root: str) -> str:
+            match = re.search(r'class="lang-switch"[^>]*href="([^"]*)"', html)
+            assert match, f"no language switcher in {rel}"
+            return posixpath.normpath(
+                posixpath.join(tree_root, page_dir, match.group(1))
+            )
+
+        # EN switcher lands on the ZH counterpart; ZH switcher back on EN
+        zh_target = posixpath.normpath(posixpath.join("zh", page_dir))
+        assert switcher_target(en_html, ".") == zh_target
+        assert switcher_target(zh_html, "zh") == posixpath.normpath(page_dir)
 
 
 @requires_db

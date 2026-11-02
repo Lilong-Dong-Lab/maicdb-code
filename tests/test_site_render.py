@@ -33,10 +33,6 @@ from tests.test_site_build import REPO_ROOT, requires_db, run_build
 
 SITE_DIR = REPO_ROOT / "site"
 TEMPLATES_DIR = SITE_DIR / "templates"
-STRINGS = {
-    code: json.loads((REPO_ROOT / "site" / f"strings.{code}.json").read_text())
-    for code in ("en", "zh")
-}
 
 #: HTML technical attribute values / doctype tokens that are not UI copy
 #: (machine-facing vocabulary, never shown as prose).
@@ -49,10 +45,15 @@ _TECHNICAL_LITERALS = frozenset(
     }
 )
 
+#: Attributes whose values are CSS/DOM hooks, not copy: a single-token
+#: lowercase value here is a machine string, not a sentence.
+_STRUCTURAL_ATTRS = frozenset({"class", "id", "name"})
+
 #: Single-token machine strings (CSS hooks, relative asset paths, anchor
-#: ids): no spaces, no case — cannot be a human-read sentence. This is
-#: the scan's declared boundary: it targets natural-language copy that
-#: must be translated, not CSS class names.
+#: ids): no spaces, no case — cannot be a human-read sentence. Allowed
+#: ONLY in structural attributes and path-shaped attribute remainders
+#: (see test_templates_carry_no_hardcoded_ui_strings); a bare lowercase
+#: word as a TEXT node is a violation even if token-shaped.
 _MACHINE_TOKEN = re.compile(r"^[a-z0-9#./_-]+$")
 
 #: Pure punctuation separators ("·", "(", "——") carry no translatable
@@ -61,24 +62,25 @@ _PUNCT_ONLY = re.compile(r"^[\W_]+$")
 
 
 class _LiteralCollector(HTMLParser):
-    """Collect text nodes and attribute values from (Jinja-stripped) HTML."""
+    """Collect (kind, value) pairs from (Jinja-stripped) HTML: text nodes
+    as ``("text", s)`` and attribute values as ``("attr:<name>", s)``."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=False)
-        self.literals: set[str] = set()
+        self.literals: list[tuple[str, str]] = []
 
     def handle_data(self, data: str) -> None:
         if data.strip():
-            self.literals.add(data.strip())
+            self.literals.append(("text", data.strip()))
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        for _name, value in attrs:
+        for name, value in attrs:
             if value is not None and value.strip():
-                self.literals.add(value.strip())
+                self.literals.append((f"attr:{name}", value.strip()))
 
 
-def _template_literals(template: str) -> set[str]:
-    """Human-read literals in one template: strip Jinja tags, parse HTML."""
+def _template_literals(template: str) -> list[tuple[str, str]]:
+    """Literals in one template: strip Jinja tags, parse the remainder."""
     stripped = re.sub(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", "", template)
     collector = _LiteralCollector()
     collector.feed(stripped)
@@ -90,33 +92,77 @@ def test_templates_carry_no_hardcoded_ui_strings():
 
     Spec Q3 / ticket acceptance: UI strings only ever live in
     ``strings.{en,zh}.json`` — a literal inside a template is an
-    untranslated string waiting to ship. Allowed alongside dictionary
-    values: HTML technical attribute values and single-token machine
-    strings (CSS hooks, asset paths) that cannot be prose.
+    untranslated string waiting to ship. The scan strips every Jinja
+    expression and parses what remains; anything natural-language is a
+    violation (see ``_is_copy_violation`` for the exact allow rules —
+    dictionary values are NOT an allow rule, because the dictionaries
+    reach a page only through expressions; template-source text is
+    hardcoded by definition).
     """
     templates = sorted(TEMPLATES_DIR.glob("*.html"))
     assert templates, f"no templates found under {TEMPLATES_DIR}"
 
-    dictionary_values = {v for s in STRINGS.values() for v in s.values()}
     violations: dict[str, set[str]] = {}
     for path in templates:
         bad = {
-            lit
-            for lit in _template_literals(path.read_text(encoding="utf-8"))
-            if lit not in dictionary_values
-            and lit not in _TECHNICAL_LITERALS
-            and not _MACHINE_TOKEN.fullmatch(lit)
-            and not _PUNCT_ONLY.fullmatch(lit)
+            f"{kind}: {lit!r}"
+            for kind, lit in _template_literals(path.read_text(encoding="utf-8"))
+            if _is_copy_violation(kind, lit)
         }
         if bad:
             violations[path.name] = bad
     assert not violations, f"hardcoded UI strings in templates: {violations}"
 
 
+def _is_copy_violation(kind: str, lit: str) -> bool:
+    """The scan's allow/deny rule (shared with the self-test below).
+
+    The dictionaries enter a page ONLY through ``{{ strings.* }}``
+    expressions, which the scan strips — so any natural-language residue
+    left in the TEMPLATE SOURCE is a hardcoded string, even when its
+    value happens to equal a dictionary entry (a ZH render of the same
+    template would ship it untranslated). What may legitimately remain:
+    pure punctuation, technical attribute values, CSS/DOM hooks, and
+    path-shaped attribute skeletons like ``/channels/#``.
+    """
+    if _PUNCT_ONLY.fullmatch(lit):
+        return False
+    if lit in _TECHNICAL_LITERALS:
+        return False
+    if kind.removeprefix("attr:") in _STRUCTURAL_ATTRS and _MACHINE_TOKEN.fullmatch(lit):
+        return False
+    if (
+        kind.startswith("attr:")
+        and ("/" in lit or lit.startswith("#"))
+        and _MACHINE_TOKEN.fullmatch(lit)
+    ):
+        return False
+    return True
+
+
+def test_template_scan_rejects_a_bare_lowercase_text_node():
+    """Scanner self-test: a token-shaped TEXT node ("channels" — a real
+    dictionary value!) and a literal URL attribute both fail the scan —
+    the real-template pass above is therefore not vacuous. The spec's
+    boundary: template-source text is hardcoded by definition, because
+    the dictionaries reach the page only through expressions."""
+    assert _is_copy_violation("text", "channels")
+    assert _is_copy_violation("text", "Channels")  # equals nav_home — still hardcoded
+    assert _is_copy_violation("attr:href", "https://example.com/page")
+    # the legitimate residues stay allowed
+    assert not _is_copy_violation("text", "·")
+    assert not _is_copy_violation("attr:class", "site-header")
+    assert not _is_copy_violation("attr:href", "/channels/#")
+
+
 # --------------------------------------------------------------------------- #
 # render_site() — fixture-driven (no DB); the seam T4–T7 keep consuming
 # --------------------------------------------------------------------------- #
 FIXTURE_INDEX = {
+    # Synthetic values — NOT real-data provenance. The four totals happen
+    # to mirror the artifact census (SQL in this file's docstring) so the
+    # assertions read like the real page; the per-channel counts below
+    # are deliberately arbitrary.
     "totals": {
         "n_measurements": 1100,
         "n_channels": 12,
@@ -127,8 +173,8 @@ FIXTURE_INDEX = {
         {
             "family": "PIEZO",
             "channels": [
-                {"slug": "piezo1", "n_parameterized_rows": 160},
-                {"slug": "piezo2", "n_parameterized_rows": 27},
+                {"slug": "piezo1", "n_parameterized_rows": 9},
+                {"slug": "piezo2", "n_parameterized_rows": 8},
             ],
         }
     ],
@@ -161,7 +207,7 @@ def render_fixture(tmp_path: Path) -> Path:
         data_dir=data_dir,
         out_dir=out_dir,
         site_dir=SITE_DIR,
-        cff_path=REPO_ROOT / "CITATION.cff",
+        repo_root=REPO_ROOT,
     )
     return out_dir
 
@@ -187,8 +233,10 @@ def test_render_home_both_locales_from_fixture(tmp_path):
     assert "(2)" in en  # the fixture's PIEZO family holds two channels
     # search box present with the localized placeholder (T6 wires it)
     assert "placeholder=\"Search channels, families, parameters…\"" in en
-    # footer identifiers come from CITATION.cff, never the templates
+    # footer identifiers come from CITATION.cff and README Releases
+    # (dataset version DOI + concept DOI), never the templates
     assert "10.5281/zenodo.23620159" in en
+    assert "10.5281/zenodo.23620158" in en
     assert ">MIT<" in en and ">CC-BY-4.0<" in en
     assert "https://creativecommons.org/licenses/by/4.0/" in en
 
