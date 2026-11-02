@@ -93,3 +93,12 @@ bites.
 a known-escape input and watch it fail; then name a second escape form
 and check whether a self-vector pins it — if none does, that is a
 finding.
+
+*Translation rule (2026-11-02, PR #50 gate):* when a guard is translated
+to a new surface (the M1 JSON walker → the HTML status scanner), the
+original's vector set is the contract: port every vector to its
+counterpart form on the new surface, then add vectors for forms the new
+surface makes possible. PR #50 needed two gate rounds for exactly this —
+the M1 vector `{"quality": "VERIFIED"}` (any-key exact value) had no
+ported counterpart, so `aria-label="verified"` escaped until the second
+reviewer named it.
