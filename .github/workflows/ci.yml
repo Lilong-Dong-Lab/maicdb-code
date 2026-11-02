@@ -81,6 +81,19 @@ jobs:
             fi
           done <<<"$PASTED"
           exit $STATUS
+      - name: No test silently deleted (retro on PR #48)
+        # A test function deleted without an addition and without a
+        # 'test-removal:' commit declaration fails the PR. Born 2026-11-02:
+        # an Edit anchored on a neighbouring test's decorator+def lines
+        # swallowed the whole-suite DB-hash guard on PR #48 while the
+        # suite stayed green — the pins bless totals, this names the lost.
+        # Known limitations are documented in the script header (the
+        # detector keys on def lines; a gutted body with the def line
+        # kept is covered by the pins + review, not here).
+        if: github.event_name == 'pull_request'
+        run: |
+          bash scripts/check-no-deleted-tests.sh --selftest
+          bash scripts/check-no-deleted-tests.sh "origin/${{ github.base_ref }}...HEAD"
       - name: CITATION.cff schema validation
         # The CFF is a live citation surface (GitHub renders it; the DOI
         # is pinned) — validated ad hoc until PR #24's gate ran

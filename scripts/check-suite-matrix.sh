@@ -133,10 +133,14 @@ fi
 
 # --- state 2: no vault (the CI condition, tags present) ------------------
 suggest_repin() { # executed-summary -> echo which declared pin it should replace
-    local executed="$1" d
+    local executed="$1" d bare
+    # the bare signature only — the executed line carries pytest's
+    # ==== decoration and wall-clock duration, which must never enter a
+    # grep anchor (the next run's timing would fail it forever)
+    bare="$(grep -oE '[0-9]+ passed, [0-9]+ skipped, [0-9]+ warning' <<<"$executed" | head -1)"
     for d in "${DECLARED[@]}"; do
         if [ "$(skips_of "$d")" = "$(skips_of "$executed")" ]; then
-            note "suggested re-pin: replace '$d' with '$executed' in $CI_FILE (grep anchors + the shorthand copy inside the drift-error message) and mirror both in KNOWN-QUIRKS quirk 3"
+            note "suggested re-pin: replace '$d' with '$bare' in $CI_FILE (grep anchors + the shorthand copy inside the drift-error message) and mirror both in KNOWN-QUIRKS quirk 3"
             return 0
         fi
     done

@@ -48,8 +48,10 @@ while a whole-diff stat is born historical — it expires the moment the
 branch gains another push (observed live, PR #48: two gate-fix pushes
 after the body's whole-diff stat pasted → every later pull_request run
 red on a line the CI could no longer re-derive; the merge push run was
-green only because the step is pull_request-only). The reviewer drill
-therefore targets every other claim shape; paste stat lines unwrapped.
+green only because the step is pull_request-only). Exception: a
+single-commit PR may paste its whole-diff stat — it equals that one
+commit's stat, which re-derives forever. The reviewer drill therefore
+targets every other claim shape; paste stat lines unwrapped.
 
 ## 3. Docstring/PR-body behavioral claims point into the implementation
 
