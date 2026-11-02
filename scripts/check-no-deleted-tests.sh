@@ -80,13 +80,18 @@ self_test() {
 
     # scenario 4: gutted body with the def line kept — DOCUMENTED
     # limitation (header): keying is on def lines, so this passes today.
-    # The vector pins the limitation instead of hiding it: if a future
-    # edit makes the detector catch this form, this assertion flips red
-    # and forces the header note to be removed.
+    # The range IS the documented form: commit A adds the test WITH a
+    # body, commit B deletes only the body line (the def line stays as
+    # diff context). A future body-aware detector turns this assertion
+    # red, forcing the header note out.
+    printf 'def test_keep():\n    assert True\n\ndef test_hollow():\n    assert True\n' \
+        > "$SELFTEST_TMP/tests_x.py"
+    git -C "$SELFTEST_TMP" add -A
+    git -C "$SELFTEST_TMP" -c user.email=t@t -c user.name=t commit -q -m "add test_hollow with a body"
     printf 'def test_keep():\n    assert True\n\ndef test_hollow():\n' \
         > "$SELFTEST_TMP/tests_x.py"
     git -C "$SELFTEST_TMP" add -A
-    git -C "$SELFTEST_TMP" -c user.email=t@t -c user.name=t commit -q -m "gut a body"
+    git -C "$SELFTEST_TMP" -c user.email=t@t -c user.name=t commit -q -m "gut the body"
     bash "$self" "HEAD~1..HEAD" "$SELFTEST_TMP" >/dev/null \
         && echo "  gutted:     ok (passes — documented limitation, see header)" \
         || { echo "  gutted:     DETECTOR CHANGED — now catches gutted bodies; update the header note"; return 1; }
