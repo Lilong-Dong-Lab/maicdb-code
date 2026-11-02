@@ -34,19 +34,22 @@ SITE_DIR = REPO_ROOT / "site"
 TEMPLATES_DIR = SITE_DIR / "templates"
 
 #: HTML technical attribute values / doctype tokens that are not UI copy
-#: (machine-facing vocabulary, never shown as prose). ``row``/``col`` are
-#: the ``scope`` attribute's fixed enum on table headings (M3-T5's
-#: comparison table) — a11y metadata, rendered by no browser as text.
+#: (machine-facing vocabulary, never shown as prose).
 _TECHNICAL_LITERALS = frozenset(
     {
         "utf-8",
         "width=device-width, initial-scale=1",
         "search",
         "stylesheet",
-        "row",
-        "col",
     }
 )
+
+#: The ``scope`` attribute's fixed enum on table headings (M3-T5's
+#: comparison table) — a11y metadata, rendered by no browser as text.
+#: Attribute-NAME-scoped, not a bare literal: "row" as a text node or in
+#: any other attribute (``aria-label="row"``) is still copy and still
+#: fails the scan (guard-test escape vectors below).
+_SCOPE_ENUM = frozenset({"row", "col"})
 
 #: Attributes whose values are CSS/DOM hooks, not copy: a single-token
 #: lowercase value here is a machine string, not a sentence.
@@ -166,6 +169,8 @@ def _is_copy_violation(kind: str, lit: str) -> bool:
         return False
     if lit in _TECHNICAL_LITERALS:
         return False
+    if kind == "attr:scope" and lit in _SCOPE_ENUM:
+        return False
     if kind.removeprefix("attr:") in _STRUCTURAL_ATTRS and _MACHINE_TOKEN.fullmatch(lit):
         return False
     if kind == "tmpl" and _MACHINE_TOKEN.fullmatch(lit):
@@ -208,6 +213,14 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert not _is_copy_violation("text", "·")
     assert not _is_copy_violation("attr:class", "site-header")
     assert not _is_copy_violation("attr:href", "/channels/#")
+    # the scope enum is attribute-NAME-scoped, never a bare literal:
+    # "row" as a text node or in any other attribute is still copy
+    # (T5 gate MINOR-1 — the first cut allowed both escape vectors)
+    assert not _is_copy_violation("attr:scope", "row")
+    assert not _is_copy_violation("attr:scope", "col")
+    assert _is_copy_violation("text", "row")
+    assert _is_copy_violation("attr:title", "row")
+    assert _is_copy_violation("attr:aria-label", "col")
     # multi-line Jinja comments and statements must strip too (guard fix:
     # the strip regex lacked DOTALL and leaked a multi-line {# #} comment
     # into the HTML scan as a text node — found live by the T4 macro block)

@@ -14,10 +14,11 @@ Two seams, mirroring test_site_pages.py:
   file's ``requires_db`` docstrings.
 """
 
-from pathlib import Path
+import json
+import re
 
 from tests.test_site_build import requires_db, run_build
-from tests.test_site_pages import render_fixture
+from tests.test_site_pages import _strings, render_fixture
 
 
 # --------------------------------------------------------------------------- #
@@ -48,15 +49,9 @@ def test_comparison_page_disclosures_and_buckets(tmp_path):
     convention on p50 only, the ratio-median note + "—" median on the
     ratio parameter only, and the §6.7 banner from the payload's doc
     field. No Python ``None`` leaks into any cell."""
-    import json
-
     out = render_fixture(tmp_path)
     p50 = (out / "parameters" / "p50" / "index.html").read_text(encoding="utf-8")
-    strings = json.loads(
-        (Path(__file__).parent.parent / "site" / "strings.en.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    strings = _strings("en")
 
     # unit-bucket disclosure + the two unmerged buckets as separate rows
     assert strings["param_unit_disclosure"] in p50
@@ -82,12 +77,9 @@ def test_comparison_page_ratio_median_omitted_with_note(tmp_path):
     the ratio-median note rides the page (once, localized); the note is
     absent from a non-ratio page (p50); the ZH edition carries the ZH
     dictionary's note."""
-    import json
-
     out = render_fixture(tmp_path)
-    site_dir = Path(__file__).parent.parent / "site"
-    en = json.loads((site_dir / "strings.en.json").read_text(encoding="utf-8"))
-    zh = json.loads((site_dir / "strings.zh.json").read_text(encoding="utf-8"))
+    en = _strings("en")
+    zh = _strings("zh")
 
     ratio = (out / "parameters" / "ion_selectivity_ratio" / "index.html").read_text(
         encoding="utf-8"
@@ -98,8 +90,6 @@ def test_comparison_page_ratio_median_omitted_with_note(tmp_path):
     # the counted row: min/max render, the cell BETWEEN them (the
     # median) is "—"; the unit cell is "—" too (unit-less parameter,
     # same marker as a NULL stored-unit bucket)
-    import re
-
     counted = ratio.split(">PLAIN2<", 1)[1].split("</tr>", 1)[0]
     assert re.search(r">1\.2</td>\s*<td>—</td>\s*<td>40\.0<", counted)
     # note present exactly once per page, localized per tree
@@ -113,30 +103,17 @@ def test_ratio_median_note_en_dictionary_matches_library():
     verbatim — the comparison page and the CLI export disclose the same
     sentence (parity lock, the sign-convention pattern; the ZH wording
     is this ticket's in-ticket translation)."""
-    import json
-
     from maicdb.query import RATIO_MEDIAN_NOTE
 
-    en = json.loads(
-        (Path(__file__).parent.parent / "site" / "strings.en.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    assert en["ratio_median_note"] == RATIO_MEDIAN_NOTE
+    assert _strings("en")["ratio_median_note"] == RATIO_MEDIAN_NOTE
 
 
 def test_parameter_index_page_lists_all_parameters(tmp_path):
     """The index page links one comparison page per parameter with its
     registry label and its derived row count (localized count label)."""
-    import json
-
     out = render_fixture(tmp_path)
     html = (out / "parameters" / "index.html").read_text(encoding="utf-8")
-    strings = json.loads(
-        (Path(__file__).parent.parent / "site" / "strings.en.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    strings = _strings("en")
     assert f"<h1>{strings['parameters_heading']}</h1>" in html
     for name, label in (
         ("p50", "synthetic P50 threshold"),
@@ -188,8 +165,6 @@ def test_db_p50_unit_buckets_never_merged(tmp_path):
         encoding="utf-8"
     )
     # MscL renders one row per unit bucket, each with its own count
-    import re
-
     units = {}
     for seg in html.split(">MscL<")[1:]:
         row = seg.split("</tr>")[0]
@@ -226,9 +201,6 @@ def test_db_zero_count_genes_reported_not_hidden(tmp_path):
     ca_permeability) FROM biophysics_experiment e JOIN channel c ON
     e.channel_id=c.id WHERE c.gene_symbol='ASIC' AND e.ca_permeability
     IS NOT NULL``)."""
-    import json
-    import re
-
     out = tmp_path / "out"
     run_build(out)
     site = out / "_site"
@@ -253,11 +225,7 @@ def test_db_zero_count_genes_reported_not_hidden(tmp_path):
 
     # ratio page: the note rides the page; the counted ASIC row's cell
     # between min and max (the median) is "—" — 1.8 / — / 25.5
-    en = json.loads(
-        (Path(__file__).parent.parent / "site" / "strings.en.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    en = _strings("en")
     ca_en = (site / "parameters" / "ca_permeability" / "index.html").read_text(
         encoding="utf-8"
     )
@@ -277,8 +245,6 @@ def test_db_parameter_jsons_are_the_library_export_verbatim(tmp_path):
     file is the library's ``export(format="json")`` output VERBATIM —
     byte-identical, so the site page and the CLI export can never drift
     (spec §1: the site is a thin consumer of the library)."""
-    import json
-
     from maicdb.query import PARAMETERS, export, open_readonly
 
     out = tmp_path / "out"
@@ -319,8 +285,6 @@ def test_db_parameter_index_counts_pinned_to_census(tmp_path):
     Labels are the registry's (spec §4 vocabulary; ``label`` values
     asserted against PARAMETERS — no transcription).
     """
-    import json
-
     from maicdb.query import PARAMETERS
 
     out = tmp_path / "out"
