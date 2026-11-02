@@ -2,12 +2,6 @@
 {% block content %}
 <section class="home-hero">
   <h1>{{ strings.home_tagline }}</h1>
-  {# The search box is inert markup in T3; T6 wires it to search-index.json. #}
-  <form class="site-search" role="search">
-    <input type="search" name="q" id="site-search"
-           placeholder="{{ strings.search_placeholder }}"
-           aria-label="{{ strings.search_placeholder }}">
-  </form>
 </section>
 <section class="home-stats" aria-label="{{ strings.stats_aria_label }}">
   <ul>

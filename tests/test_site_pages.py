@@ -146,6 +146,9 @@ SYNTH_INDEX = {
         "n_channels": 12,
         "n_families": 7,
         "n_publications": 211,
+        # synthetic stand-in (real census: 16 — the DB-backed pin lives
+        # in test_site_downloads.py); asserts the count is data-driven
+        "n_unmapped": 4,
     },
     "families": [
         {
@@ -280,6 +283,45 @@ SYNTH_PARAMETERS: dict[str, dict] = {
     "ion_selectivity_ratio": SYNTH_RATIO_COMPARISON,
 }
 
+#: Synthetic search index (M3-T6): mirrors the data layer's flat entry
+#: list (spec Q9 field set); test_site_search.py's Python matcher twin
+#: consumes the same shape. All values synthetic.
+SYNTH_SEARCH_INDEX = {
+    "entries": [
+        {
+            "type": "channel",
+            "slug": "frozen1",
+            "label": "FROZEN1",
+            "family": "TESTFAM",
+            "aliases": ["ALIASA", "ALIASB"],
+            "uniprots": ["P00000"],
+            "url": "/channels/frozen1/",
+        },
+        {
+            "type": "channel",
+            "slug": "plain2",
+            "label": "PLAIN2",
+            "family": "TESTFAM",
+            "aliases": [],
+            "uniprots": [],
+            "url": "/channels/plain2/",
+        },
+        {"type": "family", "label": "TESTFAM", "url": "/channels/#TESTFAM"},
+        {
+            "type": "parameter",
+            "name": "p50",
+            "label": "synthetic P50 threshold",
+            "url": "/parameters/p50/",
+        },
+        {
+            "type": "parameter",
+            "name": "ion_selectivity_ratio",
+            "label": "synthetic ion selectivity ratio",
+            "url": "/parameters/ion_selectivity_ratio/",
+        },
+    ]
+}
+
 
 def load_build_module():
     """Load ``site/build.py`` as a module (mirrors test_site_render)."""
@@ -311,6 +353,9 @@ def render_fixture(tmp_path: Path) -> Path:
         (data_dir / "parameters" / f"{name}.json").write_text(
             json.dumps(comparison), encoding="utf-8"
         )
+    (data_dir / "search-index.json").write_text(
+        json.dumps(SYNTH_SEARCH_INDEX), encoding="utf-8"
+    )
     out_dir = tmp_path / "_site"
     load_build_module().render_site(
         data_dir=data_dir,
