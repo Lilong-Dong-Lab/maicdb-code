@@ -412,9 +412,10 @@ _AFFIRMATIVE_STATUSES = {
 class _StatusScanner(HTMLParser):
     """Collect affirmative-status hits from rendered HTML: attribute NAMES
     carrying a verification marker (``data-verified``, ``verification``),
-    badge-shaped class/id values whose word set contains ``verified``
-    (whole word — ``class="badge verified"`` is a verified badge),
-    and whole text nodes that ARE a status."""
+    ANY attribute whose whole value IS a status (``aria-label="verified"``
+    — the M1 walker's any-key exact-value rule), badge-shaped class/id
+    word sets containing ``verified``, and whole text nodes that ARE a
+    status."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -422,12 +423,14 @@ class _StatusScanner(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         for name, value in attrs:
+            if value is None:
+                continue
             if "verif" in name.lower():
                 self.hits.append(f"attr-name:{name}={value}")
-            if name.lower() in {"class", "id"} and value is not None:
-                words = value.lower().split()
-                if "verified" in words:
-                    self.hits.append(f"badge:{name}={value}")
+            if value.strip().lower() in _AFFIRMATIVE_STATUSES:
+                self.hits.append(f"attr-value:{name}={value}")
+            elif name.lower() in {"class", "id"} and "verified" in value.lower().split():
+                self.hits.append(f"badge:{name}={value}")
 
     def handle_data(self, data):
         if data.strip().lower() in _AFFIRMATIVE_STATUSES:
@@ -450,12 +453,15 @@ def test_status_scanner_rejects_affirmative_forms():
     assert list(affirmative_status_hits('<em data-verified="yes">ok</em>'))
     assert list(affirmative_status_hits('<span class="verified">ok</span>'))
     assert list(affirmative_status_hits('<span class="badge verified">ok</span>'))
+    assert list(affirmative_status_hits('<span aria-label="verified">ok</span>'))
+    assert list(affirmative_status_hits('<span data-status="verified">ok</span>'))
     assert list(affirmative_status_hits('<p>Verified</p>'))
     assert list(affirmative_status_hits("<p>status: verified</p>"))
     # prose legitimately containing the word — passes
     assert not list(affirmative_status_hits("<p>not been re-verified</p>"))
     assert not list(affirmative_status_hits("<p>we verified the recording</p>"))
     assert not list(affirmative_status_hits('<a class="verified-link">x</a>'))
+    assert not list(affirmative_status_hits('<a title="not been re-verified">x</a>'))
     # a punctuated status node is prose-shaped (trailing period), not a
     # bare status — the same exact-match boundary as the M1 walker
     assert not list(affirmative_status_hits("<p>Verified.</p>"))
