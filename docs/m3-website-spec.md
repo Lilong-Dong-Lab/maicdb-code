@@ -52,7 +52,7 @@ library builds the data, pages never reimplement it.
     PIEZO: PIEZO1 160, PIEZO2 28 · TMC: TMC 153 · TRP: TRPV4 70.
   - bioactivity: TRPV4 37, TRESK 34, ASIC 24, TMC 19, PIEZO1 14, TREK-1 4,
     OSCA 2, MscS 1, TRAAK 1.
-- Parameters (16 registered, rows in biophysics): conductance_ps 263,
+- Parameters (16 registered, rows in biophysics): conductance 263,
   p50 152, reversal_potential 97, tau_inact 93, ion_selectivity_ratio 66,
   x50 46, tau_act 45, t50 41, tau_deact 40, threshold_fold_shift 35,
   delta_p50 16, slope 13, macroscopic_rise_time 13, thermal_threshold 9,
@@ -115,9 +115,10 @@ results link to card / parameter pages.
 - **Translations are a presentation layer, never a data change**: the
   data artifact is untouched. Curated Chinese text (channel summaries,
   parameter labels, frozen-layer wording) lives in a site-side
-  `zh-content.json`; the Chinese §6.7 frozen-layer wording is taken
-  from the vault data-notes source (which is written in Chinese), not
-  back-translated from the English boilerplate.
+  `zh-content.json`. The Chinese §6.7 frozen-layer wording is newly
+  written (the data-notes source states the rule in English); its
+  semantics must match the English boilerplate, asserted by test on
+  semantics, not substrings — the M1 pattern.
 - Byte-stable contract: same DB + same code → byte-identical outputs
   (no timestamps); pytest asserts it, mirroring the loader/`export`
   contracts. Suite pins re-derived via `scripts/check-suite-matrix.sh`
@@ -149,8 +150,8 @@ T3 site skeleton (templates, layout, home, assets, build entry,
         └─ T7 CI build pipeline (deploy job disabled pre-flip)
                                              (blocked by T2, T3)
 T-LOC curated Chinese content (summaries, parameter labels, §6.7
-    wording from data-notes source; UI strings already per-ticket)
-                                             (blocked by T4, T5, T6)
+    wording newly written, semantics test-locked; UI strings
+    already per-ticket)                       (blocked by T4, T5, T6)
 T8 PUBLIC FLIP — runbook §1–§5  [HUMAN, ready-for-human]
 T9 deploy to Pages + public acceptance, BOTH locales
                                             (blocked by T7, T8, T-LOC)
