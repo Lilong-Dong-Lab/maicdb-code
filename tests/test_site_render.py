@@ -80,11 +80,42 @@ class _LiteralCollector(HTMLParser):
 
 
 def _template_literals(template: str) -> list[tuple[str, str]]:
-    """Literals in one template: strip Jinja tags, parse the remainder."""
+    """Literals in one template.
+
+    Two sources, both counted as template-source copy:
+    * Jinja expression/statement string literals (``{{ "Welcome" }}``,
+      ``{% if x == "piezo1" %}``) — a natural-language string inside an
+      expression ships untranslated exactly like a text node, so the
+      scan must not silently strip it;
+    * the HTML that remains after stripping Jinja tags: text nodes and
+      attribute values via :class:`_LiteralCollector`.
+    """
+    literals: list[tuple[str, str]] = []
+    # {{ ... }} output expressions: any quoted literal renders verbatim —
+    # natural language there ships untranslated, so it is scanned as copy.
+    for body in re.findall(r"\{\{(.*?)\}\}", template, re.DOTALL):
+        literals.extend(
+            ("expr", quoted)
+            for pair in re.findall(r'"([^"]*)"|\'([^\']*)\'', body)
+            for quoted in pair
+            if quoted.strip()
+        )
+    # {% ... %} statements: same rule, EXCEPT template-reference
+    # statements (extends/include/import/from) whose quoted literals are
+    # template filenames — machine strings, like a class attribute.
+    for keyword, rest in re.findall(r"\{%\s*(\w+)(.*?)%\}", template, re.DOTALL):
+        kind = "tmpl" if keyword in {"extends", "include", "import", "from"} else "expr"
+        literals.extend(
+            (kind, quoted)
+            for pair in re.findall(r'"([^"]*)"|\'([^\']*)\'', rest)
+            for quoted in pair
+            if quoted.strip()
+        )
     stripped = re.sub(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", "", template)
     collector = _LiteralCollector()
     collector.feed(stripped)
-    return collector.literals
+    literals.extend(collector.literals)
+    return literals
 
 
 def test_templates_carry_no_hardcoded_ui_strings():
@@ -131,6 +162,8 @@ def _is_copy_violation(kind: str, lit: str) -> bool:
         return False
     if kind.removeprefix("attr:") in _STRUCTURAL_ATTRS and _MACHINE_TOKEN.fullmatch(lit):
         return False
+    if kind == "tmpl" and _MACHINE_TOKEN.fullmatch(lit):
+        return False
     if (
         kind.startswith("attr:")
         and ("/" in lit or lit.startswith("#"))
@@ -149,6 +182,17 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert _is_copy_violation("text", "channels")
     assert _is_copy_violation("text", "Channels")  # equals nav_home — still hardcoded
     assert _is_copy_violation("attr:href", "https://example.com/page")
+    # gate MINOR-3 vector: a string literal INSIDE a Jinja expression
+    # would previously be stripped unexamined — it must fail too
+    assert ("expr", "Welcome to the database") in _template_literals(
+        '<p>{{ "Welcome to the database" }}</p>'
+    )
+    assert _is_copy_violation("expr", "Welcome to the database")
+    assert _is_copy_violation("expr", "piezo1")  # {% if slug == "piezo1" %} — data, not copy
+    assert _template_literals("<p>{{ strings.home_tagline }}</p>") == []
+    # template-reference statements name files, not copy
+    assert ("tmpl", "base.html") in _template_literals('{% extends "base.html" %}')
+    assert not _is_copy_violation("tmpl", "base.html")
     # the legitimate residues stay allowed
     assert not _is_copy_violation("text", "·")
     assert not _is_copy_violation("attr:class", "site-header")
