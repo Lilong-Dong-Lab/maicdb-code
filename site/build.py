@@ -10,10 +10,12 @@ the whole suite).
 Build outputs (spec §6; default ``--out site``):
 - ``site/_data/index.json``            family(7) → channel(12) → counts
                                         + home-scale ``totals``
-- ``site/_data/channels/<slug>.json``  one card payload per channel (×12)
+- ``site/_data/channels/<slug>.json``  one card payload per channel (×12,
+                                        bioactivity block where rows exist)
 - ``site/_data/search-index.json``     flat search index (spec Q9)
-- ``site/_site/``                      rendered pages, EN (unprefixed)
-- ``site/_site/zh/``                   rendered pages, ZH (``/zh/`` prefix)
+- ``site/_site/``                      rendered pages, EN (unprefixed):
+                                        home, browse, 12 channel cards
+- ``site/_site/zh/``                   the ZH edition of every page
 
 The render loop consumes the data layer's JSON (a page never queries the
 DB — spec §1 "thin consumer"), drives every UI string from
@@ -39,7 +41,13 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from sqlalchemy import func, select
 
 from maicdb.models import Bioactivity, BiophysicsExperiment, Channel, Publication, UnmappedMeasurement
-from maicdb.query import PARAMETERS, channel_card, open_readonly
+from maicdb.query import (
+    PARAMETERS,
+    THRESHOLD_PARAMETERS,
+    bioactivity_card,
+    channel_card,
+    open_readonly,
+)
 
 
 def slugify(gene_symbol: str) -> str:
@@ -48,12 +56,8 @@ def slugify(gene_symbol: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# HTML render loop (M3-T3): locale trees over the data layer's JSON
+# HTML render loop (M3-T3/T4): locale trees over the data layer's JSON
 # --------------------------------------------------------------------------- #
-#: Rendered page kinds: (template name, tree-relative directory). T4–T7
-#: append their page kinds here (browse, cards, parameters, downloads).
-_PAGES: tuple[tuple[str, str], ...] = (("home.html", ""),)
-
 #: Locale layout: locale → (tree directory under the site root, its
 #: counterpart locale). EN is the unprefixed tree, ZH lives under ``zh/``;
 #: iteration order is the render order.
@@ -116,16 +120,51 @@ def _alt_href(page_dir: str, locale: str) -> str:
     return posixpath.relpath(_tree_prefix(page_dir, other), _tree_prefix(page_dir, locale))
 
 
+def _site_pages(index: dict, data_dir: Path) -> list[tuple[str, str, dict]]:
+    """The page list: (template, tree-relative directory, extra context).
+
+    Singleton pages first (home, browse), then one card page per channel
+    in index order (family → gene_symbol — the data layer's deterministic
+    order). The card context carries the channel's index entry (browse
+    counts for the qualitative rider) and the threshold-parameter names,
+    so the template never re-derives that set from the CLI's rule.
+    """
+    pages: list[tuple[str, str, dict]] = [
+        ("home.html", "", {}),
+        ("browse.html", "channels", {}),
+    ]
+    for fam in index["families"]:
+        for entry in fam["channels"]:
+            slug = entry["slug"]
+            card = json.loads(
+                (data_dir / "channels" / f"{slug}.json").read_text(encoding="utf-8")
+            )
+            pages.append(
+                (
+                    "card.html",
+                    f"channels/{slug}",
+                    {
+                        "card": card,
+                        "entry": entry,
+                        "threshold_names": THRESHOLD_PARAMETERS,
+                    },
+                )
+            )
+    return pages
+
+
 def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) -> list[Path]:
     """Render every page kind into both locale trees under *out_dir*.
 
-    Reads ``<data_dir>/index.json`` (the T2 data layer — a page never
-    queries the DB), copies ``site/assets/`` into each tree (relative
-    references only), and writes ``<out_dir>/[zh/]<page>/index.html``.
-    StrictUndefined makes a missing dictionary key a build error, so an
-    untranslated string cannot ship silently.
+    Reads ``<data_dir>/index.json`` and the per-channel card JSONs (the
+    data layer — a page never queries the DB), copies ``site/assets/``
+    into each tree (relative references only), and writes
+    ``<out_dir>/[zh/]<page>/index.html``. StrictUndefined makes a missing
+    dictionary key a build error, so an untranslated string cannot ship
+    silently.
     """
     index = json.loads((data_dir / "index.json").read_text(encoding="utf-8"))
+    pages = _site_pages(index, data_dir)
     env = Environment(
         loader=FileSystemLoader(site_dir / "templates"),
         autoescape=True,
@@ -142,7 +181,7 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
     for locale, (tree_dir, alt_locale) in _LOCALES.items():
         tree = out_dir / tree_dir
         shutil.copytree(site_dir / "assets", tree / "assets", dirs_exist_ok=True)
-        for template, page_dir in _PAGES:
+        for template, page_dir, extra in pages:
             page = tree / page_dir / "index.html"
             page.parent.mkdir(parents=True, exist_ok=True)
             page.write_text(
@@ -155,12 +194,13 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
                     site=site,
                     totals=index["totals"],
                     families=index["families"],
+                    **extra,
                 )
                 + "\n",
                 encoding="utf-8",
             )
             written.append(page)
-    print(f"site render: {len(_PAGES)} page(s) x {len(_LOCALES)} locales -> {out_dir}")
+    print(f"site render: {len(pages)} page(s) x {len(_LOCALES)} locales -> {out_dir}")
     return written
 
 
@@ -199,12 +239,40 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 select(func.count()).select_from(Publication)
             ),
         }
+        # Qualitative as-reported-only rows: every registered parameter
+        # column NULL (the caliber spec §4 found — 12 rows repo-wide,
+        # belonging to no parameter block). The predicate is derived from
+        # the PARAMETERS registry, never hand-copied, so a registry change
+        # can't silently strand a column.
+        qualitative_value_cols = [
+            getattr(BiophysicsExperiment, spec.column) for spec in PARAMETERS.values()
+        ]
+        qualitative_by_gene = dict(
+            conn.execute(
+                select(Channel.gene_symbol, func.count())
+                .join_from(
+                    Channel,
+                    BiophysicsExperiment,
+                    BiophysicsExperiment.channel_id == Channel.id,
+                )
+                .where(*(c.is_(None) for c in qualitative_value_cols))
+                .group_by(Channel.gene_symbol)
+            ).all()
+        )
 
     written: list[Path] = []
     families: dict[str, dict] = {}
     search_entries: list[dict] = []
     for gene in genes:
         card = channel_card(engine, gene)
+        # Bioactivity rides the same payload where data exists (spec Q11 —
+        # 9 channels; a zero-row gene carries no block, unlike the 16
+        # parameter blocks, which are never hidden). PIEZO1's block keeps
+        # the §6.7 disclosure the library attaches — the wording follows
+        # the evidence itself.
+        bioactivity = bioactivity_card(engine, gene)
+        if bioactivity["n_rows"]:
+            card["bioactivity"] = bioactivity
         identity = card["gene"]
         path = channels_dir / f"{slugify(gene)}.json"
         _dump(path, card)
@@ -226,6 +294,11 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 # and therefore no parameter block (spec §4 census note).
                 "n_parameterized_rows": sum(
                     b["n_rows"] for b in card["parameters"].values()
+                ),
+                "n_bioactivity_rows": bioactivity["n_rows"],
+                "n_qualitative_rows": qualitative_by_gene.get(gene, 0),
+                "n_parameters_covered": sum(
+                    1 for b in card["parameters"].values() if b["n_rows"] > 0
                 ),
                 "parameters": {
                     name: block["n_rows"]

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.nav_channels }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<section class="browse">
+  <h1>{{ strings.browse_heading }}</h1>
+  {% for fam in families %}
+  <section class="family-group" id="{{ fam.family }}">
+    <h2>{{ fam.family }}</h2>
+    <ul class="channel-grid">
+      {% for ch in fam.channels %}
+      <li class="channel-card">
+        <h3><a href="{{ root }}/channels/{{ ch.slug }}/">{{ ch.gene_symbol }}</a></h3>
+        <p class="channel-counts">
+          <span class="stat-value">{{ ch.n_parameterized_rows }}</span>
+          <span class="stat-label">{{ strings.browse_rows_parameterized }}</span>
+        </p>
+        <p class="channel-coverage">{{ ch.n_parameters_covered }} / {{ ch.parameters | length }} {{ strings.browse_parameters_covered }}</p>
+        {% if ch.n_bioactivity_rows %}
+        <p class="bioactivity-rider">
+          <span class="stat-value">{{ ch.n_bioactivity_rows }}</span>
+          <span class="stat-label">{{ strings.browse_bioactivity_rows }}</span>
+        </p>
+        {% endif %}
+        {% if ch.n_qualitative_rows %}
+        <p class="qualitative-rider">+{{ ch.n_qualitative_rows }} {{ strings.browse_qualitative_rider }}</p>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -191,6 +191,70 @@ def test_build_emits_search_index(tmp_path):
 
 
 @requires_db
+def test_build_index_carries_bioactivity_and_qualitative_counts(tmp_path):
+    """index.json per-channel counts for the browse page (T4):
+
+    * ``n_bioactivity_rows`` — pinned to the artifact census (spec §4):
+
+          SELECT c.gene_symbol, COUNT(*) FROM bioactivity b
+            JOIN channel c ON b.channel_id = c.id GROUP BY 1;
+
+      → TRPV4 37, TRESK 34, ASIC 24, TMC 19, PIEZO1 14, TREK-1 4,
+        OSCA 2, MscS 1, TRAAK 1; PIEZO2/MscL/TREK-2 carry 0.
+
+    * ``n_qualitative_rows`` — biophysics rows with ALL 16 registered
+      parameter columns NULL (the as-reported-only caliber, spec §4;
+      census SQL in this file's module docstring → 12 rows repo-wide):
+      PIEZO2 1, ASIC 1, TREK-1 1, TREK-2 3, TRPV4 6, others 0.
+    """
+    out = tmp_path / "out"
+    run_build(out)
+    index = json.loads((out / "_data" / "index.json").read_text())
+    all_channels = {c["slug"]: c for f in index["families"] for c in f["channels"]}
+
+    assert {s: c["n_bioactivity_rows"] for s, c in all_channels.items()} == {
+        "asic": 24, "mscl": 0, "mscs": 1, "osca": 2, "piezo1": 14,
+        "piezo2": 0, "tmc": 19, "traak": 1, "trek-1": 4, "trek-2": 0,
+        "tresk": 34, "trpv4": 37,
+    }
+    qualitative = {s: c["n_qualitative_rows"] for s, c in all_channels.items()}
+    assert qualitative == {
+        "asic": 1, "mscl": 0, "mscs": 0, "osca": 0, "piezo1": 0,
+        "piezo2": 1, "tmc": 0, "traak": 0, "trek-1": 1, "trek-2": 3,
+        "tresk": 0, "trpv4": 6,
+    }
+    assert sum(qualitative.values()) == 12
+
+
+@requires_db
+def test_channel_json_carries_bioactivity_block(tmp_path):
+    """Channel card JSONs compose the bioactivity block where data exists
+    (spec §3 Q11 — 9 channels): PIEZO1 carries 14 rows, and the block
+    keeps the §6.7 disclosure a PIEZO row owes (the wording follows the
+    evidence itself); TREK-2 (0 rows) carries no block at all.
+
+    Pinned to the census SQL in
+    test_build_index_carries_bioactivity_and_qualitative_counts.
+    """
+    out = tmp_path / "out"
+    run_build(out)
+    piezo1 = json.loads((out / "_data" / "channels" / "piezo1.json").read_text())
+    assert piezo1["bioactivity"]["n_rows"] == 14
+    assert piezo1["bioactivity"]["gene"] == "PIEZO1"
+    assert piezo1["bioactivity"]["frozen_layer_disclosure"] == (
+        piezo1["frozen_layer_disclosure"]
+    )
+    # rows carry the compound join + evidence chain (query library contract)
+    row = piezo1["bioactivity"]["rows"][0]
+    assert {"compound_name", "activity_type", "activity_value", "evidence_quote"} <= set(
+        row
+    )
+
+    trek2 = json.loads((out / "_data" / "channels" / "trek-2.json").read_text())
+    assert "bioactivity" not in trek2
+
+
+@requires_db
 def test_build_is_byte_stable(tmp_path):
     """Same artifact + same code → byte-identical outputs across runs
     (spec §6 determinism contract, mirroring loader/export)."""
