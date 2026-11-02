@@ -86,3 +86,4 @@ skills-lock.json
 
 # Site build outputs (site/build.py default; generated, never committed)
 site/_data/
+site/_site/

@@ -1,9 +1,24 @@
 {
   "site_title": "MAIC-DB — Mechanically Activated Ion Channel Database",
+  "site_name": "MAIC-DB",
   "nav_home": "Home",
   "nav_channels": "Channels",
   "nav_parameters": "Parameters",
   "nav_downloads": "Downloads",
+  "nav_aria_label": "Primary",
   "search_placeholder": "Search channels, families, parameters…",
-  "language_switch_label": "中文"
+  "language_switch_label": "中文",
+  "home_tagline": "A curated database for mechanically activated ion channels — every number one click from its measurement row and verbatim evidence quote.",
+  "stat_measurements": "curated measurements",
+  "stat_channels": "channels",
+  "stat_families": "families",
+  "stat_publications": "publications",
+  "stats_aria_label": "Database scale",
+  "home_families_heading": "Browse by family",
+  "home_download_entry": "Data downloads & citation",
+  "footer_license_label": "License:",
+  "footer_dataset_label": "Dataset DOI:",
+  "footer_concept_label": "Concept DOI:",
+  "footer_ai_disclosure": "Substantial literature mining, code implementation, and review preparation was executed by AI agents under human direction; every merge passed an independent review gate.",
+  "footer_ai_link": "Contributorship & AI disclosure"
 }

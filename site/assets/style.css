@@ -1,0 +1,109 @@
+/* MAIC-DB site styles — plain CSS, no framework (spec Q1).
+   Palette: system colors only; both locales share one stylesheet. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+  line-height: 1.6;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+.wrap {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+a { color: #0a539a; }
+a:hover { color: #063c71; }
+
+/* Header: site name + nav + language switcher on one row. */
+.site-header {
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+}
+
+.site-header .wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.site-name {
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.site-nav a { text-decoration: none; }
+
+.lang-switch {
+  margin-left: auto;
+  text-decoration: none;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+}
+
+/* Home: hero + scale stats + family entries. */
+.home-hero { padding: 2.5rem 0 1.5rem; }
+.home-hero h1 { font-size: 1.5rem; margin: 0 0 1rem; max-width: 40rem; }
+
+.site-search input {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  width: min(24rem, 100%);
+  border: 1px solid #bbb;
+  border-radius: 0.25rem;
+}
+
+.home-stats { padding: 1rem 0; }
+
+.home-stats ul {
+  list-style: none;
+  display: flex;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.stat-label { color: #555; }
+
+.home-families { padding: 1rem 0 2.5rem; }
+
+.home-families ul {
+  list-style: none;
+  display: flex;
+  gap: 0.75rem 1.5rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+/* Footer: license / DOI / AI disclosure. */
+.site-footer {
+  border-top: 1px solid #ddd;
+  background: #fff;
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: #444;
+}

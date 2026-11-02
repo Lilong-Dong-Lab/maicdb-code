@@ -1,9 +1,24 @@
 {
   "site_title": "MAIC-DB — 机械激活离子通道数据库",
+  "site_name": "MAIC-DB",
   "nav_home": "首页",
   "nav_channels": "通道",
   "nav_parameters": "参数",
   "nav_downloads": "下载",
+  "nav_aria_label": "主导航",
   "search_placeholder": "搜索通道、家族、参数…",
-  "language_switch_label": "English"
+  "language_switch_label": "English",
+  "home_tagline": "机械激活离子通道策划数据库——每个数值距离其测量行与逐字证据引文仅一步之遥。",
+  "stat_measurements": "条策划测量",
+  "stat_channels": "个通道",
+  "stat_families": "个家族",
+  "stat_publications": "篇文献",
+  "stats_aria_label": "数据库规模",
+  "home_families_heading": "按家族浏览",
+  "home_download_entry": "数据下载与引用",
+  "footer_license_label": "许可：",
+  "footer_dataset_label": "数据集 DOI：",
+  "footer_concept_label": "概念 DOI：",
+  "footer_ai_disclosure": "大量文献挖掘、代码实现与评审准备工作由 AI 代理在人类指导下完成；每次合并均通过独立评审门。",
+  "footer_ai_link": "贡献者与 AI 披露"
 }
