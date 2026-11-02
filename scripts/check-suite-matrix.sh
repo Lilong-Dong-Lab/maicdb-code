@@ -16,16 +16,26 @@
 #   notag    shallow --no-tags clone of this HEAD    (must match the other pin;
 #            more skips than novault — the signature ci.yml's error names)
 #
-# Usage: scripts/check-suite-matrix.sh    (after `uv sync`; needs git)
-# A bare `sh` invocation re-execs into bash below.
+# Usage: scripts/check-suite-matrix.sh            full: execute + compare (the verdict)
+#       scripts/check-suite-matrix.sh --pins      static declared-pin sanity only
+#       scripts/check-suite-matrix.sh --derive    execute the three states, print
+#                                                  signatures + the complete re-pin
+#                                                  edit list, compare nothing
+# (after `uv sync`; needs git). Invoke via `bash` — every caller does
+# (pre-commit, CI, CLAUDE.md); this script uses arrays, <(), and
+# ${!var}, all bash-only.
 
 # Re-exec into bash when the running shell lacks process substitution:
 # `sh scripts/check-suite-matrix.sh` died on the <() below before any
 # check ran (found live 2026-10-26). $BASH_VERSION alone is the wrong
 # test — macOS /bin/sh is bash in POSIX mode, which sets it while still
 # disabling <() — and a raw probe subshell still parses fatal. eval
-# defers parsing: its syntax error is contained (non-zero status), so
-# the probe is safe in every shell.
+# defers parsing: its syntax error is contained (non-zero status) in
+# bash-as-sh, where the probe was verified. LIMIT, found live
+# 2026-11-02 (PR #54 retro): on dash the eval parse error is FATAL to
+# the whole shell (exit 2, message swallowed by the probe's redirect)
+# — the re-exec never runs. The probe is best-effort for bash-as-sh;
+# dash users must call bash directly (see usage above).
 if ! eval ': <( : )' 2>/dev/null; then
     exec bash "$0" "$@"
 fi
@@ -116,6 +126,15 @@ command -v git >/dev/null 2>&1 || fail "git not found"
 
 skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
+# The bare signature only — the executed line carries pytest's ====
+# decoration and wall-clock duration, which must never enter a grep
+# anchor (the next run's timing would fail it forever).
+bare_of() { grep -oE '[0-9]+ passed, [0-9]+ skipped, [0-9]+ warning' <<<"$1" | head -1; }
+
+# The shorthand signature (no ", 1 warning") — the form the drift-error
+# message quotes inside ci.yml.
+short_of() { sed -E 's/, [0-9]+ warning$//' <<<"$1"; }
+
 # Dirty tree = no verdict, so fail up front instead of warning after the
 # runs: the notag state (below) clones HEAD, so uncommitted test/pin
 # changes never reach it — and the stale HEAD can pair with the
@@ -127,10 +146,91 @@ skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 [ -z "$(git status --porcelain)" ] ||
     fail "dirty working tree — the notag state clones HEAD, so uncommitted test/pin changes are not reflected in it (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run."
 
+# --- shared state runners (full mode + --derive) --------------------------
+run_local_state()   { PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tail -1; }
+run_novault_state() { PYTHONPATH=src MAICDB_VAULT=/nonexistent uv run pytest tests/ -q 2>&1 | tail -1; }
+run_notag_state() { # shallow no-tags clone of this HEAD, run there, clean up
+    local tmp
+    tmp="$(mktemp -d)"
+    git clone --depth 1 --no-tags --quiet "file://$REPO_ROOT" "$tmp"
+    (cd "$tmp" && PYTHONPATH=src MAICDB_VAULT=/nonexistent \
+        "$REPO_ROOT/.venv/bin/python" -m pytest tests/ -q 2>&1 | tail -1)
+    rm -rf "$tmp"
+}
+
+# --- derive mode (--derive): gather-only, no comparison --------------------
+# Prints all three executed signatures and the COMPLETE re-pin edit list,
+# then exits 0. Born 2026-11-02 (PR #54 retro): the full mode below stops
+# at the FIRST mismatching state with one sed suggestion at a time, so a
+# re-pin round meant commit→run→edit→commit loops; agents worked around
+# it by running this script's own state commands verbatim to gather all
+# signatures in one pass (PR #54 did that twice). --derive is the
+# workaround wired in. Contract: the clean-tree guard above already
+# enforced the precondition — commit the test/code change FIRST (the
+# notag state clones HEAD, so uncommitted test edits never reach it).
+# After applying the suggestions, the FULL mode is still the verdict.
+if [ "${1:-}" = "--derive" ]; then
+    pin_for_skips() { # skip-count -> the declared pin carrying it
+        local s="$1" d
+        for d in "${DECLARED[@]}"; do
+            [ "$(skips_of "$d")" = "$s" ] && { printf '%s' "$d"; return 0; }
+        done
+        return 1
+    }
+    LOCAL_SUMMARY="$(run_local_state)"
+    NOVAULT_SUMMARY="$(run_novault_state)"
+    NOTAG_SUMMARY="$(run_notag_state)"
+    echo "derive: executed signatures (gather-only — apply, then run the FULL mode for the verdict):"
+    note "local   : $LOCAL_SUMMARY"
+    note "novault : $NOVAULT_SUMMARY"
+    note "notag   : $NOTAG_SUMMARY"
+    echo
+    echo "derive: re-pin edits —"
+    changed=0
+    for state in NOVAULT NOTAG; do
+        summary_var="${state}_SUMMARY"
+        executed="${!summary_var}"
+        old_pin="$(pin_for_skips "$(skips_of "$executed")")" || {
+            note "$state: no declared pin shares its skip count — add a third state only if one was genuinely added; otherwise investigate the drift"
+            changed=1
+            continue
+        }
+        new_pin="$(bare_of "$executed")"
+        if [ "$new_pin" = "$old_pin" ]; then
+            note "$state: in sync ('$old_pin')"
+            continue
+        fi
+        changed=1
+        # two expressions per pin: the full signature covers the grep
+        # anchors + the drift-error literal + the quirk-3 mirror; the
+        # shorthand form (no ", 1 warning" suffix) covers the error
+        # message's quoted copy — a full-signature-only replacement
+        # leaves it stale and --pins then blocks the commit (found live
+        # 2026-11-02 verifying --derive against a rewound-pin tree; PR
+        # #31 gate NIT-2 is the same shape). Order matters: the full
+        # form first, so the shorthand pass sees only true copies.
+        old_short="$(short_of "$old_pin")" new_short="$(short_of "$new_pin")"
+        echo "  sed -i 's|$old_pin|$new_pin|g; s|$old_short|$new_short|g' .github/workflows/ci.yml KNOWN-QUIRKS.md   # $state pin"
+    done
+    old_ref="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$CI_FILE")"
+    new_ref="$(sed -E 's/.*[^0-9]([0-9]+) passed.*/\1/' <<<"$LOCAL_SUMMARY")"
+    if [ "$new_ref" = "$old_ref" ]; then
+        note "local reference: in sync ($old_ref passed)"
+    else
+        changed=1
+        echo "  sed -i 's|Local with-vault reference: $old_ref passed|Local with-vault reference: $new_ref passed|g' $CI_FILE   # local reference comment"
+        echo "  hand edits (no safe sed): the reference comment's attribution parenthetical; quirk 3's local-run sentence; append BOTH quirk-3 history chains"
+    fi
+    [ "$changed" -eq 0 ] && echo "  (all in sync — nothing to re-pin)"
+    echo
+    echo "derive: after applying, run the FULL mode — bash $0 — and require 'matrix OK'."
+    exit 0
+fi
+
 echo "Running the three suite states (each against the pins in $CI_FILE):"
 
 # --- state 1: local (vault if present) — pinned to ci.yml's reference ---
-LOCAL_SUMMARY="$(PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tail -1)"
+LOCAL_SUMMARY="$(run_local_state)"
 note "local   : $LOCAL_SUMMARY"
 LOCAL_REF="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$CI_FILE")"
 [ -n "$LOCAL_REF" ] ||
@@ -145,10 +245,7 @@ fi
 # --- state 2: no vault (the CI condition, tags present) ------------------
 suggest_repin() { # executed-summary -> echo which declared pin it should replace
     local executed="$1" d bare
-    # the bare signature only — the executed line carries pytest's
-    # ==== decoration and wall-clock duration, which must never enter a
-    # grep anchor (the next run's timing would fail it forever)
-    bare="$(grep -oE '[0-9]+ passed, [0-9]+ skipped, [0-9]+ warning' <<<"$executed" | head -1)"
+    bare="$(bare_of "$executed")"
     for d in "${DECLARED[@]}"; do
         if [ "$(skips_of "$d")" = "$(skips_of "$executed")" ]; then
             note "suggested re-pin: replace '$d' with '$bare' in $CI_FILE (grep anchors + the shorthand copy inside the drift-error message) and mirror both in KNOWN-QUIRKS quirk 3"
@@ -158,7 +255,7 @@ suggest_repin() { # executed-summary -> echo which declared pin it should replac
     note "suggested re-pin: no declared pin shares this skip count — add the signature to $CI_FILE as a third state only if a state was genuinely added; otherwise investigate the drift"
 }
 
-NOVAULT_SUMMARY="$(PYTHONPATH=src MAICDB_VAULT=/nonexistent uv run pytest tests/ -q 2>&1 | tail -1)"
+NOVAULT_SUMMARY="$(run_novault_state)"
 note "novault : $NOVAULT_SUMMARY"
 matches_declared "$NOVAULT_SUMMARY" || {
     suggest_repin "$NOVAULT_SUMMARY"
@@ -166,11 +263,7 @@ matches_declared "$NOVAULT_SUMMARY" || {
 }
 
 # --- state 3: no tag (shallow clone of this HEAD) ------------------------
-TMP_CLONE="$(mktemp -d)"
-trap 'rm -rf "$TMP_CLONE"' EXIT
-git clone --depth 1 --no-tags --quiet "file://$REPO_ROOT" "$TMP_CLONE"
-NOTAG_SUMMARY="$(cd "$TMP_CLONE" && PYTHONPATH=src MAICDB_VAULT=/nonexistent \
-    "$REPO_ROOT/.venv/bin/python" -m pytest tests/ -q 2>&1 | tail -1)"
+NOTAG_SUMMARY="$(run_notag_state)"
 note "notag   : $NOTAG_SUMMARY"
 matches_declared "$NOTAG_SUMMARY" || {
     suggest_repin "$NOTAG_SUMMARY"

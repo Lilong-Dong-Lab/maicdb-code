@@ -53,6 +53,15 @@ single-commit PR may paste its whole-diff stat — it equals that one
 commit's stat, which re-derives forever. The reviewer drill therefore
 targets every other claim shape; paste stat lines unwrapped.
 
+*Truncated lines:* paste output lines exactly as the re-run printed them.
+When a line arrives terminal-truncated (``- Asser...``), re-run wider —
+e.g. ``COLUMNS=300 pytest -q 2>&1 | grep '^FAILED'`` — and paste the
+whole line; reconstruct the missing tail from the traceback body or from
+memory, and the paste has become a transcription (fifth strike, PR #54
+gate: a truncated pytest summary line was "completed" from the traceback
+body, plus an author annotation inside the quotes). Author annotations
+belong outside the quoted block.
+
 ## 3. Docstring/PR-body behavioral claims point into the implementation
 
 Every behavioral claim a diff ships — a module docstring's output list, a
