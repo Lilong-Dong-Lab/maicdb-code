@@ -27,6 +27,7 @@ parameter labels come from the library (``FROZEN_LAYER_DISCLOSURE``,
 """
 
 import json
+import re
 
 from tests.test_site_build import (
     EXPECTED_SLUGS,
@@ -73,19 +74,18 @@ FAMILIES = [
 #: verification-percentages scope limited to the 10 non-frozen layers).
 #: Component presence, never a substring of the EN text: the zh wording
 #: is newly written (ticket F-3 — no Chinese source exists).
-def zh_disclosure_components() -> dict[str, str]:
-    return {
-        "gene1": "PIEZO1",
-        "gene2": "PIEZO2",
-        "frozen-layer concept": "冻结层",
-        "not-re-verified negation": "未",
-        "evidence quotes": "证据引文",
-        "10 non-frozen layers scope": "10",
-        "only-scope qualifier": "仅",
-    }
+_ZH_DISCLOSURE_COMPONENTS = {
+    "gene1": "PIEZO1",
+    "gene2": "PIEZO2",
+    "frozen-layer concept": "冻结层",
+    "not-re-verified negation": "未",
+    "evidence quotes": "证据引文",
+    "10 non-frozen layers scope": "10",
+    "only-scope qualifier": "仅",
+}
 
 
-def loadZhContent() -> dict:
+def load_zh_content() -> dict:
     return json.loads(ZH_CONTENT_PATH.read_text(encoding="utf-8"))
 
 
@@ -97,7 +97,7 @@ def test_zh_content_covers_every_channel_family_parameter():
     symbols), 7 families, 16 parameters (registry keys) — a missing key
     would silently fall through to EN in the ZH tree."""
     assert [g.lower() for g in EXPECTED_GENES] == EXPECTED_SLUGS  # self-check
-    zh = loadZhContent()
+    zh = load_zh_content()
     assert set(zh["channels"]) == set(EXPECTED_GENES)
     assert set(zh["families"]) == set(FAMILIES)
     from maicdb.query import PARAMETERS
@@ -105,41 +105,62 @@ def test_zh_content_covers_every_channel_family_parameter():
     assert set(zh["parameters"]) == set(PARAMETERS)
 
 
-def test_zh_content_values_are_chinese_side():
-    """Every curated value is non-empty; labels and the §6.7 wording are
-    genuinely different from their EN sources (a copied EN string would
-    render as an untranslated leak in the ZH tree)."""
-    from maicdb.query import FROZEN_LAYER_DISCLOSURE, PARAMETERS
+def _has_cjk(value: str) -> bool:
+    """值至少含一个 CJK 表意字符——"Chinese-side" 的机器可判定义
+    （成分检测而非字符串比较：大小写变体、尾随空白的 EN 拷贝、
+    非 CJK 第三语言值都判否）。"""
+    return bool(re.search(r"[一-鿿]", value))
 
-    zh = loadZhContent()
+
+def test_cjk_detector_rejects_escape_forms():
+    """Guard 自测向量（CODING_STANDARDS rule 4）：已知 escape 形式必须
+    让检测器判否，真实 zh 值判是——上面的 Chinese-side 通过因此
+    非空转。"""
+    assert _has_cjk("P50 压力阈值")
+    assert not _has_cjk("P50 pressure threshold")
+    assert not _has_cjk("P50 pressure threshold ")  # 尾随空白的 EN 拷贝
+    assert not _has_cjk("P50 PRESSURE THRESHOLD")  # 大小写变体
+    assert not _has_cjk("") and not _has_cjk("  ")
+    assert not _has_cjk("порог давления")  # 非 CJK 第三语言
+
+
+def test_zh_content_values_are_chinese_side():
+    """Every curated value of all four kinds carries CJK characters —
+    an EN copy, an empty string, or a third-language value fails the
+    component detector (which is not string-equality, so cosmetic
+    escapes don't pass)."""
+    zh = load_zh_content()
     for gene, entry in zh["channels"].items():
-        assert entry["summary"].strip(), gene
+        assert _has_cjk(entry["summary"]), gene
     for name, entry in zh["parameters"].items():
-        assert entry["label"].strip(), name
-        assert entry["label"] != PARAMETERS[name].label, name
+        assert _has_cjk(entry["label"]), name
     for fam, entry in zh["families"].items():
-        assert entry["description"].strip(), fam
-    assert zh["frozen_layer_disclosure"].strip()
-    assert zh["frozen_layer_disclosure"] != FROZEN_LAYER_DISCLOSURE
+        assert _has_cjk(entry["description"]), fam
+    assert _has_cjk(zh["frozen_layer_disclosure"])
 
 
 def test_zh_frozen_disclosure_carries_every_semantic_component():
     """The newly written zh §6.7 carries each semantic component of the
-    EN boilerplate (see zh_disclosure_components) — semantics, not
+    EN boilerplate (see _ZH_DISCLOSURE_COMPONENTS) — semantics, not
     substrings: nothing here matches the EN text's wording."""
-    zh = loadZhContent()
+    zh = load_zh_content()
     wording = zh["frozen_layer_disclosure"]
-    for label, component in zh_disclosure_components().items():
+    for label, component in _ZH_DISCLOSURE_COMPONENTS.items():
         assert component in wording, label
 
 
 def test_zh_frozen_disclosure_is_not_an_affirmative_status():
-    """M1 pattern, text-node twin: the zh wording as a whole is not an
-    affirmative verification status, and it never asserts verification —
-    the walker treats whole-node exact statuses, prose negations pass."""
-    statuses = {"verified", "re-verified", "已核验", "已验证"}
-    wording = loadZhContent()["frozen_layer_disclosure"].strip().lower()
-    assert wording not in statuses
+    """M1 pattern: the zh wording as a whole is not an affirmative
+    verification status — against the render-layer walker's status set
+    (single source, Chinese forms included since T-LOC), never a
+    hand-copied twin that can drift. Negation prose ("未经过再核验")
+    passes by the whole-value boundary rule."""
+    from tests.test_site_pages import _AFFIRMATIVE_STATUSES
+
+    wording = load_zh_content()["frozen_layer_disclosure"].strip()
+    assert wording not in _AFFIRMATIVE_STATUSES
+    # the status set itself carries the zh forms (walker upgrade, below)
+    assert {"已核验", "已验证"} <= _AFFIRMATIVE_STATUSES
 
 
 # --------------------------------------------------------------------------- #
@@ -159,7 +180,7 @@ def test_overlay_is_presentation_only_zh_gets_zh_en_keeps_payload(tmp_path):
         render_fixture,
     )
 
-    zh = loadZhContent()
+    zh = load_zh_content()
     out = render_fixture(tmp_path)
     zh_html = (out / "zh" / "channels" / "frozen1" / "index.html").read_text(
         encoding="utf-8"
@@ -215,7 +236,7 @@ def test_db_zh_tree_fully_populated_no_en_fallback_leaks(tmp_path):
     from that ZH page)."""
     from maicdb.query import PARAMETERS
 
-    zh = loadZhContent()
+    zh = load_zh_content()
     out = tmp_path / "out"
     run_build(out)
     site = out / "_site"

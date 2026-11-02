@@ -110,6 +110,12 @@ def _human_size(n_bytes: int) -> str:
 # --------------------------------------------------------------------------- #
 # Curated Chinese content overlay (M3-T-LOC, issue #43)
 # --------------------------------------------------------------------------- #
+def _zh_label(zh: dict, name: str) -> str | None:
+    """zh-content 中某参数的中文 label；缺键返回 None（渲染时保持
+    payload 原样——三个 overlay 消费点的单一来源）。"""
+    return zh["parameters"].get(name, {}).get("label")
+
+
 def _zh_card(card: dict, zh: dict) -> dict:
     """ZH 渲染用的卡 payload：深拷贝后覆盖 summary / 参数 label / §6.7
     披露（spec §6——curated 中文是表现层，数据工件与 EN 树不动；
@@ -119,7 +125,7 @@ def _zh_card(card: dict, zh: dict) -> dict:
     if entry and entry.get("summary"):
         card["gene"]["summary"] = entry["summary"]
     for name, block in card["parameters"].items():
-        label = zh["parameters"].get(name, {}).get("label")
+        label = _zh_label(zh, name)
         if label:
             block["label"] = label
     if "frozen_layer_disclosure" in card:
@@ -137,7 +143,7 @@ def _zh_comparison(comparison: dict, entry: dict, zh: dict) -> tuple[dict, dict]
     entry = copy.deepcopy(entry)
     if "frozen_layer_disclosure" in comparison:
         comparison["frozen_layer_disclosure"] = zh["frozen_layer_disclosure"]
-    label = zh["parameters"].get(entry["name"], {}).get("label")
+    label = _zh_label(zh, entry["name"])
     if label:
         entry["label"] = label
     return comparison, entry
@@ -147,7 +153,8 @@ def _zh_index_lists(
     families: list[dict], parameters: list[dict], zh: dict
 ) -> tuple[list[dict], list[dict]]:
     """browse / 参数索引的 ZH 覆盖：family 组附中文描述（zh-content 有
-    键才加——EN 树与无描述的家族零变化），参数条目 label 覆盖。"""
+    键才加——EN 树字节不变：条件块用空白控制，缺描述的家族不留残迹），
+    参数条目 label 覆盖。"""
     families = copy.deepcopy(families)
     for fam in families:
         desc = zh["families"].get(fam["family"], {}).get("description")
@@ -155,7 +162,7 @@ def _zh_index_lists(
             fam["description"] = desc
     parameters = copy.deepcopy(parameters)
     for param in parameters:
-        label = zh["parameters"].get(param["name"], {}).get("label")
+        label = _zh_label(zh, param["name"])
         if label:
             param["label"] = label
     return families, parameters

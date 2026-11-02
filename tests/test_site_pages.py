@@ -553,13 +553,18 @@ def test_card_frozen_banner_semantics_fixture(tmp_path):
 # The frozen-banner semantics walker (M1 pattern, HTML translation)
 # --------------------------------------------------------------------------- #
 #: A text node that *is* an affirmative verification status (whole-node
-#: match, lowercased — the same set as test_query's walker).
+#: match, lowercased — the same set as test_query's walker, plus the
+#: Chinese whole-value forms: the ZH tree renders Chinese since T-LOC,
+#: so the walker must bite on both languages).
 _AFFIRMATIVE_STATUSES = {
     "verified",
     "re-verified",
     "verification: verified",
     "status: verified",
     "verified: true",
+    "已核验",
+    "已验证",
+    "核验：已核验",
 }
 
 
@@ -619,6 +624,13 @@ def test_status_scanner_rejects_affirmative_forms():
     # a punctuated status node is prose-shaped (trailing period), not a
     # bare status — the same exact-match boundary as the M1 walker
     assert not list(affirmative_status_hits("<p>Verified.</p>"))
+    # Chinese status forms (T-LOC): whole-value hits in text and in any
+    # attribute; negation/punctuated prose stays outside the set
+    assert list(affirmative_status_hits("<p>已核验</p>"))
+    assert list(affirmative_status_hits('<span aria-label="已验证">x</span>'))
+    assert list(affirmative_status_hits("<p>核验：已核验</p>"))
+    assert not list(affirmative_status_hits("<p>已核验。</p>"))
+    assert not list(affirmative_status_hits("<p>尚未经过核验</p>"))
 
 
 def test_sign_convention_en_dictionary_matches_library():
