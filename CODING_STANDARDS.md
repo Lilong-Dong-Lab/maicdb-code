@@ -42,7 +42,15 @@ Y deletions(-)`` and the compact ``N files +X/-Y``) are machine-checked in
 CI — the stat-lines step re-derives the whole-diff and per-commit stats
 and fails on any pasted line that matches neither. Only the PR's own
 stats verify: a historical or sub-range stat line matches no re-derivation
-and fails the step, so don't paste those. The reviewer drill therefore
+and fails the step, so don't paste those. Paste **per-commit** stats, not
+the whole-diff stat: a commit is immutable so its stat re-derives forever,
+while a whole-diff stat is born historical — it expires the moment the
+branch gains another push (observed live, PR #48: two gate-fix pushes
+after the body's whole-diff stat pasted → every later pull_request run
+red on a line the CI could no longer re-derive; the merge push run was
+green only because the step is pull_request-only). Exception: a
+single-commit PR may paste its whole-diff stat — it equals that one
+commit's stat, which re-derives forever. The reviewer drill therefore
 targets every other claim shape; paste stat lines unwrapped.
 
 ## 3. Docstring/PR-body behavioral claims point into the implementation
@@ -65,3 +73,23 @@ behavior, point at the line that makes it true — the output list entry at
 its `_dump`/write site, the citation at the cited source itself, the
 default at the `add_argument`. An unpointable claim, or a claim the twin
 surface (EN/CN, docstring/spec) contradicts, is a finding.
+
+## 4. Guard tests ship with escape-form self-vectors
+
+A guard test — a scanner, a literal collector, any test whose pass
+depends on NOT seeing something — lands in the same diff with self-test
+vectors that go red on known escape forms. The reviewer then names one
+more escape form and asks whether a vector pins it.
+
+*Failure prevented:* the site's template-literal scan passed itself
+while `{{ "…" }}` expression literals and `{%- … -%}` whitespace-control
+tags both escaped it — each found only by a successive adversarial gate
+round on PR #48 (2026-11-02), after the implementation-side review had
+already accepted the scanner as complete. A guard with no negative
+vector proves only that the guarded surface is quiet, not that the guard
+bites.
+
+*Reviewer drill:* for each new guard test, run its collector directly on
+a known-escape input and watch it fail; then name a second escape form
+and check whether a self-vector pins it — if none does, that is a
+finding.

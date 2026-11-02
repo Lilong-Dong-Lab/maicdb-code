@@ -125,14 +125,34 @@ LOCAL_REF="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$
 [ -n "$LOCAL_REF" ] ||
     fail "$CI_FILE: no 'Local with-vault reference: N passed' comment found"
 LOCAL_PASSED="$(sed -E 's/.*[^0-9]([0-9]+) passed.*/\1/' <<<"$LOCAL_SUMMARY")"
-[ "$LOCAL_PASSED" = "$LOCAL_REF" ] ||
+if [ "$LOCAL_PASSED" != "$LOCAL_REF" ]; then
+    note "suggested re-pin:"
+    note "  sed -i 's/Local with-vault reference: $LOCAL_REF passed/Local with-vault reference: $LOCAL_PASSED passed/' $CI_FILE"
     fail "local run says $LOCAL_PASSED passed but $CI_FILE's reference comment pins $LOCAL_REF — if the run is genuine, re-pin the comment and KNOWN-QUIRKS quirk 3 together (bash scripts/check-suite-matrix.sh derives, never arithmetic)"
+fi
 
 # --- state 2: no vault (the CI condition, tags present) ------------------
+suggest_repin() { # executed-summary -> echo which declared pin it should replace
+    local executed="$1" d bare
+    # the bare signature only — the executed line carries pytest's
+    # ==== decoration and wall-clock duration, which must never enter a
+    # grep anchor (the next run's timing would fail it forever)
+    bare="$(grep -oE '[0-9]+ passed, [0-9]+ skipped, [0-9]+ warning' <<<"$executed" | head -1)"
+    for d in "${DECLARED[@]}"; do
+        if [ "$(skips_of "$d")" = "$(skips_of "$executed")" ]; then
+            note "suggested re-pin: replace '$d' with '$bare' in $CI_FILE (grep anchors + the shorthand copy inside the drift-error message) and mirror both in KNOWN-QUIRKS quirk 3"
+            return 0
+        fi
+    done
+    note "suggested re-pin: no declared pin shares this skip count — add the signature to $CI_FILE as a third state only if a state was genuinely added; otherwise investigate the drift"
+}
+
 NOVAULT_SUMMARY="$(PYTHONPATH=src MAICDB_VAULT=/nonexistent uv run pytest tests/ -q 2>&1 | tail -1)"
 note "novault : $NOVAULT_SUMMARY"
-matches_declared "$NOVAULT_SUMMARY" ||
+matches_declared "$NOVAULT_SUMMARY" || {
+    suggest_repin "$NOVAULT_SUMMARY"
     fail "novault summary does not match a declared pin (declared: ${DECLARED[*]})"
+}
 
 # --- state 3: no tag (shallow clone of this HEAD) ------------------------
 if [ -n "$(git status --porcelain)" ]; then
@@ -146,8 +166,10 @@ git clone --depth 1 --no-tags --quiet "file://$REPO_ROOT" "$TMP_CLONE"
 NOTAG_SUMMARY="$(cd "$TMP_CLONE" && PYTHONPATH=src MAICDB_VAULT=/nonexistent \
     "$REPO_ROOT/.venv/bin/python" -m pytest tests/ -q 2>&1 | tail -1)"
 note "notag   : $NOTAG_SUMMARY"
-matches_declared "$NOTAG_SUMMARY" ||
+matches_declared "$NOTAG_SUMMARY" || {
+    suggest_repin "$NOTAG_SUMMARY"
     fail "notag summary does not match a declared pin (declared: ${DECLARED[*]})"
+}
 
 # --- the two states must map to DIFFERENT pins ----------------------------
 [ "$(skips_of "$NOTAG_SUMMARY")" -gt "$(skips_of "$NOVAULT_SUMMARY")" ] ||
