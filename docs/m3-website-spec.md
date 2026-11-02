@@ -58,6 +58,14 @@ library builds the data, pages never reimplement it.
   delta_p50 16, slope 13, macroscopic_rise_time 13, thermal_threshold 9,
   ca_permeability 4, osmotic_threshold 3.
 - NULL `measurement_id` census: 0 / 0 / 0 across the three fact tables.
+- Two row-count calibers (found building the T2 index): the 948-row
+  table census vs **936 parameterized rows** — 12 rows repo-wide carry a
+  qualitative as-reported value only (LINEAR, OUTWARD_RECTIFYING, ranges
+  like "185-224") with every parameter column NULL, so they belong to no
+  parameter block (1×PIEZO2, 1×ASIC, 1×TREK-1, 3×TREK-2, 6×TRPV4). The
+  site's per-channel counts use the parameterized caliber and name it
+  (`n_parameterized_rows`); browse-page display of the qualitative rows
+  is a T4 call.
 - Channel identity fields (from `channel_card()`): maicdb_id,
   gene_symbol, gene_aliases, organism, organism_taxid, uniprot_accession,
   protein_name, family, activation_mechanism, ortholog_group, summary.
