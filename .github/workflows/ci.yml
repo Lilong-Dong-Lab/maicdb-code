@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+  # T9's manual deploy path (issue #45): after setting DEPLOY_SITE, the
+  # maintainer can fire a deploy without waiting for a push to main.
+  workflow_dispatch:
 
 jobs:
   tests:
@@ -26,6 +29,22 @@ jobs:
         run: uvx ruff@0.17.3 check .
       - name: Declared suite pins are exactly two and mirrored (static)
         run: bash scripts/check-suite-matrix.sh --pins
+      - name: Site build, both locales (byte-stable)
+        # M3-T7 (issue #42): CI builds the site exactly as a human/deploy
+        # does — default --out into gitignored site/_data + site/_site —
+        # then byte-compares an independent second build: spec §6's
+        # determinism contract verified in the CI environment itself. The
+        # suite step below re-verifies it via
+        # tests/test_site_build.py::test_build_is_byte_stable on tmp dirs;
+        # this step additionally exercises the default-argument path the
+        # deploy job deploys. db/maicdb.sqlite ships in-repo, so the
+        # build (and its byte-stability) never skips in CI (quirk 3).
+        run: |
+          PYTHONPATH=src uv run python site/build.py
+          PYTHONPATH=src uv run python site/build.py --out /tmp/site-rebuild
+          diff -r site/_data /tmp/site-rebuild/_data
+          diff -r site/_site /tmp/site-rebuild/_site
+          test -f site/_site/index.html && test -f site/_site/zh/index.html
       - name: Test suite (summary pinned — KNOWN-QUIRKS quirk 3)
         # CI runs without the vault checkout: the 7 vault-dependent loader
         # tests auto-skip and db/maicdb.sqlite ships in-repo, so the query
@@ -33,17 +52,17 @@ jobs:
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: 138 passed (parameter comparison pages, 2026-11-02).
+        # Local with-vault reference: 141 passed (CI site-build pipeline, 2026-11-02).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
           # digit-boundary anchors on both ends: "160 passed" or "1 warning"
           # inside "11 warnings" must NOT match the pin (vacuous-pass guard)
-          grep -qE "(^|[^0-9])131 passed, 7 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
-            if grep -qE "(^|[^0-9])113 passed, 25 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
-              echo "::error::'113 passed, 25 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
+          grep -qE "(^|[^0-9])134 passed, 7 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
+            if grep -qE "(^|[^0-9])116 passed, 25 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
+              echo "::error::'116 passed, 25 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
             else
-              echo "::error::suite summary drifted from the pinned '131 passed, 7 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
+              echo "::error::suite summary drifted from the pinned '134 passed, 7 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
             fi
             exit 1
           }
@@ -105,3 +124,47 @@ jobs:
         # is pinned) — validated ad hoc until PR #24's gate ran
         # `uvx cffconvert` by hand. Tool-only dep (uvx; no pyproject change).
         run: uvx cffconvert --validate
+
+  deploy-pages:
+    needs: tests
+    # ADR-0004 ("Site publishing inherits the flip gate … pre-submission
+    # publicity", which itself cites ADR-0002) + flip runbook §3: the
+    # public flip (T8, issue #44) is the
+    # human gate — this job must be structurally unable to run before it.
+    # The DEPLOY_SITE repo variable stays unset until T9 (issue #45) sets
+    # it post-flip (`gh variable set DEPLOY_SITE --body true`), so every
+    # pre-flip run — PR and push alike — shows this job SKIPPED (issue
+    # #42's acceptance: verifiably skipped while the repo is private).
+    # Enabling also needs Settings → Pages → Source: GitHub Actions (T9,
+    # post-flip; a private repo cannot serve Pages anyway). Scope: push
+    # to main or manual dispatch, never a PR; needs the green suite. The
+    # build is byte-stable (spec §6), so the deployed bytes equal the
+    # bytes the tests job just verified on the same commit.
+    if: >-
+      vars.DEPLOY_SITE == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - name: Site build (both locales)
+        run: PYTHONPATH=src uv run python site/build.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/_site
+      - id: deployment
+        uses: actions/deploy-pages@v4
