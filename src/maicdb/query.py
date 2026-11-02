@@ -333,7 +333,8 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
     expansion pattern. Ordering matches it too: ``(measurement_id,
     maicdb_id)`` with the NOT NULL unique ``maicdb_id`` as tie-break.
 
-    A zero-row gene reports ``{"n_rows": 0, "rows": []}`` — the CALLER
+    A zero-row gene reports ``{"gene": gene, "n_rows": 0, "rows": []}``
+    — the CALLER
     decides visibility (spec Q11 shows the bioactivity block only where
     data exists; the 16 parameter blocks, by contrast, are never hidden).
     A frozen-layer gene's bioactivity rows are PIEZO rows: the §6.7

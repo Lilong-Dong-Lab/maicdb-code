@@ -175,10 +175,10 @@ SYNTH_INDEX = {
     ],
 }
 
-_SYNTH_CARDS = {"frozen1": FROZEN1_CARD, "plain2": PLAIN2_CARD}
-#: Public alias: test_site_render's home-page fixture renders the same
-#: synthetic data layer (render_site reads channel JSONs since T4).
-SYNTH_CARDS = _SYNTH_CARDS
+#: The synthetic cards, keyed by slug; test_site_render's home-page
+#: fixture renders the same data layer (render_site reads channel
+#: JSONs since T4 — the helpers are shared, not forked).
+SYNTH_CARDS = {"frozen1": FROZEN1_CARD, "plain2": PLAIN2_CARD}
 
 
 def load_build_module():
@@ -202,7 +202,7 @@ def render_fixture(tmp_path: Path) -> Path:
     (data_dir / "index.json").write_text(
         json.dumps(SYNTH_INDEX), encoding="utf-8"
     )
-    for slug, card in _SYNTH_CARDS.items():
+    for slug, card in SYNTH_CARDS.items():
         (data_dir / "channels" / f"{slug}.json").write_text(
             json.dumps(card), encoding="utf-8"
         )
@@ -412,8 +412,9 @@ _AFFIRMATIVE_STATUSES = {
 class _StatusScanner(HTMLParser):
     """Collect affirmative-status hits from rendered HTML: attribute NAMES
     carrying a verification marker (``data-verified``, ``verification``),
-    badge-shaped class/id VALUES exactly ``verified``, and whole text
-    nodes that ARE a status."""
+    badge-shaped class/id values whose word set contains ``verified``
+    (whole word — ``class="badge verified"`` is a verified badge),
+    and whole text nodes that ARE a status."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -423,12 +424,10 @@ class _StatusScanner(HTMLParser):
         for name, value in attrs:
             if "verif" in name.lower():
                 self.hits.append(f"attr-name:{name}={value}")
-            if (
-                name.lower() in {"class", "id"}
-                and value is not None
-                and value.strip().lower() == "verified"
-            ):
-                self.hits.append(f"badge:{name}={value}")
+            if name.lower() in {"class", "id"} and value is not None:
+                words = value.lower().split()
+                if "verified" in words:
+                    self.hits.append(f"badge:{name}={value}")
 
     def handle_data(self, data):
         if data.strip().lower() in _AFFIRMATIVE_STATUSES:
@@ -450,12 +449,16 @@ def test_status_scanner_rejects_affirmative_forms():
     not vacuous."""
     assert list(affirmative_status_hits('<em data-verified="yes">ok</em>'))
     assert list(affirmative_status_hits('<span class="verified">ok</span>'))
-    assert list(affirmative_status_hits("<p>Verified</p>"))
+    assert list(affirmative_status_hits('<span class="badge verified">ok</span>'))
+    assert list(affirmative_status_hits('<p>Verified</p>'))
     assert list(affirmative_status_hits("<p>status: verified</p>"))
     # prose legitimately containing the word — passes
     assert not list(affirmative_status_hits("<p>not been re-verified</p>"))
     assert not list(affirmative_status_hits("<p>we verified the recording</p>"))
     assert not list(affirmative_status_hits('<a class="verified-link">x</a>'))
+    # a punctuated status node is prose-shaped (trailing period), not a
+    # bare status — the same exact-match boundary as the M1 walker
+    assert not list(affirmative_status_hits("<p>Verified.</p>"))
 
 
 def test_sign_convention_en_dictionary_matches_library():

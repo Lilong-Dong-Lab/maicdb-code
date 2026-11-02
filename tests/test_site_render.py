@@ -24,7 +24,6 @@ Footer identifiers (license names, dataset DOI) are data, not UI copy:
 of the citation strings per ADR-0003.
 """
 
-import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -112,7 +111,9 @@ def _template_literals(template: str) -> list[tuple[str, str]]:
             for quoted in pair
             if quoted.strip()
         )
-    stripped = re.sub(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", "", template)
+    stripped = re.sub(
+        r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", "", template, flags=re.DOTALL
+    )
     collector = _LiteralCollector()
     collector.feed(stripped)
     literals.extend(collector.literals)
@@ -203,51 +204,22 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert not _is_copy_violation("text", "·")
     assert not _is_copy_violation("attr:class", "site-header")
     assert not _is_copy_violation("attr:href", "/channels/#")
+    # multi-line Jinja comments and statements must strip too (guard fix:
+    # the strip regex lacked DOTALL and leaked a multi-line {# #} comment
+    # into the HTML scan as a text node — found live by the T4 macro block)
+    assert _template_literals("{# multi\nline #}<p>{{ strings.x }}</p>") == []
+    assert ("expr", "piezo1") in _template_literals(
+        '{% if slug ==\n  "piezo1" %}x{% endif %}'
+    )
 
 
 # --------------------------------------------------------------------------- #
 # render_site() — fixture-driven (no DB); the seam T4–T7 keep consuming.
-# Since T4 the fixture data layer is the synthetic index + card payloads
-# defined in test_site_pages.py (render_site reads channel JSONs).
+# Since T4 the fixture data layer AND the fixture-render helpers live in
+# test_site_pages.py (render_site reads channel JSONs; the helpers are
+# shared, not forked per file).
 # --------------------------------------------------------------------------- #
-from tests.test_site_pages import SYNTH_CARDS, SYNTH_INDEX  # noqa: E402
-
-FIXTURE_INDEX = SYNTH_INDEX
-
-
-def load_build_module():
-    """Load ``site/build.py`` as a module (the ``site`` directory is a
-    script dir, not a package — and the name collides with stdlib ``site``)."""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(
-        "maicdb_site_build", REPO_ROOT / "site" / "build.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def render_fixture(tmp_path: Path) -> Path:
-    """Materialize the fixture data layer and render both locale trees."""
-    data_dir = tmp_path / "_data"
-    (data_dir / "channels").mkdir(parents=True)
-    (data_dir / "index.json").write_text(
-        json.dumps(FIXTURE_INDEX), encoding="utf-8"
-    )
-    for slug, card in SYNTH_CARDS.items():
-        (data_dir / "channels" / f"{slug}.json").write_text(
-            json.dumps(card), encoding="utf-8"
-        )
-    out_dir = tmp_path / "_site"
-    load_build_module().render_site(
-        data_dir=data_dir,
-        out_dir=out_dir,
-        site_dir=SITE_DIR,
-        repo_root=REPO_ROOT,
-    )
-    return out_dir
+from tests.test_site_pages import render_fixture  # noqa: E402
 
 
 def test_render_home_both_locales_from_fixture(tmp_path):

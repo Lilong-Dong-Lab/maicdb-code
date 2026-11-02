@@ -1,5 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ card.gene.gene_symbol }} · {{ strings.site_name }}{% endblock %}
+
+{# The per-row evidence chain: six fields rendered identically for every
+   row kind; bioactivity rows lead with the verbatim assay description.
+   Hidden until expanded — this dl lives inside the row's <details>. #}
+{% macro evidence_dl(r, assay=false) %}
+<dl class="evidence">
+  {% if assay %}
+  <dt>{{ strings.card_bioactivity_assay }}</dt><dd>{{ r.assay_description or strings.card_not_recorded }}</dd>
+  {% endif %}
+  <dt>{{ strings.card_ev_quote }}</dt><dd>{{ r.evidence_quote or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_location }}</dt><dd>{{ r.evidence_location or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_confidence }}</dt><dd>{{ r.confidence or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_note }}</dt><dd>{{ r.extractor_note or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_condition }}</dt><dd>{{ r.condition_key or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_n }}</dt><dd>{{ r.n or strings.card_not_recorded }}</dd>
+</dl>
+{% endmacro %}
+
 {% block content %}
 <article class="channel-page">
   <h1>{{ card.gene.gene_symbol }}</h1>
@@ -48,14 +66,7 @@
               <span class="asrep">({{ strings.card_as_reported_prefix }} {{ r.value_as_reported }}{% if r.unit_as_reported %} {{ r.unit_as_reported }}{% endif %})</span>
               {% endif %}
             </summary>
-            <dl class="evidence">
-              <dt>{{ strings.card_ev_quote }}</dt><dd>{{ r.evidence_quote or strings.card_not_recorded }}</dd>
-              <dt>{{ strings.card_ev_location }}</dt><dd>{{ r.evidence_location or strings.card_not_recorded }}</dd>
-              <dt>{{ strings.card_ev_confidence }}</dt><dd>{{ r.confidence or strings.card_not_recorded }}</dd>
-              <dt>{{ strings.card_ev_note }}</dt><dd>{{ r.extractor_note or strings.card_not_recorded }}</dd>
-              <dt>{{ strings.card_ev_condition }}</dt><dd>{{ r.condition_key or strings.card_not_recorded }}</dd>
-              <dt>{{ strings.card_ev_n }}</dt><dd>{{ r.n or strings.card_not_recorded }}</dd>
-            </dl>
+            {{ evidence_dl(r) }}
           </details>
         </li>
         {% endfor %}
@@ -78,18 +89,11 @@
       <li>
         <details class="measure-row"{% if r.measurement_id %} id="{{ r.measurement_id }}"{% endif %}>
           <summary>
+            <span class="mid">{{ r.measurement_id or strings.card_unattributed }}</span>
             <span class="compound">{{ r.compound_name }}</span>
             <span class="val">{{ r.activity_type }}{% if r.relation %} {{ r.relation }}{% endif %}{% if r.activity_value is not none %} {{ r.activity_value }}{% endif %}{% if r.activity_units %} {{ r.activity_units }}{% endif %}</span>
           </summary>
-          <dl class="evidence">
-            <dt>{{ strings.card_bioactivity_assay }}</dt><dd>{{ r.assay_description or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_ev_quote }}</dt><dd>{{ r.evidence_quote or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_ev_location }}</dt><dd>{{ r.evidence_location or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_ev_confidence }}</dt><dd>{{ r.confidence or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_ev_note }}</dt><dd>{{ r.extractor_note or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_ev_condition }}</dt><dd>{{ r.condition_key or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_ev_n }}</dt><dd>{{ r.n or strings.card_not_recorded }}</dd>
-          </dl>
+          {{ evidence_dl(r, assay=true) }}
         </details>
       </li>
       {% endfor %}
