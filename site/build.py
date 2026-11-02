@@ -31,11 +31,15 @@ dictionaries), and takes footer identifiers (license names, dataset DOI)
 from ``CITATION.cff`` — the canonical citation home per ADR-0003.
 
 NOT build outputs: ``site/strings.{en,zh}.json`` are repo source files
-(UI copy dictionaries, parity-tested); ``site/templates/`` and
+(UI copy dictionaries, parity-tested); ``site/zh-content.json`` is the
+curated Chinese content layer (M3-T-LOC — channel summaries, parameter
+labels, family descriptions, the zh §6.7 wording; a presentation-layer
+overlay consumed by the ZH render loop only); ``site/templates/`` and
 ``site/assets/`` are repo sources the renderer reads.
 """
 
 import argparse
+import copy
 import json
 import posixpath
 import re
@@ -101,6 +105,67 @@ def _human_size(n_bytes: int) -> str:
             return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1000
     return f"{size:.1f} TB"
+
+
+# --------------------------------------------------------------------------- #
+# Curated Chinese content overlay (M3-T-LOC, issue #43)
+# --------------------------------------------------------------------------- #
+def _zh_label(zh: dict, name: str) -> str | None:
+    """zh-content 中某参数的中文 label；缺键返回 None（渲染时保持
+    payload 原样——三个 overlay 消费点的单一来源）。"""
+    return zh["parameters"].get(name, {}).get("label")
+
+
+def _zh_card(card: dict, zh: dict) -> dict:
+    """ZH 渲染用的卡 payload：深拷贝后覆盖 summary / 参数 label / §6.7
+    披露（spec §6——curated 中文是表现层，数据工件与 EN 树不动；
+    zh-content 缺键的字段保持 payload 原样，不发明内容）。"""
+    card = copy.deepcopy(card)
+    entry = zh["channels"].get(card["gene"]["gene_symbol"])
+    if entry and entry.get("summary"):
+        card["gene"]["summary"] = entry["summary"]
+    for name, block in card["parameters"].items():
+        label = _zh_label(zh, name)
+        if label:
+            block["label"] = label
+    if "frozen_layer_disclosure" in card:
+        card["frozen_layer_disclosure"] = zh["frozen_layer_disclosure"]
+    bio = card.get("bioactivity")
+    if bio and "frozen_layer_disclosure" in bio:
+        bio["frozen_layer_disclosure"] = zh["frozen_layer_disclosure"]
+    return card
+
+
+def _zh_comparison(comparison: dict, entry: dict, zh: dict) -> tuple[dict, dict]:
+    """ZH 渲染用的比较 payload + 索引条目：doc 级 §6.7 披露与参数
+    label 覆盖（rows 无 curated 字段——证据引文永不翻译，spec Q3）。"""
+    comparison = copy.deepcopy(comparison)
+    entry = copy.deepcopy(entry)
+    if "frozen_layer_disclosure" in comparison:
+        comparison["frozen_layer_disclosure"] = zh["frozen_layer_disclosure"]
+    label = _zh_label(zh, entry["name"])
+    if label:
+        entry["label"] = label
+    return comparison, entry
+
+
+def _zh_index_lists(
+    families: list[dict], parameters: list[dict], zh: dict
+) -> tuple[list[dict], list[dict]]:
+    """browse / 参数索引的 ZH 覆盖：family 组附中文描述（zh-content 有
+    键才加——EN 树字节不变：条件块用空白控制，缺描述的家族不留残迹），
+    参数条目 label 覆盖。"""
+    families = copy.deepcopy(families)
+    for fam in families:
+        desc = zh["families"].get(fam["family"], {}).get("description")
+        if desc:
+            fam["description"] = desc
+    parameters = copy.deepcopy(parameters)
+    for param in parameters:
+        label = _zh_label(zh, param["name"])
+        if label:
+            param["label"] = label
+    return families, parameters
 
 
 def _site_facts(repo_root: Path) -> dict:
@@ -255,6 +320,12 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         for code in _LOCALES
     }
     site = _site_facts(repo_root)
+    # Curated Chinese content (M3-T-LOC): a presentation-layer overlay —
+    # only the ZH tree renders it; the data layer and the EN tree are
+    # untouched (spec §6).
+    zh_content = json.loads(
+        (site_dir / "zh-content.json").read_text(encoding="utf-8")
+    )
 
     written: list[Path] = []
     for locale, (tree_dir, alt_locale) in _LOCALES.items():
@@ -268,7 +339,21 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         search_copy = tree / "search-index.json"
         shutil.copyfile(data_dir / "search-index.json", search_copy)
         written.append(search_copy)
+        locale_families = index["families"]
+        locale_parameters = index["parameters"]
+        if locale == "zh":
+            locale_families, locale_parameters = _zh_index_lists(
+                index["families"], index["parameters"], zh_content
+            )
         for template, page_dir, extra in pages:
+            if locale == "zh":
+                if "card" in extra:
+                    extra = {**extra, "card": _zh_card(extra["card"], zh_content)}
+                elif "comparison" in extra:
+                    comparison, entry = _zh_comparison(
+                        extra["comparison"], extra["entry"], zh_content
+                    )
+                    extra = {**extra, "comparison": comparison, "entry": entry}
             page = tree / page_dir / "index.html"
             page.parent.mkdir(parents=True, exist_ok=True)
             page.write_text(
@@ -280,8 +365,8 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
                     alt=_alt_href(page_dir, locale),
                     site=site,
                     totals=index["totals"],
-                    families=index["families"],
-                    parameters=index["parameters"],
+                    families=locale_families,
+                    parameters=locale_parameters,
                     **extra,
                 )
                 + "\n",

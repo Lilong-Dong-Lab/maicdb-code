@@ -145,6 +145,12 @@ a:hover { color: #063c71; }
   margin: 0 0 0.75rem;
 }
 
+.family-desc {
+  margin: -0.375rem 0 0.875rem;
+  color: #555;
+  max-width: 42rem;
+}
+
 .channel-grid {
   list-style: none;
   display: grid;
