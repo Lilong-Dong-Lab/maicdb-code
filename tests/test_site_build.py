@@ -213,6 +213,72 @@ def test_locale_string_skeletons_parity():
 
 
 @requires_db
+def test_build_emits_home_totals(tmp_path):
+    """index.json carries the home-scale ``totals`` block, computed from
+    SQL — never a transcribed number (ticket #38: the 1100/12/7/211
+    overview comes from the data layer, not the template).
+
+    Pinned to the artifact census (spec §4, census SQL in this file's
+    docstring): 1100 = 948 biophysics + 136 bioactivity + 16 unmapped;
+    211 = publication rows; 12 channels; 7 families.
+    """
+    out = tmp_path / "out"
+    run_build(out)
+    totals = json.loads((out / "_data" / "index.json").read_text())["totals"]
+    assert totals == {
+        "n_measurements": 1100,
+        "n_channels": 12,
+        "n_families": 7,
+        "n_publications": 211,
+    }
+
+
+@requires_db
+def test_build_renders_home_in_both_locale_trees(tmp_path):
+    """The full CLI build renders home in both locale trees with the
+    computed scale numbers (data-driven, never hardcoded)."""
+    out = tmp_path / "out"
+    run_build(out)
+    en = (out / "_site" / "index.html").read_text(encoding="utf-8")
+    zh = (out / "_site" / "zh" / "index.html").read_text(encoding="utf-8")
+    assert "<html lang=\"en\">" in en
+    assert "<html lang=\"zh\">" in zh
+    for html in (en, zh):
+        assert ">1100<" in html and ">12<" in html
+        assert ">7<" in html and ">211<" in html
+    # all 7 real family names surface as entry links (census §4)
+    for family in ("PIEZO", "TRP", "TMC", "K2P"):
+        assert family in en
+
+
+@requires_db
+def test_every_en_page_has_zh_counterpart_and_switcher(tmp_path):
+    """Locale invariant over the WHOLE rendered tree, not just home:
+    every EN page has a ``zh/`` counterpart, and each page's switcher
+    points at its counterpart (ticket acceptance; T4–T7 pages inherit
+    this contract by construction)."""
+    out = tmp_path / "out"
+    run_build(out)
+    site = out / "_site"
+    en_pages = sorted(
+        p.relative_to(site)
+        for p in site.rglob("*.html")
+        if p.relative_to(site).parts[0] != "zh"
+    )
+    assert en_pages, "no EN pages rendered"
+    for rel in en_pages:
+        en_html = (site / rel).read_text(encoding="utf-8")
+        zh_rel = Path("zh") / rel
+        zh_page = site / zh_rel
+        assert zh_page.is_file(), f"missing ZH counterpart for {rel}"
+        zh_html = zh_page.read_text(encoding="utf-8")
+        # switcher hrefs are relative and mutually inverse (zh tree sits
+        # one level under the EN tree root)
+        assert "href=\"zh/" in en_html or "href=\"../" in en_html
+        assert "href=\"../" in zh_html
+
+
+@requires_db
 def test_db_artifact_untouched_by_site_suite():
     """Site-suite DB guard: test_query.py's whole-suite guard runs before
     this file alphabetically, so the build subprocesses executed in this

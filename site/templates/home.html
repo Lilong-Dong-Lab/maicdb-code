@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="home-hero">
+  <h1>{{ strings.home_tagline }}</h1>
+  {# The search box is inert markup in T3; T6 wires it to search-index.json. #}
+  <form class="site-search" role="search">
+    <input type="search" name="q" id="site-search"
+           placeholder="{{ strings.search_placeholder }}"
+           aria-label="{{ strings.search_placeholder }}">
+  </form>
+</section>
+<section class="home-stats" aria-label="{{ strings.stats_aria_label }}">
+  <ul>
+    <li><span class="stat-value">{{ totals.n_measurements }}</span><span class="stat-label">{{ strings.stat_measurements }}</span></li>
+    <li><span class="stat-value">{{ totals.n_channels }}</span><span class="stat-label">{{ strings.stat_channels }}</span></li>
+    <li><span class="stat-value">{{ totals.n_families }}</span><span class="stat-label">{{ strings.stat_families }}</span></li>
+    <li><span class="stat-value">{{ totals.n_publications }}</span><span class="stat-label">{{ strings.stat_publications }}</span></li>
+  </ul>
+</section>
+<section class="home-families">
+  <h2>{{ strings.home_families_heading }}</h2>
+  <ul>
+    {% for fam in families %}
+    <li><a href="{{ root }}/channels/#{{ fam.family }}">{{ fam.family }}</a> ({{ fam.channels | length }})</li>
+    {% endfor %}
+  </ul>
+  <p><a href="{{ root }}/downloads/">{{ strings.home_download_entry }}</a></p>
+</section>
+{% endblock %}

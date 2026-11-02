@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ strings.site_title }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ root }}/assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="site-name" href="{{ root }}/">{{ strings.site_name }}</a>
+      <nav class="site-nav" aria-label="{{ strings.nav_aria_label }}">
+        <a href="{{ root }}/">{{ strings.nav_home }}</a>
+        <a href="{{ root }}/channels/">{{ strings.nav_channels }}</a>
+        <a href="{{ root }}/parameters/">{{ strings.nav_parameters }}</a>
+        <a href="{{ root }}/downloads/">{{ strings.nav_downloads }}</a>
+      </nav>
+      <a class="lang-switch" lang="{{ alt_lang }}" href="{{ alt }}/">{{ strings.language_switch_label }}</a>
+    </div>
+  </header>
+  <main class="wrap">
+{% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>
+        {{ strings.footer_license_label }} <a href="{{ site.license_code_url }}">{{ site.license_code }}</a> ·
+        <a href="{{ site.license_data_url }}">{{ site.license_data }}</a> ·
+        {{ strings.footer_dataset_label }} <a href="{{ site.dataset_doi_url }}">{{ site.dataset_doi }}</a>
+      </p>
+      <p>{{ strings.footer_ai_disclosure }} <a href="{{ site.repo_url }}">{{ strings.footer_ai_link }}</a></p>
+    </div>
+  </footer>
+  <script src="{{ root }}/assets/site.js" defer></script>
+</body>
+</html>
