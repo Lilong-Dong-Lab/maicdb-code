@@ -128,6 +128,29 @@ def test_channel_card_identity_and_p50_rows(engine):
     assert row41["extractor_note"] is None
 
 
+def test_channel_card_rows_carry_maicdb_id(engine):
+    """Issue #12 (adjudicated slice, T2): every card row carries the
+    experiment's ``maicdb_id`` — a stable per-row reference key for the
+    site data layer, independent of ``measurement_id`` attribution.
+
+    Pinned against the artifact (data-v1.0, vault head 5a8ff0e):
+    ``SELECT e.maicdb_id FROM biophysics_experiment e WHERE
+    e.measurement_id='PIEZO1-EX-00005'`` → ``MAIC:BX:00397``.
+    #12's deferral clause is respected on the retrieval side:
+    ``provenance_by_maicdb_id()`` is NOT added — the NULL-measurement_id
+    census is 0 (pinned by PR #29 in tests/test_zenodo_bundle.py), so a
+    retrieval path for that state stays unbuilt.
+    """
+    card = channel_card(engine, "PIEZO1", parameters=["p50"])
+    row = next(
+        r for r in card["parameters"]["p50"]["rows"]
+        if r["measurement_id"] == "PIEZO1-EX-00005"
+    )
+    assert row["maicdb_id"] == "MAIC:BX:00397"
+    # Every row carries a non-empty key, not just the pinned one.
+    assert all(r["maicdb_id"] for r in card["parameters"]["p50"]["rows"])
+
+
 def test_channel_card_unknown_gene_is_clean_error(engine):
     """Unknown gene: a clean lookup error, not an empty card (HANDOFF §5)."""
     with pytest.raises(UnknownGeneError, match="PIEZO9"):

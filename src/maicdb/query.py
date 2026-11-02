@@ -273,7 +273,10 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
         for name in names:
             spec = PARAMETERS[name]
             value_col = getattr(BiophysicsExperiment, spec.column)
-            cols = [value_col]
+            # maicdb_id leads every row: the stable per-row reference key
+            # (issue #12, additive slice) — attribution via measurement_id
+            # can stay NULL at the schema level without losing the key.
+            cols = [BiophysicsExperiment.maicdb_id, value_col]
             if spec.unit_column is not None:
                 cols.append(getattr(BiophysicsExperiment, spec.unit_column))
             # value/unit_as_reported ride along for every parameter — the
