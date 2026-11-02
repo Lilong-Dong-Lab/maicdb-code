@@ -100,10 +100,11 @@ def _template_literals(template: str) -> list[tuple[str, str]]:
             for quoted in pair
             if quoted.strip()
         )
-    # {% ... %} statements: same rule, EXCEPT template-reference
-    # statements (extends/include/import/from) whose quoted literals are
-    # template filenames — machine strings, like a class attribute.
-    for keyword, rest in re.findall(r"\{%\s*(\w+)(.*?)%\}", template, re.DOTALL):
+    # {% ... %} statements (incl. whitespace-control forms {%- / -%}):
+    # same rule, EXCEPT template-reference statements (extends/include/
+    # import/from) whose quoted literals are template filenames — machine
+    # strings, like a class attribute.
+    for keyword, rest in re.findall(r"\{%[-+]?\s*(\w+)(.*?)%\}", template, re.DOTALL):
         kind = "tmpl" if keyword in {"extends", "include", "import", "from"} else "expr"
         literals.extend(
             (kind, quoted)
@@ -189,6 +190,11 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     )
     assert _is_copy_violation("expr", "Welcome to the database")
     assert _is_copy_violation("expr", "piezo1")  # {% if slug == "piezo1" %} — data, not copy
+    # whitespace-control statement tags ({%- / -%}) must not escape the
+    # scan (gate re-review: the bare {% form was covered, this was not)
+    assert ("expr", "piezo1") in _template_literals(
+        '{%- if slug == "piezo1" -%}x{% endif %}'
+    )
     assert _template_literals("<p>{{ strings.home_tagline }}</p>") == []
     # template-reference statements name files, not copy
     assert ("tmpl", "base.html") in _template_literals('{% extends "base.html" %}')
