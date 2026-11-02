@@ -127,7 +127,9 @@ jobs:
 
   deploy-pages:
     needs: tests
-    # ADR-0002 + flip runbook §3: the public flip (T8, issue #44) is the
+    # ADR-0004 ("Site publishing inherits the flip gate … pre-submission
+    # publicity", which itself cites ADR-0002) + flip runbook §3: the
+    # public flip (T8, issue #44) is the
     # human gate — this job must be structurally unable to run before it.
     # The DEPLOY_SITE repo variable stays unset until T9 (issue #45) sets
     # it post-flip (`gh variable set DEPLOY_SITE --body true`), so every
