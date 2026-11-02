@@ -527,21 +527,25 @@ def test_card_bioactivity_block_where_data_exists(tmp_path):
 
 
 def test_card_frozen_banner_semantics_fixture(tmp_path):
-    """The banner renders whatever disclosure the payload carries (EN+ZH);
-    the semantics walker (below) finds no affirmative verification status
-    on the page even though the fixture quote deliberately contains the
-    word "verified" as prose."""
+    """The banner renders the payload's disclosure in EN and the curated
+    zh wording in ZH (the T-LOC overlay replaces the payload disclosure
+    globally — spec Q3); the semantics walker (below) finds no
+    affirmative verification status on any of the four pages even though
+    the fixture quote deliberately contains "verified" as prose."""
+    zh_disclosure = json.loads(
+        (SITE_DIR / "zh-content.json").read_text(encoding="utf-8")
+    )["frozen_layer_disclosure"]
     out = render_fixture(tmp_path)
-    for prefix in ("", "zh/"):
+    for prefix, expected in (("", _SYNTH_DISCLOSURE), ("zh/", zh_disclosure)):
         html = (
             out / prefix / "channels" / "frozen1" / "index.html"
         ).read_text(encoding="utf-8")
-        assert _SYNTH_DISCLOSURE in html
+        assert expected in html
         assert not list(affirmative_status_hits(html))
         plain = (
             out / prefix / "channels" / "plain2" / "index.html"
         ).read_text(encoding="utf-8")
-        assert _SYNTH_DISCLOSURE not in plain
+        assert _SYNTH_DISCLOSURE not in plain and zh_disclosure not in plain
         assert not list(affirmative_status_hits(plain))
 
 
@@ -674,24 +678,32 @@ def test_db_anchor_ids_equal_measurement_ids_piezo1(tmp_path):
 
 @requires_db
 def test_db_piezo_banner_semantics_real_pages(tmp_path):
-    """PIEZO1/PIEZO2 pages in BOTH locales carry the §6.7 boilerplate
-    verbatim (the library's disclosure, attached by the data layer) and
-    render no affirmative verification status; a non-frozen page (TRPV4)
-    carries no banner."""
+    """PIEZO1/PIEZO2 pages carry the §6.7 disclosure in BOTH locales —
+    the library's EN boilerplate in the EN tree, the curated zh wording
+    (zh-content.json, T-LOC) in the ZH tree — and render no affirmative
+    verification status; a non-frozen page (TRPV4) carries no banner in
+    either tree."""
     from maicdb.query import FROZEN_LAYER_DISCLOSURE
 
+    zh_disclosure = json.loads(
+        (SITE_DIR / "zh-content.json").read_text(encoding="utf-8")
+    )["frozen_layer_disclosure"]
     out = tmp_path / "out"
     run_build(out)
     site = out / "_site"
     for slug in ("piezo1", "piezo2"):
-        for prefix in ("", "zh/"):
+        for prefix, expected in (("", FROZEN_LAYER_DISCLOSURE), ("zh/", zh_disclosure)):
             html = (site / prefix / "channels" / slug / "index.html").read_text(
                 encoding="utf-8"
             )
-            assert FROZEN_LAYER_DISCLOSURE in html, (slug, prefix)
+            assert expected in html, (slug, prefix)
             assert not list(affirmative_status_hits(html)), (slug, prefix)
     trpv4 = (site / "channels" / "trpv4" / "index.html").read_text(encoding="utf-8")
+    trpv4_zh = (site / "zh" / "channels" / "trpv4" / "index.html").read_text(
+        encoding="utf-8"
+    )
     assert FROZEN_LAYER_DISCLOSURE not in trpv4
+    assert zh_disclosure not in trpv4_zh
 
 
 @requires_db
