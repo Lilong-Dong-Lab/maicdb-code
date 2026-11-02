@@ -22,8 +22,8 @@
 #                                                  signatures + the complete re-pin
 #                                                  edit list, compare nothing
 # (after `uv sync`; needs git). Invoke via `bash` — every caller does
-# (pre-commit, CI, CLAUDE.md); this script uses arrays, <(), and
-# ${!var}, all bash-only.
+# (pre-commit, CI); this script uses arrays, <(), and ${!var}, all
+# bash-only.
 
 # Re-exec into bash when the running shell lacks process substitution:
 # `sh scripts/check-suite-matrix.sh` died on the <() below before any
@@ -152,10 +152,14 @@ run_novault_state() { PYTHONPATH=src MAICDB_VAULT=/nonexistent uv run pytest tes
 run_notag_state() { # shallow no-tags clone of this HEAD, run there, clean up
     local tmp
     tmp="$(mktemp -d)"
+    # RETURN trap, not a trailing rm: under set -e an aborting clone or
+    # pytest must not leak the mktemp dir (origin/main's script-wide EXIT
+    # trap covered this; the extraction into a function dropped it —
+    # gate NIT, PR #55)
+    trap 'rm -rf "$tmp"' RETURN
     git clone --depth 1 --no-tags --quiet "file://$REPO_ROOT" "$tmp"
     (cd "$tmp" && PYTHONPATH=src MAICDB_VAULT=/nonexistent \
         "$REPO_ROOT/.venv/bin/python" -m pytest tests/ -q 2>&1 | tail -1)
-    rm -rf "$tmp"
 }
 
 # --- derive mode (--derive): gather-only, no comparison --------------------
@@ -214,7 +218,9 @@ if [ "${1:-}" = "--derive" ]; then
     done
     old_ref="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$CI_FILE")"
     new_ref="$(sed -E 's/.*[^0-9]([0-9]+) passed.*/\1/' <<<"$LOCAL_SUMMARY")"
-    if [ "$new_ref" = "$old_ref" ]; then
+    if [ -z "$old_ref" ]; then
+        note "local reference: no 'Local with-vault reference: N passed' comment in $CI_FILE — the full mode fails loudly on this; nothing derivable"
+    elif [ "$new_ref" = "$old_ref" ]; then
         note "local reference: in sync ($old_ref passed)"
     else
         changed=1
