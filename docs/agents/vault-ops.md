@@ -9,7 +9,7 @@ without disturbing it, and the shell rules that prevent multi-repo mistakes.
 | Path | What it is |
 |---|---|
 | `~/Project_DataBase_MAICDB` | The user's own checkout — may sit on a **personal working branch** (e.g. `student/xinfangowo-a2`). Never switch, rebase, or otherwise move its HEAD; run `git fetch --prune` freely |
-| `~/respository/Project_DataBase_MAICDB` | **Symlink** to the checkout above — the sibling path `tests/test_loader.py` and the loader expect (`parents[2]/Project_DataBase_MAICDB`). Freeze contract verified through it: `data-v1.0` (`5a8ff0e`) is an ancestor of the checked-out HEAD, so vault-dependent tests run for real (local suite = 100 passed, 0 skipped) |
+| `~/respository/Project_DataBase_MAICDB` | **Symlink** to the checkout above — the sibling path `tests/test_loader.py` expects (`parents[2]/Project_DataBase_MAICDB`; the loader CLI itself takes an explicit `--vault`, no default). Freeze contract verified through it: `data-v1.0` (`5a8ff0e`) is an ancestor of the checked-out HEAD, so vault-dependent tests run for real (local suite = 100 passed, 0 skipped) |
 
 If the symlink is missing, recreate it — do not re-clone (a full clone is
 ~58 MB and the network path to GitHub for this repo is slow; the 2026-11-02
