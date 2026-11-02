@@ -35,12 +35,40 @@ WORKFLOW = yaml.safe_load(
 )
 
 
+#: The deploy gate, pinned by FULL EQUALITY after whitespace
+#: normalization (gate MINOR-2: substring membership cannot see `&&`/`||`
+#: precedence or OR-bypasses — dropping the outer parentheses rebinds the
+#: expression so a push to main deploys with no variable at all, and every
+#: pinned substring survives). The expression is short and load-bearing;
+#: ANY edit to it goes red here on purpose.
+CANONICAL_DEPLOY_IF = (
+    "vars.DEPLOY_SITE == 'true' && "
+    "(github.event_name == 'workflow_dispatch' || "
+    "(github.event_name == 'push' && github.ref == 'refs/heads/main'))"
+)
+
+#: The byte-compare commands, pinned as exact LINES: a trailing
+#: ``|| true`` (or any other suffix) swallows the diff failure, and the
+#: run must not disable errexit either — both would make the check
+#: vacuous while every substring survives.
+DIFF_LINES = (
+    "diff -r site/_data /tmp/site-rebuild/_data",
+    "diff -r site/_site /tmp/site-rebuild/_site",
+)
+
+
+def _norm_ws(text: str) -> str:
+    return " ".join(text.split())
+
+
 def site_build_pinned(workflow: dict) -> bool:
     """The tests job carries exactly ONE site-build step that is
     unconditional at BOTH levels (no step ``if``, no job-level ``if`` —
     so it runs on every pull_request and push), builds twice, and
-    byte-compares the two builds ACROSS output directories (a same-dir
-    self-diff would be vacuous), plus the both-locales smoke check.
+    byte-compares the two builds ACROSS output directories as exact
+    command lines (a same-dir self-diff would be vacuous; a trailing
+    ``||`` or a ``set +e`` would swallow the failure), plus the
+    both-locales smoke check.
     """
     tests_job = workflow["jobs"]["tests"]
     if "if" in tests_job:
@@ -53,11 +81,14 @@ def site_build_pinned(workflow: dict) -> bool:
     if "if" in step:
         return False
     run = step["run"]
+    if "set +e" in run:
+        return False
+    diff_lines = sorted(
+        ln.strip() for ln in run.splitlines() if ln.strip().startswith("diff -r")
+    )
     return (
         run.count("site/build.py") == 2
-        # cross-directory diffs, never a self-compare
-        and "diff -r site/_data /tmp/site-rebuild/_data" in run
-        and "diff -r site/_site /tmp/site-rebuild/_site" in run
+        and diff_lines == sorted(DIFF_LINES)
         and "site/_site/zh/index.html" in run
     )
 
@@ -78,22 +109,23 @@ def deploy_gate_pinned(workflow: dict) -> bool:
       unprefixed + ``zh/``; Q6 is the relative-path Pages project site).
     """
     jobs = workflow["jobs"]
+    # NIT-3: a deploy job is ANY job running a Pages-deploy action, not
+    # just actions/deploy-pages — a second job using e.g.
+    # peaceiris/actions-gh-pages with no gate would deploy pre-flip while
+    # looking like an ordinary build step to a deploy-pages-only scan.
     deploy_jobs = [
         name
         for name, job in jobs.items()
-        if any("deploy-pages" in str(s.get("uses", "")) for s in job.get("steps", []))
+        if any(
+            "deploy-pages" in str(s.get("uses", ""))
+            or "gh-pages" in str(s.get("uses", ""))
+            for s in job.get("steps", [])
+        )
     ]
     if deploy_jobs != ["deploy-pages"]:
         return False
     job = jobs["deploy-pages"]
-    cond = str(job.get("if", ""))
-    if "vars.DEPLOY_SITE == 'true'" not in cond:
-        return False
-    if "github.ref == 'refs/heads/main'" not in cond:
-        return False
-    if "pull_request" in cond:
-        return False
-    if "workflow_dispatch" not in cond:
+    if _norm_ws(str(job.get("if", ""))) != CANONICAL_DEPLOY_IF:
         return False
     if job.get("needs") not in ("tests", ["tests"]):
         return False
@@ -185,6 +217,65 @@ ESCAPE_FORMS = [
         "needs removed: a red suite could deploy",
         deploy_gate_pinned,
         lambda w: w["jobs"]["deploy-pages"].pop("needs"),
+    ),
+    (
+        "outer parentheses dropped: && binds tighter, so push-to-main "
+        "deploys with no variable at all",
+        deploy_gate_pinned,
+        lambda w: w["jobs"]["deploy-pages"].update(
+            {
+                "if": "vars.DEPLOY_SITE == 'true' && "
+                "github.event_name == 'workflow_dispatch' || "
+                "(github.event_name == 'push' && github.ref == 'refs/heads/main')"
+            }
+        ),
+    ),
+    (
+        "actor bypass OR'd into the gate",
+        deploy_gate_pinned,
+        lambda w: w["jobs"]["deploy-pages"].update(
+            {
+                "if": "vars.DEPLOY_SITE == 'true' && "
+                "(github.event_name == 'workflow_dispatch' || "
+                "github.actor == 'someone' || "
+                "(github.event_name == 'push' && github.ref == 'refs/heads/main'))"
+            }
+        ),
+    ),
+    (
+        "diff failure swallowed by a trailing || true",
+        site_build_pinned,
+        lambda w: [
+            s.update(
+                run=str(s["run"]).replace(
+                    "diff -r site/_data /tmp/site-rebuild/_data",
+                    "diff -r site/_data /tmp/site-rebuild/_data || true",
+                )
+            )
+            for s in w["jobs"]["tests"]["steps"]
+            if "site/build.py" in str(s.get("run", ""))
+        ],
+    ),
+    (
+        "set +e disables errexit: the diff failure no longer fails the step",
+        site_build_pinned,
+        lambda w: [
+            s.update(run="set +e\n" + str(s["run"]))
+            for s in w["jobs"]["tests"]["steps"]
+            if "site/build.py" in str(s.get("run", ""))
+        ],
+    ),
+    (
+        "deploy switched to another Pages action and the gate dropped",
+        deploy_gate_pinned,
+        lambda w: (
+            w["jobs"]["deploy-pages"].pop("if"),
+            [
+                s.update({"uses": "peaceiris/actions-gh-pages@v4"})
+                for s in w["jobs"]["deploy-pages"]["steps"]
+                if "deploy-pages" in str(s.get("uses", ""))
+            ],
+        ),
     ),
 ]
 
