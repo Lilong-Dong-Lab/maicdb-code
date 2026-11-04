@@ -143,8 +143,26 @@ short_of() { sed -E 's/, [0-9]+ warning$//' <<<"$1"; }
 # and the invalid "unchanged" conclusion reached the PR body until the
 # gate reviewer's clean-tree run exited 1). --pins (pre-commit + CI)
 # exits above and never reaches this block.
-[ -z "$(git status --porcelain)" ] ||
-    fail "dirty working tree — the notag state clones HEAD, so uncommitted test/pin changes are not reflected in it (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run."
+#
+# Only TRACKED changes and UNTRACKED TEST-LOADABLE files dirty the
+# verdict (retro 2026-11-04, item 4): local/novault run in this tree,
+# the notag clone carries tracked content only — so anything pytest can
+# LOAD here but the clone lacks is a real divergence. That is untracked
+# tests/ files (testpaths=["tests"], incl. folded dirs and non-ASCII
+# names — hence core.quotepath=false) AND the four root-level pytest
+# config files, which pytest reads ahead of pyproject's
+# [tool.pytest.ini_options] (none of the four is tracked here; gate
+# round 1 proved an untracked root conftest.py diverges the states).
+# Any other untracked file is invisible to all three states, so it
+# passes — ending the mv-away-and-back ritual the machine-local docs
+# forced on every derive. Each grep may legitimately match nothing;
+# the `|| true` keeps the empty result from tripping set -e.
+status="$(git -c core.quotepath=false status --porcelain)"
+blocking="$( { printf '%s' "$status" | grep -v '^??' || true; }
+             printf '%s' "$status" | \
+               grep -E '^\?\? (tests/|conftest\.py|pytest\.ini|tox\.ini|setup\.cfg)' || true )"
+[ -z "$blocking" ] ||
+    fail "dirty working tree — tracked changes or untracked test-loadable files (tests/, root conftest.py/pytest.ini/tox.ini/setup.cfg) are not reflected in the notag state (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run. (Other untracked files are tolerated — invisible to all three states.)"
 
 # --- shared state runners (full mode + --derive) --------------------------
 run_local_state()   { PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tail -1; }
