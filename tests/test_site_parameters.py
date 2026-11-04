@@ -42,41 +42,43 @@ def test_parameter_pages_render_in_both_locales(tmp_path):
 # --------------------------------------------------------------------------- #
 # Fixture seam: the comparison page's disclosure semantics
 # --------------------------------------------------------------------------- #
-def test_comparison_page_disclosures_and_buckets(tmp_path):
+def test_comparison_page_buckets_and_zero_rows(tmp_path):
     """Ticket acceptance semantics on the fixture payload: unit buckets
-    disclosed and never merged (FROZEN1 renders TWO rows — mmHg and psi),
-    zero-count genes listed (PLAIN2 count=0, marked), the threshold sign
-    convention on p50 only, the ratio-median note + "—" median on the
-    ratio parameter only, and the §6.7 banner from the payload's doc
-    field. No Python ``None`` leaks into any cell."""
+    never merged (FROZEN1 renders TWO rows — mmHg and psi), zero-count
+    genes listed (PLAIN2 count=0, marked). The repo-side convention
+    sentences (unit disclosure, sign convention, ratio-median note,
+    frozen-layer disclosure) are NOT rendered — they live in the data
+    layer and the CLI export. No Python ``None`` leaks into any cell."""
     out = render_fixture(tmp_path)
     p50 = (out / "parameters" / "p50" / "index.html").read_text(encoding="utf-8")
     strings = _strings("en")
 
-    # unit-bucket disclosure + the two unmerged buckets as separate rows
-    assert strings["param_unit_disclosure"] in p50
+    # the two unmerged buckets render as separate rows; the disclosure
+    # sentence does not (repo-side convention, not site copy)
+    assert strings["param_unit_disclosure"] not in p50
     assert p50.count("<tr") == 4  # header + 3 data rows
     assert ">mmHg<" in p50 and ">psi<" in p50
     # zero-count gene: row present, marked, all stats "—"
     assert 'class="zero-rows"' in p50
     zero_row = p50.split('class="zero-rows"', 1)[1].split("</tr>", 1)[0]
     assert ">PLAIN2<" in zero_row and zero_row.count("—") == 4
-    # threshold sign convention rides the p50 page (localized dictionary)
-    assert strings["card_sign_convention_label"] in p50
-    # ratio note does NOT ride the p50 page
+    # no convention sentence rides the page: neither the sign-convention
+    # label nor the ratio note nor the §6.7 disclosure renders
+    assert strings["card_sign_convention_label"] not in p50
+    assert strings["sign_convention_note"] not in p50
     assert strings["ratio_median_note"] not in p50
-    # §6.7 banner from the doc-level payload field
+    # the frozen-layer banner DOES render (restored 2026-11-04): it marks
+    # un-re-verified evidence, so the reader keeps that signal
     assert "synthetic frozen-layer disclosure for fixture pages" in p50
     # measurement-id deep links into the channel card (Q10, relative)
     assert 'href="../../channels/frozen1/#FROZEN1-EX-00001"' in p50
     assert "None" not in p50
 
 
-def test_comparison_page_ratio_median_omitted_with_note(tmp_path):
-    """Direction-blind ratio parameter (ticket): median renders "—" and
-    the ratio-median note rides the page (once, localized); the note is
-    absent from a non-ratio page (p50); the ZH edition carries the ZH
-    dictionary's note."""
+def test_comparison_page_ratio_median_omitted_without_note(tmp_path):
+    """Direction-blind ratio parameter (ticket): median renders "—"; the
+    ratio-median note is a repo-side convention and renders on neither
+    locale tree's page."""
     out = render_fixture(tmp_path)
     en = _strings("en")
     zh = _strings("zh")
@@ -92,10 +94,9 @@ def test_comparison_page_ratio_median_omitted_with_note(tmp_path):
     # same marker as a NULL stored-unit bucket)
     counted = ratio.split(">PLAIN2<", 1)[1].split("</tr>", 1)[0]
     assert re.search(r">1\.2</td>\s*<td>—</td>\s*<td>40\.0<", counted)
-    # note present exactly once per page, localized per tree
-    assert ratio.count(en["ratio_median_note"]) == 1
-    assert ratio_zh.count(zh["ratio_median_note"]) == 1
-    assert en["ratio_median_note"] not in ratio_zh
+    # the note renders nowhere (repo-side convention, not site copy)
+    assert en["ratio_median_note"] not in ratio
+    assert zh["ratio_median_note"] not in ratio_zh
 
 
 def test_ratio_median_note_en_dictionary_matches_library():
@@ -106,6 +107,45 @@ def test_ratio_median_note_en_dictionary_matches_library():
     from maicdb.query import RATIO_MEDIAN_NOTE
 
     assert _strings("en")["ratio_median_note"] == RATIO_MEDIAN_NOTE
+
+
+def test_comparison_page_table_controls(tmp_path):
+    """Scale controls on the comparison page (progressive enhancement):
+    a Show page-size selector, a Search filter, and a sort button in every
+    column header. All copy comes from the locale dictionary; the static
+    table keeps every row (JS hides, never removes)."""
+    out = render_fixture(tmp_path)
+    for locale, prefix in (("en", ""), ("zh", "zh/")):
+        html = (
+            out / prefix / "parameters" / "p50" / "index.html"
+        ).read_text(encoding="utf-8")
+        strings = _strings(locale)
+        assert strings["table_show_label"] in html
+        assert strings["table_search_label"] in html
+        assert strings["table_all"] in html
+        # page-size options: 5, 10, 25 + "all" (the ALL option's visible
+        # label is dictionary copy)
+        for value in ("5", "10", "25", "all"):
+            assert f'<option value="{value}">' in html, value
+        # one sort button per column, labels from the dictionary
+        assert html.count('class="sort-btn"') == 7
+        for key in (
+            "param_col_gene",
+            "param_col_family",
+            "param_col_unit",
+            "param_col_n",
+            "param_col_min",
+            "param_col_median",
+            "param_col_max",
+        ):
+            assert f">{strings[key]}</button>" in html, key
+        # the empty-state paragraph reuses the search no-results copy
+        assert strings["search_no_results"] in html
+        # status line carries the localized sentence template (JS fills
+        # the {start}/{end}/{total} slots after sorting or filtering)
+        assert f'data-template="{strings["table_status"]}"' in html
+        # every data row is still in the static HTML
+        assert html.count("<tr") == 4  # header + 3 data rows
 
 
 def test_parameter_index_page_lists_all_parameters(tmp_path):
@@ -173,8 +213,9 @@ def test_db_p50_unit_buckets_never_merged(tmp_path):
             count = re.search(r"<summary>(\d+)</summary>", row)
             units[unit] = int(count.group(1)) if count else None
     assert units == {"mmHg": 17, "psi": 4}
-    # the disclosure rides every comparison page (ticket acceptance)
-    assert "Buckets are split by stored unit" in html
+    # the unit-bucket rule is repo-side: rows demonstrate it, no
+    # disclosure sentence renders
+    assert "Buckets are split by stored unit" not in html
     # PIEZO1's 56-row mmHg bucket (spec §4)
     piezo1_row = html.split(">PIEZO1<")[1].split("</tr>")[0]
     assert ">mmHg<" in piezo1_row and "<summary>56</summary>" in piezo1_row
@@ -232,7 +273,7 @@ def test_db_zero_count_genes_reported_not_hidden(tmp_path):
     asic_row = ca_en.split(">ASIC<")[1].split("</tr>")[0]
     assert re.search(r">1\.8</td>\s*<td>—</td>\s*<td>25\.5<", asic_row)
     assert 'class="zero-rows"' not in asic_row
-    assert en["ratio_median_note"] in ca_en
+    assert en["ratio_median_note"] not in ca_en
 
 
 # --------------------------------------------------------------------------- #

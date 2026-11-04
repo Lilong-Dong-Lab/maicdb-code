@@ -35,7 +35,7 @@ library builds the data, pages never reimplement it.
 | Q2 | Data split: one JSON per channel (12) + one aggregate index; hierarchy family(7) → channel(12) → measurement(1100). |
 | Q3 | **Bilingual deliverable** (revised 2026-11-02: M3 ships EN + ZH). Architecture is i18n-ready from day one: UI strings only ever in locale dictionaries (`strings.en.json` / `strings.zh.json`), Chinese pages under the `/zh/` prefix (EN unprefixed), the build loops over locales, every page carries a language switcher. Short UI strings are translated inside each page ticket; curated-content translation (channel summaries, parameter labels, frozen-layer wording) is one dedicated ticket. Evidence quotes are **never** translated (verbatim principle); Chinese extractor notes display as-recorded in both locales. |
 | Q4 | Issue #12 is NOT a blocker: the v1.0.0 artifact has **zero** NULL `measurement_id` rows (census pinned by PR #29) and card rows already carry `measurement_id`. Fix opportunistically inside the data-layer ticket. |
-| Q5 | Issue #13: render as-recorded unit buckets with explicit UI disclosure ("buckets split by unit"); normalization is the parallel human line, lands with a future data release. |
+| Q5 | Issue #13: render as-recorded unit buckets — one row per (gene, stored unit), never merged; normalization is the parallel human line, lands with a future data release. **Rendering revised 2026-11-04 (site-design pass): the "buckets split by unit" disclosure sentence is a repo-side convention — it stays in the data layer / CLI export and the locale dictionaries, and renders on no page.** The same revision applies to the sign-convention note and the ratio-median note. **Exception, restored the same day: the frozen-layer disclosure (PIEZO1/PIEZO2) stays a rendered banner on channel cards and comparison pages** — it marks evidence quotes that were not re-verified, and the reader keeps that signal (see §5). |
 | Q6 | GitHub Pages project site; all assets relative paths. |
 | Q7 | Vocabulary: **channel** is the entity (12; the page unit); **family** groups them (7); **gene symbol** names a channel (an attribute, not an entity). Recorded in `GLOSSARY.md`; README_CN wording fixed with this spec. URL slugs are lowercase gene symbols (`/channels/piezo1/`, `trek-1` keeps its hyphen). |
 | Q8 | Five page kinds: home, browse (grouped by family), channel card, **parameter comparison** (new — the fifth kind, backing the A1-panel numbers), downloads; plus global search. |
@@ -77,12 +77,18 @@ library builds the data, pages never reimplement it.
 ## 5. Site structure
 
 ```
-/                         home: one-liner, scale overview (1100/12/7/211),
-                          search box, family entries, download/cite entry
+/                         home: scale overview (1100/12/7/211), search box,
+                          left guide tree (FAMILY → family → channel,
+                          PARAMETERS → parameter), right column: welcome /
+                          background, how-to-use, download/cite entry
 /channels/                browse: 12 channel cards grouped by family(7)
 /channels/<slug>/         channel card (slug = lowercase gene_symbol)
 /parameters/<parameter>/  comparison: 12 channels × count/min/median/max,
-                          unit buckets disclosed
+                          one row per (gene, stored unit); client-side
+                          Show (page size) / Search / column-sort controls
+                          (progressive enhancement — the static table
+                          carries every row, so the page stays readable
+                          and crawlable without JS)
 /downloads/               data artifact files, Zenodo DOIs, CITATION.cff,
                           unmapped disclosure
 /zh/…                     Chinese edition of every page
@@ -139,7 +145,9 @@ results link to card / parameter pages.
 
 - `tests/test_site_build.py` (name indicative): build twice → identical
   bytes; per-page smoke assertions (12 card pages exist, PIEZO cards
-  carry the frozen banner, unit buckets disclosed on comparison pages,
+  render no repo-side disclosure prose — the unit-bucket, sign-
+  convention, ratio-median and frozen-layer sentences stay off the page
+  while the underlying data semantics stay visible (rows, markers);
   anchor ids = measurement_ids); bilingual assertions (both locale
   trees built, every EN page has a `/zh/` counterpart and a switcher
   link); fixture values cite data-notes / census SQL per the repo's

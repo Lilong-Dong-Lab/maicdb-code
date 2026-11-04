@@ -40,6 +40,7 @@ overlay consumed by the ZH render loop only); ``site/templates/`` and
 
 import argparse
 import copy
+import hashlib
 import json
 import posixpath
 import re
@@ -54,7 +55,6 @@ from sqlalchemy import func, select
 from maicdb.models import Bioactivity, BiophysicsExperiment, Channel, Publication, UnmappedMeasurement
 from maicdb.query import (
     PARAMETERS,
-    THRESHOLD_PARAMETERS,
     bioactivity_card,
     channel_card,
     export,
@@ -264,11 +264,7 @@ def _site_pages(
                 (
                     "card.html",
                     f"channels/{slug}",
-                    {
-                        "card": card,
-                        "entry": entry,
-                        "threshold_names": THRESHOLD_PARAMETERS,
-                    },
+                    {"card": card, "entry": entry},
                 )
             )
     for param in index["parameters"]:
@@ -284,11 +280,36 @@ def _site_pages(
                     "comparison": comparison,
                     "entry": param,
                     "gene_slugs": gene_slugs,
-                    "has_ratio_note": any("note" in r for r in comparison["rows"]),
                 },
             )
         )
     return pages
+
+
+#: Which top-nav item each page template belongs to (M3 a11y pass): the
+#: header link for that section carries ``aria-current="page"``. Card and
+#: comparison pages belong to the Channels / Parameters sections
+#: respectively — the same nav entry the reader came through.
+_NAV_FLAGS_by_template = {
+    "home.html": "home",
+    "browse.html": "channels",
+    "card.html": "channels",
+    "parameters.html": "parameters",
+    "parameter.html": "parameters",
+    "downloads.html": "downloads",
+}
+
+
+def _nav_flags(template: str) -> dict[str, bool]:
+    """The four ``is_<section>`` flags the header consumes (template-scan
+    safe: no string literals inside the template's conditionals)."""
+    section = _NAV_FLAGS_by_template[template]
+    return {
+        "is_home": section == "home",
+        "is_channels": section == "channels",
+        "is_parameters": section == "parameters",
+        "is_downloads": section == "downloads",
+    }
 
 
 def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) -> list[Path]:
@@ -332,6 +353,14 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
     zh_content = json.loads(
         (site_dir / "zh-content.json").read_text(encoding="utf-8")
     )
+    # Cache-busting asset URLs (content hash, deterministic — the
+    # byte-stable contract holds): a stylesheet or script edit changes
+    # the query string, so a browser holding the previous copy must
+    # refetch instead of silently rendering the old design.
+    asset_version = hashlib.sha256(
+        (site_dir / "assets" / "style.css").read_bytes()
+        + (site_dir / "assets" / "site.js").read_bytes()
+    ).hexdigest()[:8]
 
     written: list[Path] = []
     for locale, (tree_dir, alt_locale) in _LOCALES.items():
@@ -365,6 +394,10 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
             page.write_text(
                 env.get_template(template).render(
                     strings=strings[locale],
+                    show_sizes=(5, 10, 25),
+                    **_nav_flags(template),
+                    asset_css=f"{_root_prefix(page_dir)}/assets/style.css?v={asset_version}",
+                    asset_js=f"{_root_prefix(page_dir)}/assets/site.js?v={asset_version}",
                     lang=locale,
                     alt_lang=alt_locale,
                     root=_root_prefix(page_dir),

@@ -49,9 +49,6 @@
     {% for name, block in card.parameters | dictsort %}
     <section class="parameter-block" id="param-{{ name }}">
       <h3>{{ name }} — {{ block.label }} ({{ block.n_rows }})</h3>
-      {% if name in threshold_names %}
-      <p class="sign-note">{{ strings.card_sign_convention_label }} {{ strings.sign_convention_note }}</p>
-      {% endif %}
       {% if block.n_rows == 0 %}
       <p class="zero-rows">{{ strings.card_zero_rows_note }}</p>
       {% else %}

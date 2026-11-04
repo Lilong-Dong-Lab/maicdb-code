@@ -1,23 +1,67 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="home-hero">
-  <h1>{{ strings.home_tagline }}</h1>
-</section>
-<section class="home-stats" aria-label="{{ strings.stats_aria_label }}">
-  <ul>
-    <li><span class="stat-value">{{ totals.n_measurements }}</span><span class="stat-label">{{ strings.stat_measurements }}</span></li>
-    <li><span class="stat-value">{{ totals.n_channels }}</span><span class="stat-label">{{ strings.stat_channels }}</span></li>
-    <li><span class="stat-value">{{ totals.n_families }}</span><span class="stat-label">{{ strings.stat_families }}</span></li>
-    <li><span class="stat-value">{{ totals.n_publications }}</span><span class="stat-label">{{ strings.stat_publications }}</span></li>
-  </ul>
-</section>
-<section class="home-families">
-  <h2>{{ strings.home_families_heading }}</h2>
-  <ul>
-    {% for fam in families %}
-    <li><a href="{{ root }}/channels/#{{ fam.family }}">{{ fam.family }}</a> ({{ fam.channels | length }})</li>
-    {% endfor %}
-  </ul>
-  <p><a href="{{ root }}/downloads/">{{ strings.home_download_entry }}</a></p>
-</section>
+<div class="home-layout">
+  {# Left guide (Channelpedia-style hierarchical index): FAMILY → family →
+     channel, then PARAMETERS → parameter. Nested <details>/<summary>
+     keeps the tree usable with no JS (spec Q1) — native disclosure, one
+     open group per family so the levels read as a guide rather than a
+     flat list. #}
+  <aside class="home-guide" aria-label="{{ strings.home_guide_aria_label }}">
+    <p class="guide-title">{{ strings.home_families_heading }}</p>
+    <nav class="guide-tree">
+      <details class="guide-level-1" open>
+        <summary>{{ strings.home_guide_root_label }}</summary>
+        <ul>
+          {% for fam in families %}
+          <li>
+            <details class="guide-family" open>
+              <summary><a href="{{ root }}/channels/#{{ fam.family }}">{{ fam.family }}</a> <span class="guide-count">({{ fam.channels | length }})</span></summary>
+              <ul class="guide-channels">
+                {% for ch in fam.channels %}
+                <li><a href="{{ root }}/channels/{{ ch.slug }}/">{{ ch.gene_symbol }}</a></li>
+                {% endfor %}
+              </ul>
+            </details>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      <details class="guide-level-1" open>
+        <summary>{{ strings.home_guide_parameters_label }}</summary>
+        <ul class="guide-param-list">
+          {% for param in parameters %}
+          <li><a href="{{ root }}/parameters/{{ param.name }}/">{{ param.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </details>
+    </nav>
+  </aside>
+  <div class="home-main">
+    {# Scale figures head the column, where the tagline used to sit: four
+       numbers on one row, then the introduction below them. #}
+    <ul class="home-stats" aria-label="{{ strings.stats_aria_label }}">
+      <li><span class="stat-value">{{ totals.n_measurements }}</span><span class="stat-label">{{ strings.stat_measurements }}</span></li>
+      <li><span class="stat-value">{{ totals.n_channels }}</span><span class="stat-label">{{ strings.stat_channels }}</span></li>
+      <li><span class="stat-value">{{ totals.n_families }}</span><span class="stat-label">{{ strings.stat_families }}</span></li>
+      <li><span class="stat-value">{{ totals.n_publications }}</span><span class="stat-label">{{ strings.stat_publications }}</span></li>
+    </ul>
+    <section class="home-about">
+      <h1>{{ strings.home_about_heading }}</h1>
+      <p>{{ strings.home_about_background }}</p>
+      <p>{{ strings.home_about_objective }}</p>
+    </section>
+    <section class="home-usage">
+      <h2>{{ strings.home_usage_heading }}</h2>
+      <p>{{ strings.home_usage_intro }}</p>
+      <ol class="usage-list">
+        <li>{{ strings.home_usage_browse }}</li>
+        <li>{{ strings.home_usage_evidence }}</li>
+        <li>{{ strings.home_usage_parameters }}</li>
+        <li>{{ strings.home_usage_search }}</li>
+        <li>{{ strings.home_usage_downloads }}</li>
+      </ol>
+    </section>
+    <p class="home-download-entry"><a href="{{ root }}/downloads/">{{ strings.home_download_entry }}</a></p>
+  </div>
+</div>
 {% endblock %}

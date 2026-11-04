@@ -43,8 +43,26 @@ _TECHNICAL_LITERALS = frozenset(
         "search",
         "stylesheet",
         "off",
+        # input type enum (the comparison table's sort buttons)
+        "button",
+        # link rel for the site icon (machine vocabulary)
+        "icon",
     }
 )
+
+#: Attribute-scoped machine enums, like the ``scope`` table rule below:
+#: an ``<option value="all">`` names the page-size widget's "no limit"
+#: key; the human label beside it comes from the dictionary. Scoped to
+#: the attribute NAME, so "all" as a text node is still copy.
+_VALUE_ENUM = frozenset({"all"})
+
+#: Attribute-scoped ARIA enums — fixed vocabulary (the current-page marker,
+#: live-region politeness); the visible text beside each comes from the
+#: dictionary.
+_ARIA_ENUMS = {
+    "aria-current": frozenset({"page"}),
+    "aria-live": frozenset({"polite", "assertive"}),
+}
 
 #: The ``scope`` attribute's fixed enum on table headings (M3-T5's
 #: comparison table) — a11y metadata, rendered by no browser as text.
@@ -173,6 +191,12 @@ def _is_copy_violation(kind: str, lit: str) -> bool:
         return False
     if kind == "attr:scope" and lit in _SCOPE_ENUM:
         return False
+    if kind == "attr:value" and lit in _VALUE_ENUM:
+        return False
+    if kind.startswith("attr:") and lit in _ARIA_ENUMS.get(
+        kind.removeprefix("attr:"), ()
+    ):
+        return False
     if kind.removeprefix("attr:") in _STRUCTURAL_ATTRS and _MACHINE_TOKEN.fullmatch(lit):
         return False
     if kind == "tmpl" and _MACHINE_TOKEN.fullmatch(lit):
@@ -219,6 +243,16 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     # "row" as a text node or in any other attribute is still copy
     # (T5 gate MINOR-1 — the first cut allowed both escape vectors)
     assert not _is_copy_violation("attr:scope", "row")
+    # machine enums for the table controls: type="button" and the
+    # page-size option value "all" are markup keys, not UI copy
+    assert not _is_copy_violation("attr:type", "button")
+    assert not _is_copy_violation("attr:value", "all")
+    assert _is_copy_violation("text", "all")
+    # aria-current="page" is the ARIA enum for the active nav item
+    assert not _is_copy_violation("attr:aria-current", "page")
+    assert not _is_copy_violation("attr:aria-live", "polite")
+    assert _is_copy_violation("attr:aria-live", "Showing rows")
+    assert _is_copy_violation("text", "page")
     assert not _is_copy_violation("attr:scope", "col")
     assert _is_copy_violation("text", "row")
     assert _is_copy_violation("attr:title", "row")
@@ -262,12 +296,56 @@ def test_render_home_both_locales_from_fixture(tmp_path):
     assert "(2)" in en  # the fixture's TESTFAM family holds two channels
     # search box present with the localized placeholder (T6 wires it)
     assert "placeholder=\"Search channels, families, parameters…\"" in en
+    # the home split: the left guide is a three-level tree (Family →
+    # family → channel), every level a native <details> so the tree works
+    # with no JS (spec Q1); the right column carries the introduction and
+    # the usage guide, both from the dictionaries
+    assert '<aside class="home-guide"' in en
+    assert '<details class="guide-level-1" open>' in en
+    assert '<summary>Family</summary>' in en
+    assert '<summary>Parameters</summary>' in en
+    assert '<ul class="guide-param-list">' in en
+    assert 'href="./parameters/p50/"' in en
+    assert '<details class="guide-family" open>' in en
+    assert '<ul class="guide-channels">' in en
+    assert 'href="./channels/frozen1/"' in en
+    assert 'href="./channels/plain2/"' in en
+    assert '<section class="home-about">' in en
+    assert '<section class="home-usage">' in en
+    assert "Welcome to MAIC-DB" in en and "<ol class=\"usage-list\">" in en
+    # ZH: same structure, guide and usage copy localized
+    assert '<summary>家族</summary>' in zh
+    assert '<summary>参数</summary>' in zh
+    assert "欢迎使用 MAIC-DB" in zh and "网站使用指南" in zh
     # footer identifiers come from CITATION.cff and README Releases
     # (dataset version DOI + concept DOI), never the templates
     assert "10.5281/zenodo.23620159" in en
     assert "10.5281/zenodo.23620158" in en
     assert ">MIT<" in en and ">CC-BY-4.0<" in en
     assert "https://creativecommons.org/licenses/by/4.0/" in en
+
+
+def test_render_skip_link_and_current_nav_item(tmp_path):
+    """Every page carries a skip link that targets the main landmark, and
+    the header marks its own section with aria-current (card pages count
+    as Channels; comparison pages as Parameters)."""
+    out = render_fixture(tmp_path)
+    cases = {
+        "index.html": "Home",
+        "channels/index.html": "Channels",
+        "channels/frozen1/index.html": "Channels",
+        "parameters/index.html": "Parameters",
+        "parameters/p50/index.html": "Parameters",
+        "downloads/index.html": "Downloads",
+    }
+    for rel, label in cases.items():
+        html = (out / rel).read_text(encoding="utf-8")
+        assert '<a class="skip-link" href="#main">' in html, rel
+        assert 'id="main"' in html, rel
+        marked = re.findall(
+            r'<a href="[^"]*"[^>]*aria-current="page"[^>]*>([^<]+)</a>', html
+        )
+        assert marked == [label], (rel, marked)
 
 
 def test_render_language_switcher_links_counterparts(tmp_path):
@@ -290,9 +368,12 @@ def test_render_assets_copied_relative_per_tree(tmp_path):
         assert (tree / "assets" / "site.js").is_file()
     en = (out / "index.html").read_text(encoding="utf-8")
     zh = (out / "zh" / "index.html").read_text(encoding="utf-8")
-    assert "href=\"./assets/style.css\"" in en
-    assert "src=\"./assets/site.js\"" in en
-    assert "href=\"./assets/style.css\"" in zh
+    # cache-busted by a deterministic content hash (style.css + site.js):
+    # an asset edit changes the query string, so a browser cannot keep
+    # rendering a stale design copy
+    assert "href=\"./assets/style.css?v=" in en
+    assert "src=\"./assets/site.js?v=" in en
+    assert "href=\"./assets/style.css?v=" in zh
     assert 'href="/' not in en and "src='/" not in en
     assert 'href="/' not in zh and "src='/" not in zh
 
