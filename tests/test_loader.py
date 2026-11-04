@@ -32,10 +32,44 @@ import os
 # env var wins (explicit override), else the sibling checkout
 VAULT = Path(os.environ.get("MAICDB_VAULT") or
              Path(__file__).resolve().parents[2] / "Project_DataBase_MAICDB")
-HAVE_VAULT = VAULT.exists() and (VAULT / "data" / "traak" / "extraction").exists()
+VAULT_PRESENT = VAULT.exists()
+#: The 12 channel directories the frozen corpus ships (census: spec §4 —
+#: ``SELECT gene_symbol FROM channel`` lowercased, data-v1.0 tree).
+VAULT_CHANNEL_DIRS = [
+    "asic", "mscl", "mscs", "osca", "piezo1", "piezo2", "tmc",
+    "traak", "trek-1", "trek-2", "tresk", "trpv4",
+]
+VAULT_INTACT = VAULT_PRESENT and all(
+    (VAULT / "data" / ch).is_dir() for ch in VAULT_CHANNEL_DIRS
+)
 
 requires_vault = pytest.mark.skipif(
-    not HAVE_VAULT, reason=f"vault checkout not found at {VAULT}")
+    not VAULT_PRESENT, reason=f"vault checkout not found at {VAULT}")
+
+
+def test_vault_checkout_mangled_goes_red_not_silent_skip():
+    """Environment guard (retro 2026-11-04): a PRESENT but MANGLED vault
+    checkout is a red failure, never a silent skip.
+
+    The 2026-11-03 incident: a GUI auto-``git checkout main`` deleted the
+    branch-tracked ``data/`` corpora (main tracks only ``report/``), and
+    every vault-dependent test silently skipped for ~24h behind a green
+    suite. Absent vault (CI novault/notag states) still skips — this test
+    guards the present-but-broken middle state only.
+
+    Recovery pointer: ``docs/agents/vault-ops.md`` (GUI auto-sync warning
+    + the incident's restore path: reflog tip → rebuild the work branch →
+    checkout back).
+    """
+    if not VAULT_PRESENT:
+        pytest.skip(f"vault checkout not found at {VAULT} — CI novault/notag state")
+    missing = [ch for ch in VAULT_CHANNEL_DIRS if not (VAULT / "data" / ch).is_dir()]
+    assert not missing, (
+        f"vault checkout at {VAULT} is PRESENT but MANGLED — data/ is missing "
+        f"channel directories: {missing}. This is the GUI auto-checkout "
+        "incident signature (2026-11-03): do NOT re-derive pins off this "
+        "state; restore per docs/agents/vault-ops.md first."
+    )
 
 
 # --------------------------------------------------------------------------- #
