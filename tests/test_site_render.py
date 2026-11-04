@@ -32,44 +32,32 @@ from tests.test_site_build import REPO_ROOT
 SITE_DIR = REPO_ROOT / "site"
 TEMPLATES_DIR = SITE_DIR / "templates"
 
-#: HTML technical attribute values / doctype tokens that are not UI copy
-#: (machine-facing vocabulary, never shown as prose). ``off`` is the
-#: ``autocomplete`` enum value (M3-T6's search box), like ``search`` is
-#: the ``type`` enum.
-_TECHNICAL_LITERALS = frozenset(
-    {
-        "utf-8",
-        "width=device-width, initial-scale=1",
-        "search",
-        "stylesheet",
-        "off",
-        # input type enum (the comparison table's sort buttons)
-        "button",
-        # link rel for the site icon (machine vocabulary)
-        "icon",
-    }
-)
-
-#: Attribute-scoped machine enums, like the ``scope`` table rule below:
-#: an ``<option value="all">`` names the page-size widget's "no limit"
-#: key; the human label beside it comes from the dictionary. Scoped to
-#: the attribute NAME, so "all" as a text node is still copy.
-_VALUE_ENUM = frozenset({"all"})
-
-#: Attribute-scoped ARIA enums — fixed vocabulary (the current-page marker,
-#: live-region politeness); the visible text beside each comes from the
-#: dictionary.
-_ARIA_ENUMS = {
+#: Attribute-scoped machine enums — fixed vocabulary VALUES on their own
+#: attribute: doctype tokens, input/link enums, the page-size widget's
+#: "no limit" key, a11y metadata (table scope, ARIA states). Never shown
+#: as prose; the visible label beside each comes from the dictionary.
+#: Scoped to the attribute NAME, so the SAME word as a text node ("row",
+#: "all", "button") or in any other attribute (``aria-label="row"``) is
+#: still copy and still fails the scan (guard-test escape vectors below).
+_ATTR_ENUMS = {
+    # <meta charset> + the viewport <meta content> skeleton
+    "charset": frozenset({"utf-8"}),
+    "content": frozenset({"width=device-width, initial-scale=1"}),
+    # the search box's type + the comparison table's sort buttons
+    "type": frozenset({"search", "button"}),
+    # <link rel>: the stylesheet + the site icon (machine vocabulary)
+    "rel": frozenset({"stylesheet", "icon"}),
+    # the search box's autocomplete-off (M3-T6) and its ARIA landmark role
+    "autocomplete": frozenset({"off"}),
+    "role": frozenset({"search"}),
+    # <option value="all"> names the page-size widget's "no limit" key
+    "value": frozenset({"all"}),
+    # table-heading scope (M3-T5's comparison table)
+    "scope": frozenset({"row", "col"}),
+    # the current-page marker + live-region politeness
     "aria-current": frozenset({"page"}),
     "aria-live": frozenset({"polite", "assertive"}),
 }
-
-#: The ``scope`` attribute's fixed enum on table headings (M3-T5's
-#: comparison table) — a11y metadata, rendered by no browser as text.
-#: Attribute-NAME-scoped, not a bare literal: "row" as a text node or in
-#: any other attribute (``aria-label="row"``) is still copy and still
-#: fails the scan (guard-test escape vectors below).
-_SCOPE_ENUM = frozenset({"row", "col"})
 
 #: Attributes whose values are CSS/DOM hooks, not copy: a single-token
 #: lowercase value here is a machine string, not a sentence.
@@ -187,13 +175,7 @@ def _is_copy_violation(kind: str, lit: str) -> bool:
     """
     if _PUNCT_ONLY.fullmatch(lit):
         return False
-    if lit in _TECHNICAL_LITERALS:
-        return False
-    if kind == "attr:scope" and lit in _SCOPE_ENUM:
-        return False
-    if kind == "attr:value" and lit in _VALUE_ENUM:
-        return False
-    if kind.startswith("attr:") and lit in _ARIA_ENUMS.get(
+    if kind.startswith("attr:") and lit in _ATTR_ENUMS.get(
         kind.removeprefix("attr:"), ()
     ):
         return False
@@ -231,7 +213,7 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert ("expr", "piezo1") in _template_literals(
         '{%- if slug == "piezo1" -%}x{% endif %}'
     )
-    assert _template_literals("<p>{{ strings.home_tagline }}</p>") == []
+    assert _template_literals("<p>{{ strings.nav_home }}</p>") == []
     # template-reference statements name files, not copy
     assert ("tmpl", "base.html") in _template_literals('{% extends "base.html" %}')
     assert not _is_copy_violation("tmpl", "base.html")
@@ -248,6 +230,22 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert not _is_copy_violation("attr:type", "button")
     assert not _is_copy_violation("attr:value", "all")
     assert _is_copy_violation("text", "all")
+    # gate r1 MINOR-4: the technical-literal enums (type/rel/charset/
+    # autocomplete) must be attribute-scoped like the ones above — the
+    # first cut carried them as kind-agnostic literals, so a bare
+    # <p>button</p> or <p>icon</p> shipped untranslated and green
+    assert _is_copy_violation("text", "button")
+    assert _is_copy_violation("text", "icon")
+    assert _is_copy_violation("text", "search")
+    assert _is_copy_violation("text", "stylesheet")
+    assert _is_copy_violation("text", "off")
+    assert not _is_copy_violation("attr:rel", "icon")
+    assert not _is_copy_violation("attr:rel", "stylesheet")
+    assert not _is_copy_violation("attr:type", "search")
+    assert not _is_copy_violation("attr:autocomplete", "off")
+    assert not _is_copy_violation("attr:role", "search")
+    assert not _is_copy_violation("attr:charset", "utf-8")
+    assert _is_copy_violation("attr:title", "icon")
     # aria-current="page" is the ARIA enum for the active nav item
     assert not _is_copy_violation("attr:aria-current", "page")
     assert not _is_copy_violation("attr:aria-live", "polite")
@@ -287,7 +285,8 @@ def test_render_home_both_locales_from_fixture(tmp_path):
     # per-page <title>: the home title is the site title, localized
     assert "<title>MAIC-DB — Mechanically Activated Ion Channel Database</title>" in en
     assert "<title>MAIC-DB — 机械激活离子通道数据库</title>" in zh
-    # one-liner + scale numbers flow from the data layer fixture
+    # scale figures: the label copy from the dictionaries, the counts
+    # from the data layer fixture
     assert "curated measurements" in en
     assert ">1100<" in en and ">12<" in en and ">7<" in en and ">211<" in en
     assert "条策划测量" in zh

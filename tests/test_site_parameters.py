@@ -142,8 +142,10 @@ def test_comparison_page_table_controls(tmp_path):
         # the empty-state paragraph reuses the search no-results copy
         assert strings["search_no_results"] in html
         # status line carries the localized sentence template (JS fills
-        # the {start}/{end}/{total} slots after sorting or filtering)
-        assert f'data-template="{strings["table_status"]}"' in html
+        # the {start}/{end}/{total} slots after sorting or filtering) and
+        # ships hidden — JS unhides it on first apply(), so no-JS readers
+        # get no empty live region (gate r1 NOTE fix)
+        assert f'data-template="{strings["table_status"]}" hidden></p>' in html
         # every data row is still in the static HTML
         assert html.count("<tr") == 4  # header + 3 data rows
 

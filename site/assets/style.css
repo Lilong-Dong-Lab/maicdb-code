@@ -22,6 +22,7 @@
   --band: #22315a;
   --panel: #22315a;
   --surface: #fcfdff;
+  --row-alt: #f2f5fc; /* zebra tint, between --surface and --paper */
   --line: #d5ddec;
   --line-strong: #b9c4da;
 
@@ -140,26 +141,6 @@ h1 { font-size: var(--text-2xl); }
 h2 { font-size: var(--text-xl); }
 h3 { font-size: var(--text-lg); }
 
-
-/* Inline icon set as CSS masks (spec Q1: no icon font, no extra assets):
-   each glyph takes its colour from currentColor, so it follows the theme
-   without a second asset per state. Stroke weight 2 at 24px reads as
-   1.5px at the 16-18px sizes used here, matching body text weight. */
-.icon-search,
-.icon-download,
-.icon-external {
-  content: "";
-  display: inline-block;
-  width: 0.85em;
-  height: 0.85em;
-  background-color: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
-}
-
-.icon-search { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4.2-4.2'/%3E%3C/svg%3E"); }
-.icon-download { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='M7 10l5 5 5-5'/%3E%3Cpath d='M4 21h16'/%3E%3C/svg%3E"); }
-.icon-external { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6'/%3E%3Cpath d='M20 4l-9 9'/%3E%3Cpath d='M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/%3E%3C/svg%3E"); margin-inline-start: 0.3em; vertical-align: -0.08em; }
 
 /* Header: site name + nav + language switcher + search. */
 /* Skip link: off-screen until focused, then it lands over the header. */
@@ -446,8 +427,6 @@ h3 { font-size: var(--text-lg); }
 
 .guide-channels { margin-block: 0.15rem var(--space-2); }
 
-.guidance { }
-
 .guide-channels a,
 .guide-param-list a {
   color: var(--on-band-muted);
@@ -479,9 +458,8 @@ h3 { font-size: var(--text-lg); }
 .home-usage h2 {
   font-size: var(--text-xl);
   margin: var(--space-2) 0 var(--space-3);
+  margin-block-start: var(--space-8);
 }
-
-.home-usage h2 { margin-block-start: var(--space-8); }
 
 .home-about p,
 .home-usage p { max-width: 62ch; }
@@ -834,7 +812,7 @@ th[aria-sort="descending"] .sort-btn::after { content: " ▼"; }
   white-space: nowrap;
 }
 
-.cmp-table tbody tr:nth-child(even) { background: #f2f5fc; }
+.cmp-table tbody tr:nth-child(even) { background: var(--row-alt); }
 .cmp-table tbody tr:hover { background: var(--accent-soft); }
 
 .cmp-table tbody th {
