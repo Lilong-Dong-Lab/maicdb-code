@@ -241,6 +241,8 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert _is_copy_violation("text", "off")
     assert _is_copy_violation("text", "utf-8")
     assert _is_copy_violation("text", "polite")
+    assert _is_copy_violation("text", "width=device-width, initial-scale=1")
+    assert _is_copy_violation("text", "assertive")
     assert not _is_copy_violation("attr:rel", "icon")
     assert not _is_copy_violation("attr:rel", "stylesheet")
     assert not _is_copy_violation("attr:type", "search")
@@ -255,6 +257,9 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert _is_copy_violation("text", "page")
     assert not _is_copy_violation("attr:scope", "col")
     assert _is_copy_violation("text", "row")
+    # r2 MINOR: col (live via scope="col") and assertive were the two
+    # enum words 1972610's message over-claimed as already pinned
+    assert _is_copy_violation("text", "col")
     assert _is_copy_violation("attr:title", "row")
     assert _is_copy_violation("attr:aria-label", "col")
     # multi-line Jinja comments and statements must strip too (guard fix:
