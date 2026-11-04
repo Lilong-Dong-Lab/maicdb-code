@@ -160,7 +160,7 @@ short_of() { sed -E 's/, [0-9]+ warning$//' <<<"$1"; }
 status="$(git -c core.quotepath=false status --porcelain)"
 blocking="$( { printf '%s' "$status" | grep -v '^??' || true; }
              printf '%s' "$status" | \
-               grep -E '^?? (tests/|conftest\.py|pytest\.ini|tox\.ini|setup\.cfg)' || true )"
+               grep -E '^\?\? (tests/|conftest\.py|pytest\.ini|tox\.ini|setup\.cfg)' || true )"
 [ -z "$blocking" ] ||
     fail "dirty working tree — tracked changes or untracked test-loadable files (tests/, root conftest.py/pytest.ini/tox.ini/setup.cfg) are not reflected in the notag state (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run. (Other untracked files are tolerated — invisible to all three states.)"
 
