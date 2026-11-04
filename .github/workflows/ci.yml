@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
       - run: uv sync
       - name: Lint (ruff, config in pyproject; not a dependency — uvx, the cffconvert precedent)
-        # M3-T5 retro 落地 1: the repo shipped a `# noqa: E402` to a linter
+        # M3-T5 retro item 1: the repo shipped a `# noqa: E402` to a linter
         # that didn't exist; this wires the check the noqa was preempting.
         # E501 is config-exempt (existing long census-SQL docstrings).
         # Version-pinned to match .githooks/run-suite.sh's hook.

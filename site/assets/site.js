@@ -64,8 +64,9 @@ function initSearch() {
     .then(function (response) { return response.json(); })
     .then(function (doc) { entries = doc.entries; })
     .catch(function () {
-      // file:// 预览下 fetch 不可用——静默降级：搜索框仍在，只是无结果
-      // （部署在 Pages 上总是 http(s)，正常加载）。
+      // fetch is unavailable under file:// previews — degrade silently:
+      // the search box stays, just with no results (deployed on Pages it is
+      // always http(s) and loads normally).
     });
 
   function resultLabel(entry) {
@@ -118,7 +119,8 @@ function initSearch() {
     }
     render(searchEntries(entries, input.value));
   });
-  // 聚焦时若已有查询词则重新展示（点击页面其他处关闭后）
+  // refocus re-shows results when a query is already present
+  // (after a click-outside close)
   input.addEventListener("focus", function () {
     if (entries !== null && input.value.trim()) {
       render(searchEntries(entries, input.value));
@@ -130,7 +132,8 @@ function initSearch() {
   document.addEventListener("click", function (event) {
     if (!form.contains(event.target)) hideResults();
   });
-  // 搜索结果页不存在（spec Q9 无独立页面），表单提交只做刷新——阻止
+  // No results page exists (spec Q9 has no standalone page); a form
+  // submit would only reload — prevent it.
   form.addEventListener("submit", function (event) { event.preventDefault(); });
 }
 

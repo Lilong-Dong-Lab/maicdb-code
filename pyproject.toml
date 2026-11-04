@@ -32,10 +32,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/maicdb"]
 
-# Lint 接线（M3-T5 retro 落地 1）：uvx ruff check（CI + pre-commit 共用此
-# 配置）。ruff 不进依赖集 —— 与 CI 的 uvx cffconvert 同一先例。
-# E501 显式豁免：97 处长行是既有现状（docstring 的 census SQL 引文为主），
-# 不为接线改写；行长仍属 review 范畴。
+# Lint wiring (M3-T5 retro item 1): uvx ruff check (CI + pre-commit share
+# this config). ruff stays out of the dependency set — the same precedent as
+# CI's uvx cffconvert.
+# E501 explicitly exempted: 97 long lines are pre-existing reality (mostly
+# census-SQL quotations in docstrings), not rewritten for the wiring; line
+# length stays a review matter.
 [tool.ruff]
 target-version = "py311"
 

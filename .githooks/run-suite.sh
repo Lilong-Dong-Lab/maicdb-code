@@ -10,7 +10,7 @@ command -v uv >/dev/null 2>&1 || {
     echo "hook: uv not found on PATH — install uv (astral.sh/uv) or bypass with --no-verify" >&2
     exit 1
 }
-# Lint first (fast; M3-T5 retro 落地 1): same config and pinned version
+# Lint first (fast; M3-T5 retro item 1): same config and pinned version
 # as CI's ruff step (rule drift across ruff releases would desync the
 # two callers). uvx needs network on first run to fetch ruff — offline,
 # bypass with --no-verify or run `uvx ruff@0.17.3 check .` once online.
