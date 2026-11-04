@@ -143,8 +143,20 @@ short_of() { sed -E 's/, [0-9]+ warning$//' <<<"$1"; }
 # and the invalid "unchanged" conclusion reached the PR body until the
 # gate reviewer's clean-tree run exited 1). --pins (pre-commit + CI)
 # exits above and never reaches this block.
-[ -z "$(git status --porcelain)" ] ||
-    fail "dirty working tree — the notag state clones HEAD, so uncommitted test/pin changes are not reflected in it (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run."
+#
+# Only TRACKED changes and UNTRACKED TEST FILES dirty the verdict (retro
+# 2026-11-04, item 4): local/novault run in this tree, so an untracked
+# tests/ file is collected there but absent from the notag clone — a
+# real divergence. Any other untracked file is invisible to ALL three
+# states (nothing outside tests/ is collected, and the clone carries
+# only tracked content), so it passes — ending the mv-away-and-back
+# ritual the local-only docs forced on every derive. Each grep may
+# legitimately match nothing; the `|| true` keeps the empty result from
+# tripping set -e on the assignment.
+blocking="$( { git status --porcelain | grep -v '^??' || true; } ; \
+            { git status --porcelain | grep '^?? tests/' || true; } )"
+[ -z "$blocking" ] ||
+    fail "dirty working tree — tracked changes or untracked tests/ files are not reflected in the notag state (an old-HEAD pass is not a verdict on the pushed state). Commit, then re-run. (Untracked files outside tests/ are tolerated — invisible to all three states.)"
 
 # --- shared state runners (full mode + --derive) --------------------------
 run_local_state()   { PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tail -1; }
