@@ -239,6 +239,8 @@ def test_template_scan_rejects_a_bare_lowercase_text_node():
     assert _is_copy_violation("text", "search")
     assert _is_copy_violation("text", "stylesheet")
     assert _is_copy_violation("text", "off")
+    assert _is_copy_violation("text", "utf-8")
+    assert _is_copy_violation("text", "polite")
     assert not _is_copy_violation("attr:rel", "icon")
     assert not _is_copy_violation("attr:rel", "stylesheet")
     assert not _is_copy_violation("attr:type", "search")
