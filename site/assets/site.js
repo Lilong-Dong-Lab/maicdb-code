@@ -137,6 +137,110 @@ function initSearch() {
   form.addEventListener("submit", function (event) { event.preventDefault(); });
 }
 
+// Parameter comparison table (site-design pass): client-side search, a
+// page-size selector and per-column sorting. Progressive enhancement —
+// the static table carries every row, so without JS (or before it runs)
+// nothing is hidden and the table stays crawlable. Column types follow
+// the fixed comparison schema: gene / family / unit are text, the four
+// statistic columns (n, min, median, max) are numbers; an em dash cell
+// is an absent value and sorts last in either direction.
+var CMP_TEXT_COLUMNS = 3;
+
+function cmpCellValue(row, column) {
+  var text = row.cells[column] ? row.cells[column].textContent.trim() : "";
+  if (column < CMP_TEXT_COLUMNS) return text.toLowerCase();
+  var number = parseFloat(text);
+  return isNaN(number) ? null : number;
+}
+
+function initComparisonTable() {
+  var table = document.querySelector(".cmp-table");
+  if (!table || !table.tBodies.length) return;
+  var body = table.tBodies[0];
+  var rows = Array.prototype.slice.call(body.rows);
+  if (!rows.length) return;
+  var controls = document.querySelector(".table-controls");
+  var search = controls ? controls.querySelector(".cmp-search") : null;
+  var show = controls ? controls.querySelector(".cmp-show") : null;
+  var empty = document.querySelector(".table-empty");
+  var status = document.querySelector(".table-status");
+  var statusTemplate = status ? status.getAttribute("data-template") : null;
+  var headers = table.tHead ? table.tHead.rows[0].cells : [];
+  var order = rows.slice();
+  var sortColumn = null;
+  var sortDir = 1;
+
+  function pageSize() {
+    if (!show) return Infinity;
+    if (show.value === "all") return Infinity;
+    var size = parseInt(show.value, 10);
+    return isNaN(size) || size <= 0 ? Infinity : size;
+  }
+
+  function apply() {
+    var query = search ? search.value.trim().toLowerCase() : "";
+    var matched = order.filter(function (row) {
+      return !query || row.textContent.toLowerCase().indexOf(query) !== -1;
+    });
+    var shown = matched.slice(0, pageSize());
+    rows.forEach(function (row) { row.hidden = true; });
+    shown.forEach(function (row) { row.hidden = false; });
+    if (empty) empty.hidden = matched.length !== 0;
+    if (status && statusTemplate) {
+      status.hidden = matched.length === 0;
+      status.textContent = statusTemplate
+        .replace("{start}", shown.length ? 1 : 0)
+        .replace("{end}", shown.length)
+        .replace("{total}", matched.length);
+    }
+  }
+
+  function sortBy(column) {
+    if (sortColumn === column) {
+      sortDir = -sortDir;
+    } else {
+      sortColumn = column;
+      sortDir = 1;
+    }
+    var indexed = order.map(function (row, index) {
+      return { row: row, index: index, value: cmpCellValue(row, column) };
+    });
+    indexed.sort(function (a, b) {
+      if (a.value === b.value) return a.index - b.index;
+      if (a.value === null) return 1;  // absent values last
+      if (b.value === null) return -1;
+      if (a.value < b.value) return -sortDir;
+      return sortDir;
+    });
+    order = indexed.map(function (item) { return item.row; });
+    order.forEach(function (row) { body.appendChild(row); });
+    for (var i = 0; i < headers.length; i += 1) {
+      headers[i].removeAttribute("aria-sort");
+    }
+    if (headers[column]) {
+      headers[column].setAttribute(
+        "aria-sort", sortDir === 1 ? "ascending" : "descending"
+      );
+    }
+    apply();
+  }
+
+  for (var i = 0; i < headers.length; i += 1) {
+    (function (column) {
+      var button = headers[column].querySelector(".sort-btn");
+      if (!button) return;
+      button.addEventListener("click", function () { sortBy(column); });
+    })(i);
+  }
+  if (search) search.addEventListener("input", apply);
+  if (show) {
+    show.value = "10";
+    show.addEventListener("change", apply);
+  }
+  apply();
+}
+
 window.addEventListener("DOMContentLoaded", openAnchorTarget);
 window.addEventListener("hashchange", openAnchorTarget);
 window.addEventListener("DOMContentLoaded", initSearch);
+window.addEventListener("DOMContentLoaded", initComparisonTable);

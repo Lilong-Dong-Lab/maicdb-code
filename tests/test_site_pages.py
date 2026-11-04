@@ -445,11 +445,11 @@ def test_card_identity_header_renders_all_eleven_fields(tmp_path):
     assert "<html lang=\"zh\">" in zh
 
 
-def test_card_parameter_blocks_zero_rows_and_sign_note(tmp_path):
+def test_card_parameter_blocks_zero_rows_visible(tmp_path):
     """Every registered block renders with its count; zero-row blocks stay
-    visible with the localized note; the sign-convention note appears on
-    threshold parameters ONLY (p50 yes, conductance no) and its EN text is
-    the library's wording (CLI parity, locked by the parity test below)."""
+    visible with the localized note. The sign-convention sentence is a
+    repo-side convention: it stays in the library/dictionary (parity
+    locked by the test below) and renders on no page."""
     from maicdb.query import SIGN_CONVENTION_NOTE
 
     out = render_fixture(tmp_path)
@@ -458,8 +458,8 @@ def test_card_parameter_blocks_zero_rows_and_sign_note(tmp_path):
     assert "(1)" in html and "(0)" in html
     # zero-row note present exactly once (the conductance block)
     assert html.count(_strings("en")["card_zero_rows_note"]) == 1
-    # sign note: on the p50 block only — once in the whole page
-    assert html.count(SIGN_CONVENTION_NOTE) == 1
+    # the sign-convention note is NOT site copy — it renders nowhere
+    assert SIGN_CONVENTION_NOTE not in html
     # as-reported pair rides next to the value (as-recorded unit spelling)
     assert "(as reported: -30 mm Hg)" in html
     # unit-less row: value without a unit word, no "None"
@@ -529,19 +529,20 @@ def test_card_bioactivity_block_where_data_exists(tmp_path):
 def test_card_frozen_banner_semantics_fixture(tmp_path):
     """The banner renders the payload's disclosure in EN and the curated
     zh wording in ZH (the T-LOC overlay replaces the payload disclosure
-    globally — spec Q3); the semantics walker (below) finds no
-    affirmative verification status on any of the four pages even though
-    the fixture quote deliberately contains "verified" as prose."""
+    globally — spec Q3); pages without the field carry no banner. The
+    semantics walker (below) finds no affirmative verification status on
+    any page, even though the fixture quote deliberately contains
+    "verified" as prose."""
     zh_disclosure = json.loads(
         (SITE_DIR / "zh-content.json").read_text(encoding="utf-8")
     )["frozen_layer_disclosure"]
     out = render_fixture(tmp_path)
     for prefix, expected in (("", _SYNTH_DISCLOSURE), ("zh/", zh_disclosure)):
-        html = (
+        frozen = (
             out / prefix / "channels" / "frozen1" / "index.html"
         ).read_text(encoding="utf-8")
-        assert expected in html
-        assert not list(affirmative_status_hits(html))
+        assert expected in frozen
+        assert not list(affirmative_status_hits(frozen))
         plain = (
             out / prefix / "channels" / "plain2" / "index.html"
         ).read_text(encoding="utf-8")

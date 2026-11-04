@@ -4,17 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ strings.site_title }}{% endblock %}</title>
-  <link rel="stylesheet" href="{{ root }}/assets/style.css">
+  <link rel="icon" href="{{ root }}/assets/favicon.svg">
+  <link rel="stylesheet" href="{{ asset_css }}">
 </head>
 <body>
+  <a class="skip-link" href="#main">{{ strings.skip_to_content }}</a>
   <header class="site-header">
     <div class="wrap">
       <a class="site-name" href="{{ root }}/">{{ strings.site_name }}</a>
       <nav class="site-nav" aria-label="{{ strings.nav_aria_label }}">
-        <a href="{{ root }}/">{{ strings.nav_home }}</a>
-        <a href="{{ root }}/channels/">{{ strings.nav_channels }}</a>
-        <a href="{{ root }}/parameters/">{{ strings.nav_parameters }}</a>
-        <a href="{{ root }}/downloads/">{{ strings.nav_downloads }}</a>
+        <a href="{{ root }}/"{% if is_home %} aria-current="page"{% endif %}>{{ strings.nav_home }}</a>
+        <a href="{{ root }}/channels/"{% if is_channels %} aria-current="page"{% endif %}>{{ strings.nav_channels }}</a>
+        <a href="{{ root }}/parameters/"{% if is_parameters %} aria-current="page"{% endif %}>{{ strings.nav_parameters }}</a>
+        <a href="{{ root }}/downloads/"{% if is_downloads %} aria-current="page"{% endif %}>{{ strings.nav_downloads }}</a>
       </nav>
       <a class="lang-switch" lang="{{ alt_lang }}" href="{{ alt }}/">{{ strings.language_switch_label }}</a>
       {# Global search (M3-T6, spec Q9): a layout-level search box on every
@@ -35,7 +37,7 @@
       </form>
     </div>
   </header>
-  <main class="wrap">
+  <main class="wrap" id="main">
 {% block content %}{% endblock %}
   </main>
   <footer class="site-footer">
@@ -49,6 +51,6 @@
       <p>{{ strings.footer_ai_disclosure }} <a href="{{ site.repo_url }}">{{ strings.footer_ai_link }}</a></p>
     </div>
   </footer>
-  <script src="{{ root }}/assets/site.js" defer></script>
+  <script src="{{ asset_js }}" defer></script>
 </body>
 </html>

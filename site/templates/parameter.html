@@ -3,38 +3,49 @@
 {% block content %}
 <article class="parameter-page">
   <h1>{{ comparison.parameter }} — {{ entry.label }}</h1>
-
-  {# Issue #13 disclosure: units are as-recorded, buckets are never
-     merged — normalization stays a human curation decision. #}
-  <p class="unit-disclosure">{{ strings.param_unit_disclosure }}</p>
-  {% if comparison.sign_convention is defined %}
-  <p class="sign-note">{{ strings.card_sign_convention_label }} {{ strings.sign_convention_note }}</p>
-  {% endif %}
-  {# direction-blind ratio params: median omitted with the note (the
-     library attaches the note per row; the page discloses it once) #}
-  {% if has_ratio_note %}
-  <p class="sign-note">{{ strings.ratio_median_note }}</p>
-  {% endif %}
+  {# Repo-side conventions are NOT site copy: the unit-bucket rule, the
+     sign-convention note, the ratio-median note and the frozen-layer
+     disclosure all stay in the data layer / CLI export (and the locale
+     dictionaries), but only the frozen-layer disclosure renders here —
+     it marks rows whose evidence quotes have not been re-verified, so
+     the reader keeps that signal. One row per (gene, stored unit)
+     bucket, units never merged; zero-count genes stay listed (reported,
+     not hidden). The count cell expands to the bucket's measurement_ids,
+     each deep-linking to its evidence row on the channel card
+     (spec Q10). #}
   {% if comparison.frozen_layer_disclosure is defined %}
   <aside class="frozen-banner">
     <strong>{{ strings.card_frozen_label }}</strong> — {{ comparison.frozen_layer_disclosure }}
   </aside>
   {% endif %}
-
-  {# One row per (gene, stored unit) bucket — units never merged;
-     zero-count genes stay listed (reported, not hidden). The count cell
-     expands to the bucket's measurement_ids, each deep-linking to its
-     evidence row on the channel card (spec Q10). #}
-  <table class="cmp-table">
+  {# Table controls (progressive enhancement, M3 site-design pass): the
+     static table below carries every row, and site.js adds client-side
+     search, a page-size selector and per-column sorting for when the
+     table outgrows a screen. Without JS the controls stay inert and the
+     whole table is still readable and crawlable. #}
+  <div class="table-controls">
+    <label class="table-show">{{ strings.table_show_label }}
+      <select class="cmp-show">
+        {% for n in show_sizes %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+        <option value="all">{{ strings.table_all }}</option>
+      </select>
+    </label>
+    <label class="table-search">{{ strings.table_search_label }}
+      <input type="search" class="cmp-search" autocomplete="off"
+             placeholder="{{ strings.table_search_placeholder }}">
+    </label>
+  </div>
+  <p class="table-empty" hidden>{{ strings.search_no_results }}</p>
+  <table class="cmp-table" aria-label="{{ comparison.parameter }} — {{ entry.label }}">
     <thead>
       <tr>
-        <th scope="col">{{ strings.param_col_gene }}</th>
-        <th scope="col">{{ strings.param_col_family }}</th>
-        <th scope="col">{{ strings.param_col_unit }}</th>
-        <th scope="col">{{ strings.param_col_n }}</th>
-        <th scope="col">{{ strings.param_col_min }}</th>
-        <th scope="col">{{ strings.param_col_median }}</th>
-        <th scope="col">{{ strings.param_col_max }}</th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_gene }}</button></th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_family }}</button></th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_unit }}</button></th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_n }}</button></th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_min }}</button></th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_median }}</button></th>
+        <th scope="col"><button type="button" class="sort-btn">{{ strings.param_col_max }}</button></th>
       </tr>
     </thead>
     <tbody>
@@ -62,5 +73,7 @@
       {% endfor %}
     </tbody>
   </table>
+  <p class="table-status" aria-live="polite"
+     data-template="{{ strings.table_status }}" hidden></p>
 </article>
 {% endblock %}
