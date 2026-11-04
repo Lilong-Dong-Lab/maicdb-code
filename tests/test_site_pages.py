@@ -562,10 +562,11 @@ _AFFIRMATIVE_STATUSES = {
     "verification: verified",
     "status: verified",
     "verified: true",
-    # 中文对应（T-LOC）——EN 5 形式逐一 port（rule 4 translation rule：
-    # 原向量集是契约，一个不落）：已核验/已验证=verified，
-    # 核验：已核验=verification: verified，状态：已验证=status: verified，
-    # 已再核验=re-verified，已核验：真=verified: true
+    # Chinese counterparts (T-LOC) — all five EN forms ported per the
+    # rule-4 translation rule (the original vector set is the contract,
+    # none dropped): 已核验/已验证=verified, 核验：已核验=verification:
+    # verified, 状态：已验证=status: verified, 已再核验=re-verified,
+    # 已核验：真=verified: true
     "已核验",
     "已验证",
     "核验：已核验",

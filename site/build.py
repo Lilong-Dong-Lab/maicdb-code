@@ -96,9 +96,9 @@ _DOWNLOAD_FILES = (
 
 
 def _human_size(n_bytes: int) -> str:
-    """SI 单位（1000 进位，kB/MB——即 ``ls --si`` 口径，非 1024 进位的
-    ``ls -h``）的人类可读大小，保留一位小数；字节整数显示。
-    例：1171 → ``1.2 kB``、3112960 → ``3.1 MB``。"""
+    """Human-readable size in SI units (1000-based kB/MB — the ``ls --si``
+    convention, NOT the 1024-based ``ls -h``); one decimal, whole bytes.
+    E.g. 1171 → ``1.2 kB``, 3112960 → ``3.1 MB``."""
     size = float(n_bytes)
     for unit in ("B", "kB", "MB", "GB"):
         if size < 1000:
@@ -111,15 +111,18 @@ def _human_size(n_bytes: int) -> str:
 # Curated Chinese content overlay (M3-T-LOC, issue #43)
 # --------------------------------------------------------------------------- #
 def _zh_label(zh: dict, name: str) -> str | None:
-    """zh-content 中某参数的中文 label；缺键返回 None（渲染时保持
-    payload 原样——三个 overlay 消费点的单一来源）。"""
+    """The zh label for a parameter from zh-content; None when the key is
+    absent (the render then keeps the payload value) — the single source
+    for the three overlay consumers."""
     return zh["parameters"].get(name, {}).get("label")
 
 
 def _zh_card(card: dict, zh: dict) -> dict:
-    """ZH 渲染用的卡 payload：深拷贝后覆盖 summary / 参数 label / §6.7
-    披露（spec §6——curated 中文是表现层，数据工件与 EN 树不动；
-    zh-content 缺键的字段保持 payload 原样，不发明内容）。"""
+    """Card payload for the ZH render: deep-copied, then summary /
+    parameter labels / the §6.7 disclosure substituted (spec §6 — curated
+    Chinese is a presentation layer; the data artifact and the EN tree
+    stay untouched; a key absent from zh-content keeps the payload value
+    — no content is invented)."""
     card = copy.deepcopy(card)
     entry = zh["channels"].get(card["gene"]["gene_symbol"])
     if entry and entry.get("summary"):
@@ -137,8 +140,9 @@ def _zh_card(card: dict, zh: dict) -> dict:
 
 
 def _zh_comparison(comparison: dict, entry: dict, zh: dict) -> tuple[dict, dict]:
-    """ZH 渲染用的比较 payload + 索引条目：doc 级 §6.7 披露与参数
-    label 覆盖（rows 无 curated 字段——证据引文永不翻译，spec Q3）。"""
+    """Comparison payload + index entry for the ZH render: doc-level §6.7
+    disclosure and parameter label substituted (rows carry no curated
+    fields — evidence quotes are never translated, spec Q3)."""
     comparison = copy.deepcopy(comparison)
     entry = copy.deepcopy(entry)
     if "frozen_layer_disclosure" in comparison:
@@ -152,9 +156,11 @@ def _zh_comparison(comparison: dict, entry: dict, zh: dict) -> tuple[dict, dict]
 def _zh_index_lists(
     families: list[dict], parameters: list[dict], zh: dict
 ) -> tuple[list[dict], list[dict]]:
-    """browse / 参数索引的 ZH 覆盖：family 组附中文描述（zh-content 有
-    键才加——EN 树字节不变：条件块用空白控制，缺描述的家族不留残迹），
-    参数条目 label 覆盖。"""
+    """ZH overlay for the browse / parameter-index lists: family groups
+    gain their Chinese description (only when zh-content has the key —
+    the EN tree's bytes are unchanged: the comment and the conditional
+    block are laid out inline so the EN output is byte-identical to the
+    pre-block template), parameter entries get label substitution."""
     families = copy.deepcopy(families)
     for fam in families:
         desc = zh["families"].get(fam["family"], {}).get("description")

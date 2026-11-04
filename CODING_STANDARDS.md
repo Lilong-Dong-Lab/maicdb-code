@@ -111,3 +111,15 @@ surface makes possible. PR #50 needed two gate rounds for exactly this —
 the M1 vector `{"quality": "VERIFIED"}` (any-key exact value) had no
 ported counterpart, so `aria-label="verified"` escaped until the second
 reviewer named it.
+
+## 5. Repo prose is English (comments, docstrings, CLI output)
+
+Comments, docstrings, and CLI/script output in repo files are English —
+one convention, not per-author choice (user decision A, retro 2026-11-04;
+two gates had flagged the split as NOTEs). Chinese is legitimate DATA,
+never prose: the ZH locale dictionaries, `zh-content.json`, verbatim
+evidence/extractor-note fixtures, and their assertions keep Chinese by
+design.
+
+*Reviewer drill:* a new Chinese comment/docstring/echo in a diff is a
+finding; Chinese inside strings fixtures or their assertions is not.
