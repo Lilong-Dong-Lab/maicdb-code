@@ -106,22 +106,23 @@ def test_zh_content_covers_every_channel_family_parameter():
 
 
 def _has_cjk(value: str) -> bool:
-    """值至少含一个 CJK 表意字符——"Chinese-side" 的机器可判定义
-    （成分检测而非字符串比较：大小写变体、尾随空白的 EN 拷贝、
-    非 CJK 第三语言值都判否）。"""
+    """True when the value carries at least one CJK ideograph — the
+    machine-checkable definition of "Chinese-side" (component detection,
+    not string comparison: case variants, trailing-whitespace EN copies,
+    and third-language non-CJK values all fail)."""
     return bool(re.search(r"[一-鿿]", value))
 
 
 def test_cjk_detector_rejects_escape_forms():
-    """Guard 自测向量（CODING_STANDARDS rule 4）：已知 escape 形式必须
-    让检测器判否，真实 zh 值判是——上面的 Chinese-side 通过因此
-    非空转。"""
+    """Guard self-vectors (CODING_STANDARDS rule 4): known escape forms
+    must fail the detector and real zh values must pass — so the
+    Chinese-side gate above is not vacuous."""
     assert _has_cjk("P50 压力阈值")
     assert not _has_cjk("P50 pressure threshold")
-    assert not _has_cjk("P50 pressure threshold ")  # 尾随空白的 EN 拷贝
-    assert not _has_cjk("P50 PRESSURE THRESHOLD")  # 大小写变体
+    assert not _has_cjk("P50 pressure threshold ")  # trailing-whitespace EN copy
+    assert not _has_cjk("P50 PRESSURE THRESHOLD")  # case variant
     assert not _has_cjk("") and not _has_cjk("  ")
-    assert not _has_cjk("порог давления")  # 非 CJK 第三语言
+    assert not _has_cjk("порог давления")  # third language, non-CJK
 
 
 def test_zh_content_values_are_chinese_side():

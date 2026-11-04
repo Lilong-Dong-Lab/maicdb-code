@@ -5,7 +5,7 @@
   <h1>{{ strings.browse_heading }}</h1>
   {% for fam in families %}
   <section class="family-group" id="{{ fam.family }}">
-    {# curated 中文家族描述（M3-T-LOC）：zh-content 有键才渲染（数据驱动，无 locale 分支）；注释与条件块行内排版，EN 树输出与无此块的模板逐字节一致 #}<h2>{{ fam.family }}</h2>{% if fam.description is defined %}
+    {# Curated Chinese family description (M3-T-LOC): rendered only when zh-content has the key (data-driven, no locale branch); the comment and the conditional block are laid out inline so the EN tree's output is byte-identical to the pre-block template #}<h2>{{ fam.family }}</h2>{% if fam.description is defined %}
     <p class="family-desc">{{ fam.description }}</p>{% endif %}
     <ul class="channel-grid">
       {% for ch in fam.channels %}

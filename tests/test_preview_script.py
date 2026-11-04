@@ -45,7 +45,7 @@ def test_running_port_is_reused_without_rebuild():
         stderr=subprocess.DEVNULL,
     )
     try:
-        # 就绪探测（与脚本同款），最多 5 秒
+        # readiness probe (same shape the script uses), 5s max
         for _ in range(10):
             with socket.socket() as probe:
                 if probe.connect_ex(("localhost", port)) == 0:
@@ -61,8 +61,8 @@ def test_running_port_is_reused_without_rebuild():
             timeout=30,
         )
         assert result.returncode == 0, result.stderr
-        assert "复用现有进程" in result.stdout
-        assert "重建站点" not in result.stdout  # 未走构建分支
+        assert "reusing the existing process" in result.stdout
+        assert "Rebuilding" not in result.stdout  # the build branch never ran
     finally:
         stub.terminate()
         stub.wait(timeout=5)

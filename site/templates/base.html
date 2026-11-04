@@ -17,10 +17,11 @@
         <a href="{{ root }}/downloads/">{{ strings.nav_downloads }}</a>
       </nav>
       <a class="lang-switch" lang="{{ alt_lang }}" href="{{ alt }}/">{{ strings.language_switch_label }}</a>
-      {# 全局搜索（M3-T6，spec Q9）：布局级搜索框，每页都有；data-root 是
-         本页到自己 locale 树根的相对前缀，JS 用它解析 search-index.json
-         与结果链接；分组/无结果文案经 data-label 传入（Q3：UI 字符串只在
-         字典里）。#}
+      {# Global search (M3-T6, spec Q9): a layout-level search box on every
+         page; data-root is the page's relative prefix to its own locale
+         tree root, which the JS uses to resolve search-index.json and the
+         result links; group/no-results copy rides data-label attributes
+         (Q3: UI strings live only in the dictionaries). #}
       <form class="site-search" role="search" data-root="{{ root }}"
             data-label-channel="{{ strings.search_group_channel }}"
             data-label-family="{{ strings.search_group_family }}"
