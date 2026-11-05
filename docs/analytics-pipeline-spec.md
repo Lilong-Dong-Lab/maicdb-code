@@ -172,9 +172,10 @@ defended by the tri-state, is the paper's motivation figure.
 - **Boltzmann ΔG demo.** Census caveat (verified against data-v1.0): `slope`
   exists on 13 records, but P50 and slope **never co-occur on one row**
   (0 of 948). Same-fit pairs are split across rows, linked only by
-  `condition_key` prose (≈4–5 pairs at most), and at least 4 of the 13
-  slopes are compound dose-response Hill slopes with no mechanical
-  counterpart. P1 must define the same-fit row join before this demo can
+  `condition_key` prose (≈4–5 pairs at most). Exactly 3 of the 13 slopes
+  are compound dose-response Hill slopes (Jedi1, Jedi2, spermine) with no
+  mechanical counterpart; 2 more pair with T50 (tension) rows rather than
+  P50. P1 must define the same-fit row join before this demo can
   run at all; it stays a methods demo, and n forbids claims.
 - Temperature is reported at 9%: no Q10 correction is attempted at v1;
   temperature is a listed covariate, flagged as missing data.
