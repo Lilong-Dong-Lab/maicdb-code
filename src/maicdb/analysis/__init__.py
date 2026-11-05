@@ -20,6 +20,8 @@ P1 modules:
   normalization and honest non-derivable bases.
 * :mod:`maicdb.analysis.joins` — same-fit row discovery + deterministic
   narrowing (P50×slope split-row join, mandated by spec §5.2).
+* :mod:`maicdb.analysis.mimic` — per-record MIMIC compliance scoring
+  (tri-state + ADR-0005 applicability; the P3 audit's data source).
 """
 
 from maicdb.analysis.activity import PActivity, p_activity, to_molar
@@ -30,6 +32,15 @@ from maicdb.analysis.joins import (
     same_fit_candidates,
     same_fit_marker_hits,
 )
+from maicdb.analysis.mimic import (
+    CATEGORIES,
+    MIMIC_FIELDS,
+    FieldStatus,
+    MIMICScore,
+    applicable_fields,
+    score_all,
+    score_record,
+)
 from maicdb.analysis.replicates import Replicates, coalesce_replicates, parse_n
 from maicdb.analysis.units import (
     Converted,
@@ -39,11 +50,16 @@ from maicdb.analysis.units import (
 )
 
 __all__ = [
+    "CATEGORIES",
     "Converted",
+    "FieldStatus",
+    "MIMIC_FIELDS",
+    "MIMICScore",
     "MarkerHit",
     "PActivity",
     "Replicates",
     "SameFitCandidate",
+    "applicable_fields",
     "coalesce_replicates",
     "length_to_um",
     "narrow_by_condition_key",
@@ -52,6 +68,8 @@ __all__ = [
     "pressure_to_mmhg",
     "same_fit_candidates",
     "same_fit_marker_hits",
+    "score_all",
+    "score_record",
     "tension_to_mnm",
     "to_molar",
 ]
