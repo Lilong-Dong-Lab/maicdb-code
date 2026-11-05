@@ -52,7 +52,7 @@ jobs:
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: 162 passed (2026-11-05 — vault corpus fully restored via vault PRs #114 + #116; = last healthy 160 + PR #64's 2 preview tests).
+        # Local with-vault reference: 162 passed (2026-11-05 — vault corpus fully restored via vault PRs #114 + #116; = last healthy 160 + PR #64's net +2 site tests; the 160 already included PR #60's 2 preview tests and PR #61's guard test).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
