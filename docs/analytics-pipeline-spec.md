@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft (approved in scope review 2026-11-05; P0 decisions open) |
-| **Data baseline** | `data-v1.0@5a8ff0ed`, `schema_version 0.2.0` (see `db/load-manifest.json`) |
+| **Data baseline** | tag `data-v1.0`, vault head `5a8ff0ed5cacf62dd2517fd23a6f0d1848c93b7e`, `schema_version 0.2.0` (see `db/load-manifest.json`) |
 | **MIMIC authority** | vault `report/MAICDB_Schema_Design.md` §4.3, `mimic_standard_version v0.1-draft` in `db_meta`; README §"The MIMIC Standard" |
 | **Naming** | **MIMIC** (Minimum Information about a Mechanically Induced Current) is canonical. Known collision with PhysioNet MIMIC-IV; acceptable for now, revisit before the companion paper. |
 
@@ -68,7 +68,10 @@ Track A:
 Re-derive with:
 
 ```sql
--- census (single row per field; NULLIF treats '' as unpopulated)
+-- census (single row per field). For text columns, empty strings count as
+-- unpopulated: COUNT(NULLIF(<col>, '')); for numeric columns COUNT(<col>)
+-- suffices. On data-v1.0 both forms agree on all 20 fields (no empty
+-- strings exist yet — the distinction matters for future releases).
 SELECT ROUND(100.0*COUNT(<col>)/COUNT(*)) FROM biophysics_experiment;
 -- table counts
 SELECT 'biophysics_experiment', COUNT(*) FROM biophysics_experiment UNION ALL
@@ -101,6 +104,7 @@ delta_p50 16.
       │
       ▼
  [P1] harmonization/        units, coalesce(n, n_cells), log10 transforms,
+      │                     same-fit row join (P50/slope split across rows),
       │                     derived quantities (pActivity, ΔP50 relative shift)
       ▼
  [P2] per_record/           MIMIC score + category sub-scores, field status
@@ -108,8 +112,10 @@ delta_p50 16.
       ▼
  [P3] track_mimic_audit/    completeness heatmap, year trend, journal/format
  [P4] track_biophysics/     log-P50 meta-analysis, kinetics atlas, heterogeneity
- [P6] track_field_trends/   pubs/year, parameter adoption, assay-format drift
  [P5] track_atlas/          ΔP50 effect table, compound×channel selectivity
+      │ (P6 needs P1 only — no per-record scoring)
+      ▼
+ [P6] track_field_trends/   pubs/year, parameter adoption, assay-format drift
       │
       ▼
  [P7] delivery              site/_data/analysis/*.json (site pages, static)
@@ -143,9 +149,10 @@ Views: completeness heatmap (field × family); compliance vs publication year
 format, recording mode; per-record badge on channel cards.
 
 Precedent: MIAME/MIATA compliance studies. The headline test is the vault §9
-four-field enforcement list — e.g. at `temperature_c` 9%, ~91% of current
-records would fail MIMIC enforcement as written. That number, defended by the
-tri-state, is the paper's motivation figure.
+four-field enforcement list — e.g. temperature alone (`temperature_c` 9%)
+means ~91% of records fail; the four-field list as written means **100%**
+fail (`stimulus_velocity` is 0% populated). State both numbers; the pair,
+defended by the tri-state, is the paper's motivation figure.
 
 ### 5.2 Track B — cross-family biophysics (P4)
 
@@ -162,8 +169,13 @@ tri-state, is the paper's motivation figure.
 - **Heterogeneity.** Same channel × same stimulus across labs: report
   between-lab spread. This is a reproducibility claim; keep it descriptive
   and cite k (studies) and n (records) everywhere.
-- **Boltzmann ΔG demo.** Where P50 and slope coexist (n=13): midpoint gating
-  energy in kT units. Labeled a methods demo; n forbids claims.
+- **Boltzmann ΔG demo.** Census caveat (verified against data-v1.0): `slope`
+  exists on 13 records, but P50 and slope **never co-occur on one row**
+  (0 of 948). Same-fit pairs are split across rows, linked only by
+  `condition_key` prose (≈4–5 pairs at most), and at least 4 of the 13
+  slopes are compound dose-response Hill slopes with no mechanical
+  counterpart. P1 must define the same-fit row join before this demo can
+  run at all; it stays a methods demo, and n forbids claims.
 - Temperature is reported at 9%: no Q10 correction is attempted at v1;
   temperature is a listed covariate, flagged as missing data.
 
@@ -230,8 +242,9 @@ update in the vault (changed together, per conventions).
 
 ## 8. Delivery (P7)
 
-- Site: new **Analysis** section (audit + atlas pages) reading
-  `site/_data/analysis/*.json`; channel cards gain the MIMIC badge.
+- Site: new **Analysis** section (audit + atlas + trends pages) reading
+  `site/_data/analysis/*.json`; channel cards gain the MIMIC badge. Track D
+  (field trends) lands on the Analysis section's trends page.
 - Figures: publication-grade set under `dist/analysis/<data-tag>/figures/`,
   regenerated in CI against the pinned artifact.
 - Methods page on the site documenting every statistical choice in §5–§6.
@@ -249,7 +262,7 @@ update in the vault (changed together, per conventions).
 | P4 | Track B biophysics | P2 |
 | P6 | Track D trends | P1 |
 | P5 | Track C atlas | P2 |
-| P7 | delivery (site, figures, methods, CI) | P3 + P4 |
+| P7 | delivery (site, figures, methods, CI) | P3 + P4 + P5 |
 
 ## 10. Provenance
 
