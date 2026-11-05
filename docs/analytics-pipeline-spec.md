@@ -205,7 +205,7 @@ time; assay-format and model-system drift. Descriptive counts only.
 - Every number in every output traces to a census SQL or an analysis
   artifact committed with the release.
 
-## 7. P0 open decisions (blocking P1)
+## 7. P0 decisions (settled 2026-11-05 — recorded in ADR-0005)
 
 ### 7.1 Tri-state field status
 
@@ -218,10 +218,11 @@ Per MIMIC field, per record: `REPORTED` / `NOT_REPORTED_IN_PAPER` /
 | (b) Derived + subsample | NULL = ambiguous by default; estimate extraction sensitivity from a ~30-paper validation subsample, correct audit-wide | No re-curation; statistically explicit | Correction is an estimate, not per-record truth |
 | (c) Hybrid (recommended) | (b) for the frozen corpus now; (a) for newly curated records going forward | Defensible v1; path to full rigor | Two mechanisms to document |
 
-Recommendation: **(c)**. Outcome: an ADR in this repo + extraction-schema
-update in the vault (changed together, per conventions).
+Recommendation: **(c)**. **Decision (2026-11-05): (c) Hybrid** — recorded
+in ADR-0005 (`docs/adr/0005-mimic-tri-state-hybrid.md`) with the
+`mimic_gaps` vault column and the ~30-paper validation-subsample protocol.
 
-### 7.2 Applicability rules (draft; finalize in the P0 ADR)
+### 7.2 Applicability rules (final — ADR-0005)
 
 - `stimulus_velocity`, `probe_geometry`, `probe_diameter_um`: applicable only
   when `stimulus_type` ∈ {INDENTATION, TOUCH, SHEAR_STRESS} (moving-probe
@@ -229,12 +230,17 @@ update in the vault (changed together, per conventions).
 - `pipette_solution`, `holding_potential_mv`: applicable only for
   pipette-based modes (CELL_ATTACHED, INSIDE_OUT, OUTSIDE_OUT, WHOLE_CELL,
   PERFORATED_PATCH, PLANAR_PATCH).
-- `sampling_rate_khz`, `filter_khz`: applicable only to electrophysiological
-  recording modes.
-- `n` (replicates), `stimulus_type`, `recording_mode`, `bath_solution`:
-  applicable always.
+- `sampling_rate_khz`, `filter_khz`: applicable to all named
+  electrophysiological recording modes (CELL_ATTACHED, INSIDE_OUT,
+  OUTSIDE_OUT, WHOLE_CELL, PERFORATED_PATCH, PLANAR_PATCH, TEVC,
+  RECONSTITUTED_PROTEOLIPOSOME); for `OTHER`, P3 decides applicability per
+  record with disclosure.
+- `n_cells` (replicates — the vocabulary token; the extraction sheet's `n`
+  column routes there, and the audit reads the harmonized
+  `coalesce(n, n_cells)` per §4), `stimulus_type`, `recording_mode`,
+  `bath_solution`: applicable always.
 
-### 7.3 Unit policy (draft)
+### 7.3 Unit policy (final — ADR-0005)
 
 - P50: dual-report mmHg and kPa; log10 for analysis.
 - T50: mN/m. X50: µm. Kinetics: ms (column-native). Conductance: pS.
