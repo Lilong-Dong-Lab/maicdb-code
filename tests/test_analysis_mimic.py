@@ -124,6 +124,18 @@ class TestScoring:
         s = score_record(_rec(n_cells=None, n=">4"))
         assert s.fields["n_cells"].status == "not_extracted"
 
+    def test_empty_string_counts_as_not_extracted(self):
+        # gate MINOR-1 regression: spec §3's NULLIF convention — a future
+        # release carrying '' in a text column must not score reported
+        s = score_record(_rec(cell_type=""))
+        assert s.fields["cell_type"].status == "not_extracted"
+
+    def test_zero_values_still_reported(self):
+        # the '' normalization must not eat legitimate zeros
+        s = score_record(_rec(temperature_c=0.0, ph=0))
+        assert s.fields["temperature_c"].status == "reported"
+        assert s.fields["ph"].status == "reported"
+
     def test_category_sums_match_totals(self):
         rec = _rec(
             stimulus_type="PRESSURE_CLAMP",

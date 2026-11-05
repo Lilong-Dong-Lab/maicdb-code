@@ -110,7 +110,7 @@ class TestScoreAggregatePins:
     def test_applicability_distribution(self, scores):
         """Applicable-count distribution over the 948 rows; cross-foots
         with the trigger census: 660 at 16 = the dominant
-        pressure/suction × pipette-ephys combination."""
+        non-moving-stimulus × pipette-mode combination."""
         dist = Counter(s.applicable for s in scores)
         assert dict(sorted(dist.items())) == {
             12: 51,

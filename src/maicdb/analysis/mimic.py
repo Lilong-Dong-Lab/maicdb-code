@@ -110,7 +110,9 @@ def field_value(record: Mapping[str, object], field_name: str) -> object:
     """The harmonized value of a MIMIC field from a record mapping.
 
     ``n_cells`` coalesces from ``n_cells`` INTEGER + legacy text ``n``
-    (ADR-0005); a parsed integer OR range counts as present.
+    (ADR-0005); a parsed integer OR range counts as present. Text fields
+    treat ``''`` as absent (spec §3's NULLIF convention — the distinction
+    matters for future releases); numeric ``0``/``0.0`` remain reported.
     """
     column, _, coalesce = MIMIC_FIELDS[field_name]
     if coalesce:
@@ -119,7 +121,10 @@ def field_value(record: Mapping[str, object], field_name: str) -> object:
             record.get("n"),  # type: ignore[arg-type]
         )
         return None if rep.value is None and rep.low is None else rep
-    return record.get(column)
+    value = record.get(column)
+    if isinstance(value, str) and value == "":
+        return None
+    return value
 
 
 def applicable_fields(record: Mapping[str, object]) -> dict[str, bool]:
