@@ -19,7 +19,7 @@ P1 modules:
 * :mod:`maicdb.analysis.activity` — pActivity derivation with micro-sign
   normalization and honest non-derivable bases.
 * :mod:`maicdb.analysis.joins` — same-fit row discovery + deterministic
-  narrowing (P50×slope split-row join, ADR-mandated).
+  narrowing (P50×slope split-row join, mandated by spec §5.2).
 """
 
 from maicdb.analysis.activity import PActivity, p_activity, to_molar

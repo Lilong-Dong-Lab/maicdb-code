@@ -1,9 +1,10 @@
 """Pure unit-conversion tests for maicdb.analysis.units (no artifact).
 
 Expectations are physics-anchored landmarks, not re-runs of the module:
-1 atm = 101325 Pa (exact, SI definition) sits on 760.0004 conventional
-mmHg (101325 / 133.322387415) and 14.6959488 psi; 1 dyn/cm is exactly
-1 mN/m (1e-5 N / 1e-2 m).
+1 atm = 101325 Pa (exact, SI definition) sits on 759.9999 conventional
+mmHg (101325 / 133.322387415 = 759.99989…, 4dp) and 14.6959488 psi; the
+conventional mmHg differs from the torr by ~0.5 ppm, hence NOT exactly
+760. 1 dyn/cm is exactly 1 mN/m (1e-5 N / 1e-2 m).
 """
 
 from __future__ import annotations
@@ -17,22 +18,24 @@ from maicdb.analysis.units import (
     tension_to_mnm,
 )
 
+# 101325 / 133.322387415 at 4 decimal places (Decimal-verified).
+_ATM_MMHG_4DP = 759.9999
+
 
 class TestPressureToMmhg:
     def test_atm_landmark_from_pa(self):
-        # 101325 Pa (1 atm, exact) = 760.0004 conventional mmHg
         conv = pressure_to_mmhg(101325.0, "Pa")
-        assert conv.value == pytest.approx(760.0004, rel=1e-6)
+        assert round(conv.value, 4) == _ATM_MMHG_4DP
         assert conv.converted is True
 
     def test_atm_landmark_from_psi(self):
         # 14.6959488 psi (independent psi expression of 1 atm)
         conv = pressure_to_mmhg(14.6959488, "psi")
-        assert conv.value == pytest.approx(760.0004, rel=1e-6)
+        assert round(conv.value, 4) == _ATM_MMHG_4DP
 
     def test_atm_landmark_from_mbar(self):
         conv = pressure_to_mmhg(1013.25, "mbar")  # 1 atm in mbar
-        assert conv.value == pytest.approx(760.0004, rel=1e-6)
+        assert round(conv.value, 4) == _ATM_MMHG_4DP
 
     def test_identity_mmhg(self):
         conv = pressure_to_mmhg(76.3, "mmHg")

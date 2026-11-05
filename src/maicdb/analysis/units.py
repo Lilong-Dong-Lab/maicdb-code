@@ -76,7 +76,8 @@ class Converted:
     unit: str  # canonical unit name ("mmHg", "mN/m", or "um")
     as_reported: float  # the input value, untouched
     as_reported_unit: str  # the input unit, untouched
-    converted: bool  # False when the source unit IS the canonical unit
+    converted: bool  # False when the number is unchanged: the source unit
+    # IS the canonical unit, or an exact 1:1 alias (dyn/cm → mN/m)
 
 
 def _to_canonical(

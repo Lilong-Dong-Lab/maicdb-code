@@ -7,10 +7,11 @@ module is deliberately graceful where ``units.py`` is strict: unknown unit
 strings yield ``basis="unknown_unit"`` with the raw pair preserved, instead
 of raising. The observed data-v1.0 vocabulary (census SQL in
 ``tests/test_analysis_artifact.py``) is: nM, µM, μM (TWO different micro
-signs — U+00B5 and U+03BC — normalized here), mM, M, "-log M" (value is
+signs — U+00B5 and U+03BC — normalized here), mM, "-log M" (value is
 already a −log10), "μg/ml" (mass concentration: molar only via the
 compound's molecular weight; the data-v1.0 μg/ml rows are silica
-nanoparticles without MW → ``basis="mass_no_mw"``), and NULL.
+nanoparticles without MW → ``basis="mass_no_mw"``), and NULL. Bare "M" is
+supported (see ``_MOLAR_PER_UNIT``) but unobserved at data-v1.0.
 """
 
 from __future__ import annotations
@@ -32,6 +33,10 @@ _MOLAR_PER_UNIT: dict[str, float] = {
 
 # g per L for the mass-concentration form: 1 μg/ml = 1 mg/L = 1e-3 g/L.
 _G_PER_L_PER_UG_PER_ML = 1e-3
+
+# Mass-concentration unit strings; both micro signs accepted (the
+# data-v1.0 rows use U+03BC, the molar table carries both).
+_MASS_UNITS = frozenset({"μg/ml", "µg/ml"})  # U+03BC, U+00B5
 
 
 @dataclass(frozen=True)
@@ -61,7 +66,9 @@ def p_activity(
     """Derive pActivity from an as-reported activity value.
 
     ``molecular_weight`` is the compound's MW in g/mol (from
-    ``compound.molecular_weight``), needed only for the μg/ml form.
+    ``compound.molecular_weight``), needed only for the μg/ml form. Both
+    micro signs are normalized on the mass branch too (matching the
+    molar table).
     """
     if value is None or unit is None:
         return PActivity(None, "missing_value", value, unit, None)
@@ -85,7 +92,7 @@ def p_activity(
             as_reported_unit=unit,
             detail=None,
         )
-    if unit == "μg/ml":
+    if unit in _MASS_UNITS:
         if molecular_weight is None or molecular_weight <= 0:
             return PActivity(
                 None,

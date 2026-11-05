@@ -58,6 +58,13 @@ class TestPActivity:
         assert pa.basis == "mass_no_mw"
         assert pa.detail is not None
 
+    def test_mass_micro_sign_b5_accepted(self):
+        # gate n2 regression: U+00B5 µg/ml must behave like U+03BC μg/ml
+        pa_b5 = p_activity(10.0, "µg/ml", molecular_weight=500.0)
+        pa_bc = p_activity(10.0, "μg/ml", molecular_weight=500.0)
+        assert pa_b5.basis == pa_bc.basis == "mass_from_mw"
+        assert pa_b5.value == pa_bc.value
+
     def test_missing_value(self):
         assert p_activity(None, "nM").basis == "missing_value"
         assert p_activity(1.0, None).basis == "missing_value"

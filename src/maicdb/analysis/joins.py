@@ -1,8 +1,9 @@
 """Same-fit row join for the analysis layer (P1).
 
-ADR-0005 / spec §5.2: P50 and slope never co-occur on one row of
-data-v1.0 (0 of 948); same-fit pairs are split across rows, linked only
-by ``condition_key`` prose. P1 defines the join in two honest steps:
+Spec §5.2 (``docs/analytics-pipeline-spec.md``): P50 and slope never
+co-occur on one row of data-v1.0 (0 of 948); same-fit pairs are split
+across rows, linked only by ``condition_key`` prose. P1 defines the join
+in two honest steps:
 
 1. :func:`same_fit_candidates` — discovery. Slope-only rows (``slope``
    populated, every threshold NULL) whose ``condition_key`` or
@@ -13,10 +14,11 @@ by ``condition_key`` prose. P1 defines the join in two honest steps:
    ``t50_value``). Every candidate carries its marker — nothing is
    silently joined.
 2. :func:`narrow_by_condition_key` — deterministic narrowing. Each slope
-   row keeps the sibling with the highest lowercase condition-key token
-   overlap; ties are kept (the caller sees all of them). Narrowing is a
-   heuristic with disclosed scores, not ground truth; the Boltzmann ΔG
-   demo (P4) consumes confirmed pairs only.
+   row keeps every sibling sharing the highest lowercase condition-key
+   token overlap — ties included (the caller sees all of them, sorted by
+   threshold id). Narrowing is a heuristic with disclosed scores, not
+   ground truth; the Boltzmann ΔG demo (P4) consumes confirmed pairs
+   only.
 
 Data-v1.0 census (marker-bearing slope rows and candidate counts) is
 pinned in ``tests/test_analysis_artifact.py`` with the census SQL that
@@ -112,7 +114,7 @@ def _classify_marker(haystack: str, marker_start: int, marker_end: int) -> str:
     return "ambiguous"
 
 
-_SENTENCE_SEPS = ("；", ";", "。", "！", "？", "\n")
+_SENTENCE_SEPS = ("；", ";", "。", "！", "？", "\n", ".")
 
 
 def same_fit_marker_hits(engine: Engine) -> list[MarkerHit]:
@@ -178,25 +180,32 @@ def narrow_by_condition_key(
     candidates: Iterable[SameFitCandidate],
     condition_key_of: dict[str, str],
 ) -> list[SameFitCandidate]:
-    """Return the best sibling per slope row by condition-key token overlap.
+    """Return the top-scoring sibling(s) per slope row by condition-key
+    token overlap.
 
     ``condition_key_of`` maps maicdb_id → condition_key for every row in
     the candidate set (both sides). Score = |token overlap| of the two
-    lowercase condition keys; the highest-scoring sibling per slope row
-    wins, ties are all kept, score 0 is dropped. Scores are written into
-    ``token_overlap`` — a heuristic with a disclosed number, not truth.
+    lowercase condition keys; all siblings sharing a slope row's top score
+    are kept — ties included, sorted by threshold ``maicdb_id`` so the
+    caller can apply its own tie-break — and score-0 siblings are dropped.
+    Scores are written into ``token_overlap`` — a heuristic with a
+    disclosed number, not truth.
     """
-    best: dict[str, tuple[int, SameFitCandidate]] = {}
+    scored: dict[str, list[tuple[int, str, SameFitCandidate]]] = {}
     for cand in candidates:
         slope_key = condition_key_of.get(cand.slope_maicdb_id, "")
         sib_key = condition_key_of.get(cand.threshold_maicdb_id, "")
         score = len(_tokens(slope_key) & _tokens(sib_key))
         if score <= 0:
             continue
-        prev = best.get(cand.slope_maicdb_id)
-        if prev is None or score > prev[0]:
-            best[cand.slope_maicdb_id] = (score, _with_overlap(cand, score))
-    return [pair for _, pair in best.values()]
+        scored.setdefault(cand.slope_maicdb_id, []).append(
+            (score, cand.threshold_maicdb_id, _with_overlap(cand, score))
+        )
+    out: list[SameFitCandidate] = []
+    for entries in scored.values():
+        top = max(e[0] for e in entries)
+        out.extend(cand for score, _, cand in sorted(entries, key=lambda e: e[1]) if score == top)
+    return out
 
 
 def _with_overlap(cand: SameFitCandidate, score: int) -> SameFitCandidate:
