@@ -52,17 +52,17 @@ jobs:
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: 162 passed (2026-11-05 — vault corpus fully restored via vault PRs #114 + #116; = last healthy 160 + PR #64's net +2 site tests; the 160 already included PR #60's 2 preview tests and PR #61's guard test).
+        # Local with-vault reference: 216 passed (2026-11-05, P1 layer +54 tests incl. gate-fix regressions; see KNOWN-QUIRKS quirk 3 history).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
-          # digit-boundary anchors on both ends: "160 passed" or "1 warning"
+          # digit-boundary anchors on both ends: "208 passed" or "1 warning"
           # inside "11 warnings" must NOT match the pin (vacuous-pass guard)
-          grep -qE "(^|[^0-9])154 passed, 8 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
-            if grep -qE "(^|[^0-9])136 passed, 26 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
-              echo "::error::'136 passed, 26 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
+          grep -qE "(^|[^0-9])208 passed, 8 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
+            if grep -qE "(^|[^0-9])190 passed, 26 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
+              echo "::error::'190 passed, 26 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
             else
-              echo "::error::suite summary drifted from the pinned '154 passed, 8 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
+              echo "::error::suite summary drifted from the pinned '208 passed, 8 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
             fi
             exit 1
           }
