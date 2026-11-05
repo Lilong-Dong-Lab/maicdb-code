@@ -52,7 +52,7 @@ jobs:
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: pending re-derivation — vault corpus deleted on main (a2c0231, 2026-11-02); last healthy 160 passed (2026-11-04, pre-PR #64).
+        # Local with-vault reference: pending — data/ restored on main (vault PR #114, 2026-11-05) but 6 loader tests still fail on tools/ paths deleted by the same incident (a2c0231); last healthy 160 passed (2026-11-04, pre-PR #64).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
