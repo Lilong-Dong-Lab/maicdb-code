@@ -3,7 +3,7 @@
 Expectations are physics-anchored landmarks, not re-runs of the module:
 1 atm = 101325 Pa (exact, SI definition) sits on 759.9999 conventional
 mmHg (101325 / 133.322387415 = 759.99989…, 4dp) and 14.6959488 psi; the
-conventional mmHg differs from the torr by ~0.5 ppm, hence NOT exactly
+conventional mmHg differs from the torr by ~0.14 ppm, hence NOT exactly
 760. 1 dyn/cm is exactly 1 mN/m (1e-5 N / 1e-2 m).
 """
 
