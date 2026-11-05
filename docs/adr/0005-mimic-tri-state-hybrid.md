@@ -68,10 +68,15 @@ and cited, not a throwaway.
 - `pipette_solution`, `holding_potential_mv`: applicable only for
   pipette-based modes (CELL_ATTACHED, INSIDE_OUT, OUTSIDE_OUT, WHOLE_CELL,
   PERFORATED_PATCH, PLANAR_PATCH).
-- `sampling_rate_khz`, `filter_khz`: applicable only to electrophysiological
-  recording modes.
-- `n` (replicates), `stimulus_type`, `recording_mode`, `bath_solution`:
-  applicable always.
+- `sampling_rate_khz`, `filter_khz`: applicable to all named
+  electrophysiological recording modes (CELL_ATTACHED, INSIDE_OUT,
+  OUTSIDE_OUT, WHOLE_CELL, PERFORATED_PATCH, PLANAR_PATCH, TEVC,
+  RECONSTITUTED_PROTEOLIPOSOME); for `OTHER`, P3 decides applicability per
+  record with disclosure.
+- `n_cells` (replicates — the vocabulary token; the extraction sheet's `n`
+  column routes there, and the audit reads the harmonized
+  `coalesce(n, n_cells)` per spec §4), `stimulus_type`, `recording_mode`,
+  `bath_solution`: applicable always.
 - Compliance score = populated ÷ **applicable** fields, unweighted;
   weighted variants are sensitivity analyses only (spec §5.1).
 
