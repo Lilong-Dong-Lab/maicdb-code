@@ -22,7 +22,24 @@ bash "$(dirname "$0")/../scripts/check-suite-matrix.sh" --pins || {
     echo "hook: declared suite pins drifted (see scripts/check-suite-matrix.sh) — blocked (--no-verify overrides)" >&2
     exit 1
 }
-PYTHONPATH=src uv run pytest tests/ -q || {
+pytest_out=$(PYTHONPATH=src uv run pytest tests/ -q 2>&1) || {
+    printf '%s\n' "$pytest_out" | tail -20 >&2
     echo "hook: test suite failed — blocked (--no-verify overrides)" >&2
     exit 1
 }
+printf '%s\n' "$pytest_out" | tail -3
+# Pin-drift guard (retro 2026-11-05; origin: PR #64 added two tests without
+# re-pinning and main's CI went red post-merge — the static --pins check
+# above verifies pin FORM, not that reality matches). The just-run suite's
+# passed-count must equal ONE of the counts declared in ci.yml (the
+# local-with-vault reference and both signature pins); any drift blocks the
+# commit until the pins are re-derived and updated.
+allowed=$( {
+    sed -n 's/.*Local with-vault reference: \([0-9]*\) passed.*/\1/p' .github/workflows/ci.yml
+    grep -oE '[0-9]+ passed, [0-9]+ skipped' .github/workflows/ci.yml | sed 's/ passed.*//'
+} | sort -u)
+got=$(printf '%s\n' "$pytest_out" | grep -Eo '[0-9]+ passed' | tail -1 | sed 's/ passed//')
+if [ -n "$got" ] && ! printf '%s\n' "$allowed" | grep -qx -- "$got"; then
+    echo "hook: suite count ${got} matches no declared signature (allowed: $(echo "$allowed" | tr '\n' ' ')) — tests were added/removed without re-pinning; derive via bash scripts/derive-pins-clean.sh and re-pin ci.yml + KNOWN-QUIRKS quirk 3 (--no-verify overrides)" >&2
+    exit 1
+fi

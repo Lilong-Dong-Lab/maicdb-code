@@ -4,39 +4,42 @@ How this machine touches the vault (`Lilong-Dong-Lab/Project_DataBase_MAICDB`) f
 maicdb-code work: where the checkout lives, how review digests land as vault PRs
 without disturbing it, and the shell rules that prevent multi-repo mistakes.
 
-## Clone layout (this machine, verified 2026-11-02)
+## Clone layout (this machine, verified 2026-11-05; supersedes the 2026-11-02 table — the `~/Project_DataBase_MAICDB` and `~/respository/` paths are gone)
 
 | Path | What it is |
 |---|---|
-| `~/Project_DataBase_MAICDB` | The user's own checkout — may sit on a **personal working branch** (e.g. `student/xinfangowo-a2`). Never switch, rebase, or otherwise move its HEAD; run `git fetch --prune` freely |
-| `~/respository/Project_DataBase_MAICDB` | **Symlink** to the checkout above — the sibling path `tests/test_loader.py` expects (`parents[2]/Project_DataBase_MAICDB`; the loader CLI itself takes an explicit `--vault`, no default). Freeze contract verified through it: `data-v1.0` (`5a8ff0e`) is an ancestor of the checked-out HEAD, so vault-dependent tests run for real (local suite = 100 passed, 0 skipped) |
-
-If the symlink is missing, recreate it — do not re-clone (a full clone is
-~58 MB and the network path to GitHub for this repo is slow; the 2026-11-02
-re-clone attempt was abandoned at 55 MB when the existing checkout was found).
+| `~/Documents/AcademicWorkplace/02_RESEARCH_LABORATORY/Active_Projects/Project_DataBase_MAICDB` | The user's own checkout — may sit on main or a work branch (e.g. `student/xinfangowo-a2`). Never switch, rebase, or otherwise move its HEAD; run `git fetch --prune` freely |
+| `/tmp/Project_DataBase_MAICDB` | Optional **symlink** to the checkout above — the sibling path `tests/test_loader.py` resolves (`parents[2]/Project_DataBase_MAICDB`); needed only for worktree-based runs (clean-tree derives; see `scripts/derive-pins-clean.sh`, which creates it). The main checkout sits beside this repo, so in-place runs resolve the sibling naturally |
 
 ## Digest PR recipe (workflow step 3's "small vault docs PR")
 
 Never commit on the user's checkout. Use a throwaway **worktree** off local
-`main`. Fast-forward main with BOTH steps — `git fetch . origin/main:main`
+`main`. Set the checkout path once per shell (the clone-layout table above
+is the authority):
+
+```bash
+VAULT="$HOME/Documents/AcademicWorkplace/02_RESEARCH_LABORATORY/Active_Projects/Project_DataBase_MAICDB"
+```
+
+Fast-forward main with BOTH steps — `git fetch . origin/main:main`
 alone only catches up to the local `origin/main` tracking ref, which itself
 stays stale until fetched from the remote (the 2026-11-02 M3-T5 digest round
 built a worktree three digest PRs behind on exactly this, then paid a
 rebuild + branch-name collision to recover):
 
 ```bash
-git -C ~/Project_DataBase_MAICDB fetch origin --prune
-git -C ~/Project_DataBase_MAICDB fetch . origin/main:main
+git -C "$VAULT" fetch origin --prune
+git -C "$VAULT" fetch . origin/main:main
 ```
 
 ```bash
-git -C ~/Project_DataBase_MAICDB worktree add -b docs/reviewdigest-maicdb-<topic> /tmp/vault-wt-<topic> main
+git -C "$VAULT" worktree add -b docs/reviewdigest-maicdb-<topic> /tmp/vault-wt-<topic> main
 # write report/ReviewDigest_maicdb-code-<topic>_<date>_agent.md
 git -C /tmp/vault-wt-<topic> add … && git -C /tmp/vault-wt-<topic> commit -m "…"
 git -C /tmp/vault-wt-<topic> push -u origin docs/reviewdigest-maicdb-<topic>
 gh pr create --repo Lilong-Dong-Lab/Project_DataBase_MAICDB --base main --head docs/reviewdigest-maicdb-<topic> …
 gh pr merge <n> --repo Lilong-Dong-Lab/Project_DataBase_MAICDB --merge --delete-branch
-git -C ~/Project_DataBase_MAICDB worktree remove /tmp/vault-wt-<topic>
+git -C "$VAULT" worktree remove /tmp/vault-wt-<topic>
 ```
 
 Merge order (binding): **digest PR first, then the maicdb-code PR**. Two
@@ -76,11 +79,11 @@ first, fetch second.
 
 **Health check** (one line, run when anything feels off):
 
-    ls ~/Project_DataBase_MAICDB/data/ | wc -l    # expect 15 (12 channels + db + 2 schema docs)
+    ls "$VAULT/data/" | wc -l    # expect 15 (12 channels + db + 2 schema docs)
 
 **Restore path** if mangled (as executed 2026-11-04):
 
-1. `git -C ~/Project_DataBase_MAICDB reflog --date=iso | head` — find the
+1. `git -C "$VAULT" reflog --date=iso | head` — find the
    last pre-incident tip on your work branch (the `checkout: moving from
    <branch> to main` line names it).
 2. Rebuild the branch if it was also deleted: `git branch <branch> <tip>`;
