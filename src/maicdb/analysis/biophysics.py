@@ -45,7 +45,7 @@ exact mmHg→kPa identity through the Pa pivot of P1's ``units``).
 Sign conventions are a corpus finding, disclosed not silently
 normalized: 88 of 152 P50 values are NEGATIVE, and signs are mixed
 INSIDE single family × stimulus cells (e.g. PIEZO pressure-clamp spans
-−63 to +77 mmHg) — papers report suction/pressure-clamp activation
+−63.0 to 76.9 mmHg) — papers report suction/pressure-clamp activation
 thresholds under inconsistent sign conventions. The pooled statistic is
 |P50| on log10; every cell carries the negative/positive split, and
 ``lab_spread`` keeps the as-reported signed range per gene (the
@@ -125,9 +125,9 @@ class P50Record:
     p50_mmhg: float
     p50_unit: str  # as reported (ADR-0005 keeps the reported pair)
     p50_value: float  # as reported
-    n: int  # records in the record's cluster (coalesced replicate count
-    # is per-record; the meta-analysis clusters by pub × condition_key
-    # and counts records — see cluster_log_means)
+    n: int  # coalesced replicate count of the record (n_cells wins over
+    # the legacy text n); the meta-analysis clusters at PUBLICATION
+    # level and counts records — see cluster_key/cluster_log_means
 
 
 def load_p50_records(engine: Engine) -> list[P50Record]:
@@ -521,8 +521,11 @@ def boltzmann_demo(
     across rows, linked only by ``condition_key`` prose, and narrowed
     by P1's token-overlap heuristic (a disclosed number, not truth).
     ΔG/kBT = P50_mmhg / slope per joined pair (pressure-Boltzmann
-    reading; slope dimensionless). METHODS DEMO — the output exists to
-    show the join works; n forbids any claim.
+    reading; slope dimensionless). Note 3 of the 4 data-v1.0 rows have
+    NEGATIVE ΔG — the negative-P50 pairs carry the paper's sign
+    convention into the quotient (the same corpus-wide sign-convention
+    artifact disclosed module-wide). METHODS DEMO — the output exists
+    to show the join works; n forbids any claim.
     """
     from maicdb.analysis.joins import narrow_by_condition_key, same_fit_candidates
 

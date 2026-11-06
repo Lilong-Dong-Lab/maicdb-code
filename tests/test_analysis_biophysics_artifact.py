@@ -111,11 +111,19 @@ class TestInputCensuses:
         }
 
 
-class TestThresholdMeta:
-    @pytest.fixture(scope="class")
-    def cells(self, records):
-        return {(c.family, c.stimulus_type): c for c in threshold_meta(records)}
 
+
+@pytest.fixture(scope="module")
+def cells(records):
+    """Module-scoped deliberately (NOT class-scoped: pytest 9 emits
+    PytestRemovedIn10Warning for class-scoped fixtures, and that second
+    warning would break the repo's ', 1 warning' suite pin — the exact
+    drift the gate caught on this PR's first push, gate PR #75
+    BLOCKER-2)."""
+    return {(c.family, c.stimulus_type): c for c in threshold_meta(records)}
+
+
+class TestThresholdMeta:
     def test_ten_cells_dual_report(self, cells):
         """Module-output determinism; inputs pinned above. Pooled |P50|
         geometric means, dual-reported (kPa = mmHg × 0.133322387415

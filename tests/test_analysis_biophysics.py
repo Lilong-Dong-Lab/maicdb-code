@@ -16,7 +16,6 @@ from scipy import stats as sps
 
 from maicdb.analysis.biophysics import (
     KPA_PER_MMHG,
-    DLResult,
     cluster_log_means,
     dersimonian_laird,
     lab_spread,
@@ -83,7 +82,9 @@ class TestDLExact:
         #    = 14/3 ≈ 4.666667; df = 2 → Q > df
         # tau² = (14/3 - 2) / (300 - 30000/300) = (8/3)/200 = 1/75
         # w* = 1/(0.01 + 1/75) = 300/7 ≈ 42.8571 each (symmetric → pooled
-        #      stays 13/6); SE = sqrt(7/300*... ) — computed via w*
+        #      stays 32/15 = 2.133333…; NOTE 32/15, not 13/6 = 2.16667 —
+        #      gate round 1 corrected the comment's fraction, gate PR #75
+        #      MINOR-1); SE = sqrt(7/900) = 0.0881917
         # I² = (14/3 - 2)/(14/3) = (8/3)/(14/3) = 4/7 ≈ 0.5714286
         clusters = [(1, 2.0, 0.01, 4), (2, 2.1, 0.01, 4), (3, 2.3, 0.01, 4)]
         r = dersimonian_laird(clusters)
