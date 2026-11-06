@@ -19,6 +19,7 @@ into single literals; if you add a planted pattern, split it the same way.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -49,17 +50,43 @@ DIRTY_APP = "\n".join(
 GIT_IDENTITY = ["-c", "user.name=maicdb-test", "-c", "user.email=test@example.invalid",
                 "-c", "commit.gpgsign=false"]
 
+#: Git repository-location vars that must never leak from this process
+#: into fixture-repo git calls. Witness (2026-11-06, live): git exports
+#: ``GIT_INDEX_FILE`` into the pre-commit hook env; the hook's pytest
+#: child inherits it; the then-unsanitized ``git add -A`` in a tmp
+#: fixture repo wrote the fixture's ``app.py`` entry into the MAIN
+#: index, and ``git commit -am`` through the hook died with
+#: ``invalid object ... for 'app.py'``. Stripped at every subprocess
+#: boundary here; ``scripts/secret-scan.py`` runs index-free git ops
+#: (log/cat-file/rev-list) but is sanitized too as defense-in-depth.
+GIT_LOCATION_VARS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+    # belt-and-braces (gate PR #73 NIT-1): provably inert for this
+    # module's corruption class, listed to close git(1)'s
+    # repo-location family
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CEILING_DIRECTORIES",
+)
+
+
+def _clean_git_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in GIT_LOCATION_VARS}
+
 
 def _run_scan(target: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["uv", "run", str(SCAN_SCRIPT), str(target)],
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True, text=True, cwd=REPO_ROOT, env=_clean_git_env(),
     )
 
 
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *GIT_IDENTITY, *args], cwd=repo, check=True,
-                   capture_output=True, text=True)
+                   capture_output=True, text=True, env=_clean_git_env())
 
 
 def _make_repo(base: Path, name: str) -> Path:
@@ -73,6 +100,45 @@ def _commit(repo: Path, filename: str, content: str, message: str) -> None:
     (repo / filename).write_text(content)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", message)
+
+
+def test_git_helper_strips_hook_index_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fixture git calls must ignore inherited git location env vars.
+
+    Witness (2026-11-06): git exports ``GIT_INDEX_FILE`` into the
+    pre-commit hook's environment; the hook's pytest child inherits it,
+    and this module's ``git add -A`` in a tmp fixture repo then wrote
+    the fixture's staged entries (``app.py``, blob ``d64880e``) into
+    the MAIN repository's index — ``git commit -am`` through the hook
+    died with ``invalid object ... for 'app.py'``. The sentinel below
+    is that poison: with the OLD unsanitized helper, ``git add -A``
+    against a byte-empty index file dies exit 128 ("index file smaller
+    than expected") and this test goes red via CalledProcessError; the
+    sanitized helper never touches the sentinel (it stays byte-empty)
+    and the fixture proceeds. Writing an index INTO a poisoned
+    ``GIT_INDEX_FILE`` — the incident's actual corruption path —
+    requires a valid pre-existing index (the main repo had one); this
+    test pins the never-touched property, which suffices to catch the
+    leak (gate PR #73 MINOR-1 wording; red mode re-executed by the
+    reviewer).
+    """
+    sentinel = tmp_path / "poisoned-index"
+    sentinel.write_bytes(b"")
+    monkeypatch.setenv("GIT_INDEX_FILE", str(sentinel))
+    repo = _make_repo(tmp_path, "leakcheck")
+    (repo / "app.py").write_text("index leak probe\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "index leak probe")
+    assert sentinel.read_bytes() == b""
+    # the fixture repo's own history is intact (same sanitization the
+    # helper applies)
+    log = subprocess.run(
+        ["git", *GIT_IDENTITY, "log", "--oneline"], cwd=repo,
+        capture_output=True, text=True, check=True, env=_clean_git_env(),
+    )
+    assert "index leak probe" in log.stdout
 
 
 @pytest.fixture()
