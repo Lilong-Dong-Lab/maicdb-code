@@ -13,11 +13,11 @@ locks the rule).
 
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-
 from maicdb.analysis.figures import render_all
 from maicdb.analysis.site_payloads import analysis_payloads
 from maicdb.query import open_readonly
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
