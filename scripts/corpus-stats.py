@@ -46,23 +46,17 @@ JOURNAL_ALIASES: dict[str, str] = {
     "proceedings of the national academy of sciences usa": (
         "Proceedings of the National Academy of Sciences"
     ),
-    "proc natl acad sci": "Proceedings of the National Academy of Sciences",
     "proc natl acad sci u s a": "Proceedings of the National Academy of Sciences",
-    "nat commun": "Nature Communications",
     "nature communications": "Nature Communications",
     "elife": "eLife",
     "journal of general physiology": "The Journal of General Physiology",
     "j gen physiol": "The Journal of General Physiology",
-    "biophys j": "Biophysical Journal",
     "biophysical journal": "Biophysical Journal",
     "embo j": "The EMBO Journal",
     "embo journal": "The EMBO Journal",
-    "nat struct mol biol": "Nature Structural & Molecular Biology",
-    "nat neurosci": "Nature Neuroscience",
     "j neurosci": "The Journal of Neuroscience",
     "journal of neuroscience": "The Journal of Neuroscience",
     "plos one": "PLOS ONE",
-    "sci rep": "Scientific Reports",
     "scientific reports": "Scientific Reports",
 }
 
@@ -76,7 +70,6 @@ _LOCATION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("abstract", re.compile(r"^abstract")),
     ("methods", re.compile(r"^(methods?|materials)")),
     ("discussion", re.compile(r"^discussion")),
-    ("other", re.compile(r".*")),
 )
 
 #: The MIMIC-design columns, by README category (stimulus / recording /

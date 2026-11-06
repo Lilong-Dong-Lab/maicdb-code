@@ -17,11 +17,11 @@
   ```
 
   Two runs produce byte-identical output (verified by
-  `test_stats_are_deterministic`). The generated report in §4 is verified
-  byte-identical to a fresh run by
-  `test_embedded_report_matches_generated_output`, so it cannot go stale; the
-  findings above it are narrative, and only the figures their tests name are
-  pinned.
+  `test_stats_are_deterministic`). The §4 section — the script's output minus
+  its H1, headings demoted one level — is compared as a whole against a fresh
+  run by `test_embedded_report_matches_generated_output`, so it cannot go
+  stale; the findings above it are narrative, and only the figures their
+  tests name are pinned.
 
 ## 1. What this baseline is for
 

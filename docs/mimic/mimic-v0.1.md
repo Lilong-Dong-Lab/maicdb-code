@@ -64,8 +64,9 @@ can be built against a written rule instead of an intuition.
 
 ### Measured adherence (data-v1.0, cumulative)
 
-Census SQL per row (each step adds one predicate to the previous one;
-`evidence_quote`, `confidence`, `condition_key` are the provenance set):
+Census SQL per row (each step adds one predicate to the previous one; the
+provenance set is `measurement_id`, `evidence_quote`, `confidence`,
+`condition_key`):
 
 | Tier step | Rows | Share of 948 |
 |---|---|---|
@@ -134,7 +135,7 @@ Coverage is "rows with a non-NULL value / 948" at data-v1.0.
 
 | Field | Tier | Type | Coverage | Note |
 |---|---|---|---|---|
-| `n` | L3 | integer (cells or patches) | 53.1% | the field that separates 71% from 35% |
+| `n` | L3 | integer, or a range/text as recorded (the column is TEXT) | 53.1% | the field that separates 71% from 35%; 16 of the 503 populated rows hold values like `3-6` or `>4`, so a validator must parse integer-or-range rather than int |
 | `n_cells` | L3 | integer | 0% | redundant with `n` until the two are defined apart |
 
 ### 5.6 Provenance (precondition, not scored)
