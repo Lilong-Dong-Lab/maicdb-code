@@ -248,19 +248,32 @@ def test_embedded_report_matches_generated_output():
     """
     generated = run_markdown()
     embedded = _report_body(generated)
-    section = _section4(DOC.read_text(encoding="utf-8"))
+    doc = DOC.read_text(encoding="utf-8")
+    section = _section4(doc)
     assert section == embedded
-    # self-vectors (CODING_STANDARDS rule 4). First the escape form the old
-    # substring check accepted: a prose line appended after the block. The
-    # old check (`embedded in doc`) still matches it; whole-section equality
-    # must not.
-    tampered = f"{section}\nA hand-written note appended after the block."
-    assert embedded in tampered
-    assert tampered != embedded
-    # Second, a one-number drift inside the block.
-    drift = embedded.replace("| 948 |", "| 949 |", 1)
-    assert drift != embedded
-    assert drift != section
+    # self-vectors (CODING_STANDARDS rule 4): feed known-escape documents to
+    # the collector itself, not to a string comparison beside it.
+    # 1. a prose line appended after the block — the escape form the old
+    #    substring check (`embedded in doc`) accepted;
+    appended = doc.replace(
+        section + "\n", section + "\nA hand-written note appended.\n", 1
+    )
+    assert appended != doc
+    assert embedded in appended  # the old check would still pass
+    assert _section4(appended) != embedded
+    # 2. a prose line inserted before the block;
+    prepended = doc.replace(
+        "## 4. Generated report\n\n",
+        "## 4. Generated report\n\nA hand-written preface.\n\n",
+        1,
+    )
+    assert prepended != doc
+    assert embedded in prepended
+    assert _section4(prepended) != embedded
+    # 3. a one-number drift inside the block.
+    drift = doc.replace("| 948 |", "| 949 |", 1)
+    assert drift != doc
+    assert _section4(drift) != embedded
 
 
 @requires_db
