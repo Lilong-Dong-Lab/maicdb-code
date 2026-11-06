@@ -25,8 +25,13 @@ uv pip install -e .          # editable install (REQUIRED before pytest in a fre
 PYTHONPATH=src uv run pytest tests/ -q   # the test suite (vault/artifact-dependent tests auto-skip; CI pins the summary — .github/workflows/ci.yml + KNOWN-QUIRKS quirk 3)
 uv run maicdb-init-db --help     # create the DB from ORM metadata
 uv run maicdb-dump-schema --help # render DDL
-git config core.hooksPath .githooks  # once per clone — pre-commit runs the pins check + the suite
+git config core.hooksPath .githooks  # once per CLONE (incl. every /tmp throwaway clone — the default hooksPath does NOT travel with a clone; a missing line means no lint/pin/suite guard before commit)
 ```
+
+**Sibling repos on this machine** (the freeze protocol jumps between them;
+absolute paths, typo-proof):
+`maicdb-code` → `/Users/hugodong/Documents/AcademicWorkplace/02_RESEARCH_LABORATORY/Active_Projects/maicdb-code`
+`vault` → `/Users/hugodong/Documents/AcademicWorkplace/02_RESEARCH_LABORATORY/Active_Projects/Project_DataBase_MAICDB`
 
 **Known env anomaly (root-caused 2026-09-02)**: the venv's `.pth` files can
 carry the macOS BSD `hidden` flag (an external watcher re-applies it);
