@@ -2,9 +2,11 @@
 """Corpus statistics for MAIC-DB (read-only).
 
 Reads ``db/maicdb.sqlite`` through SQLite's read-only URI mode and prints a
-deterministic Markdown report: publication bibliometrics (year, journal,
-rows), channel/parameter coverage, unit spellings, evidence locations,
-confidence, environment reporting and a MIMIC-field coverage snapshot.
+deterministic Markdown report in eleven sections: corpus scale, publication
+bibliometrics (year, journal, rows), channels, the per-channel parameter
+matrix, unit spellings, confidence (corpus-wide and by family), the
+evidence-location taxonomy, environment reporting, the bioactivity block,
+MIMIC-field coverage and the condition-key dialects.
 
 The numbers are derived, never transcribed: every section is a SQL query in
 this file. Ordering is fixed (sorted keys, no clock) so two runs against the
@@ -41,20 +43,24 @@ JOURNAL_ALIASES: dict[str, str] = {
     "proceedings of the national academy of sciences": (
         "Proceedings of the National Academy of Sciences"
     ),
+    "proceedings of the national academy of sciences usa": (
+        "Proceedings of the National Academy of Sciences"
+    ),
     "proc natl acad sci": "Proceedings of the National Academy of Sciences",
+    "proc natl acad sci u s a": "Proceedings of the National Academy of Sciences",
     "nat commun": "Nature Communications",
     "nature communications": "Nature Communications",
     "elife": "eLife",
-    "the journal of general physiology": "The Journal of General Physiology",
+    "journal of general physiology": "The Journal of General Physiology",
     "j gen physiol": "The Journal of General Physiology",
     "biophys j": "Biophysical Journal",
     "biophysical journal": "Biophysical Journal",
     "embo j": "The EMBO Journal",
-    "the embo journal": "The EMBO Journal",
+    "embo journal": "The EMBO Journal",
     "nat struct mol biol": "Nature Structural & Molecular Biology",
     "nat neurosci": "Nature Neuroscience",
     "j neurosci": "The Journal of Neuroscience",
-    "the journal of neuroscience": "The Journal of Neuroscience",
+    "journal of neuroscience": "The Journal of Neuroscience",
     "plos one": "PLOS ONE",
     "sci rep": "Scientific Reports",
     "scientific reports": "Scientific Reports",
@@ -127,10 +133,6 @@ def _bucket_location(value: str | None) -> str:
     return "other"
 
 
-def _pct(n: int, total: int) -> str:
-    return f"{100.0 * n / total:.1f}%" if total else "—"
-
-
 def _median(values: list[float]) -> float | None:
     if not values:
         return None
@@ -194,19 +196,9 @@ def collect(db_path: Path) -> dict:
         if len(vs) > 1
     ]
 
-    # rows per publication (biophysics + bioactivity)
-    per_pub = _q(
-        cur,
-        """
-        select p.id, count(e.id) + count(b.id)
-          from publication p
-          left join biophysics_experiment e on e.publication_id = p.id
-          left join bioactivity b on b.publication_id = p.id
-         group by p.id
-        """,
-    )
-    # the cross join above over-counts when a publication has both kinds;
-    # recompute exactly with two scalar subqueries
+    # rows per publication (biophysics + bioactivity); scalar subqueries,
+    # not a join — a publication with both kinds would be over-counted by a
+    # cross product
     per_pub = _q(
         cur,
         """
@@ -487,6 +479,17 @@ def render_markdown(stats: dict, db_label: str) -> str:
     add("## 6. Confidence")
     add("")
     add("\n".join(_table(["Confidence", "Rows"], stats["confidence"])))
+    add("")
+    add("### Confidence by family")
+    add("")
+    add(
+        "\n".join(
+            _table(
+                ["Family", "Confidence", "Rows"],
+                stats["confidence_by_family"],
+            )
+        )
+    )
     add("")
 
     add("## 7. Evidence-location taxonomy")

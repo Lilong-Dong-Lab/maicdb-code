@@ -16,8 +16,12 @@
   uv run python scripts/corpus-stats.py --json /tmp/c.json # raw stats
   ```
 
-  Two runs produce byte-identical output (verified). The pins in
-  `tests/test_corpus_stats.py` make the numbers below a contract.
+  Two runs produce byte-identical output (verified by
+  `test_stats_are_deterministic`). The generated report in §4 is verified
+  byte-identical to a fresh run by
+  `test_embedded_report_matches_generated_output`, so it cannot go stale; the
+  findings above it are narrative, and only the figures their tests name are
+  pinned.
 
 ## 1. What this baseline is for
 
@@ -34,12 +38,12 @@ decision it is a derived analysis layer only.
 | Papers / biophysics rows / bioactivity rows | 211 / 948 / 136 |
 | Channels / families | 12 / 7 |
 | Publication years | 1986–2026 (peak 2018 with 15 papers) |
-| Rows per paper | median 4, max 32; 8 papers contribute no rows |
+| Rows per paper | median 4, max 32; 8 papers contribute no biophysics/bioactivity rows (6 of those have no row in any measurement table) |
 | Parameter rows | 16 registered parameters, 263 (conductance) down to 3 (osmotic threshold) |
 | Confidence | high 537 (56.6%), medium 400 (42.2%), low 11 (1.2%) |
-| Journal strings | 67 raw → 59 after normalisation (7 variant groups) |
+| Journal strings | 67 raw → 56 after normalisation (7 variant groups) |
 | Condition keys | 939 unique / 948; 569 structured, 379 prose-style |
-| MIMIC-design fields at 0% | 9 of 30 probed (stimulus velocity/waveform/duration, probe geometry/diameter, sampling rate, filter, analysis method, n_cells) |
+| MIMIC-design fields at 0% | 9 of 24 probed (stimulus velocity/waveform/duration, probe geometry/diameter, sampling rate, filter, analysis method, n_cells) |
 
 ## 3. Findings that matter for the two tracks
 
@@ -56,12 +60,17 @@ are near-empty. The per-channel matrix shows the gaps are structural, not
 random: no channel covers all 16 parameters, and 3 of 12 channels (TRESK 14,
 PIEZO2 12, TREK-2 10) have zero rows for at least 10 of them.
 
-**F3 — Unit heterogeneity is smaller than expected but includes one exact
-synonym pair.** `t50` splits into `mN/m` (26) and `dyn/cm` (15) — numerically
-identical (1 mN/m = 1 dyn/cm), so this is a spelling issue, not a conversion
-decision. `p50` splits `mmHg` (148) / `psi` (4) — a real conversion; `x50`
-splits `nm` / `um` (×1000); `osmotic_threshold` mixes `%`, `% HTS`, `mOsm`
-(non-comparable without a written rule).
+**F3 — Unit heterogeneity is concentrated, and one column looks mis-typed.**
+`t50` splits into `mN/m` (26) and `dyn/cm` (15) — numerically identical
+(1 mN/m = 1 dyn/cm), so this is a spelling issue, not a conversion decision.
+`p50` splits `mmHg` (148) / `psi` (4) — a real conversion; `x50` splits
+`nm` (37) / `um` (9) (×1000); `osmotic_threshold` mixes `%`, `% HTS`, `mOsm`
+(non-comparable without a written rule). The largest heterogeneity sits in
+`threshold_fold_shift`, which carries three semantically incompatible units —
+`%` (13), `fold` (6) and **`nm` (12)** — plus 4 rows with a value and no unit.
+A length in a fold-shift column is probably a column-semantics error in the
+source extraction, not a unit-choice problem; it needs a vault adjudication
+before any analysis pools the column.
 
 **F4 — Evidence provenance is the strongest part of the corpus.** quote,
 confidence, condition key and measurement id sit at 100%; location at 99.8%.
@@ -78,13 +87,17 @@ underscore form, 379 use prose. A MIMIC-aligned key grammar can only be
 applied to the structured half; the prose half has to be re-curated or
 marked as unstructured — the draft must say which.
 
-**F7 — Journal spelling needs one canonical pass in the vault.** 7 groups
-(`J Biol Chem` / `Journal of Biological Chemistry`, `PNAS` / two variants,
-`eLife` / `Elife`, `PLoS ONE` / `PLoS One`, …). Meta-research over journals
-is misleading until this is fixed upstream.
+**F7 — Journal spelling needs one canonical pass in the vault.** Normalisation
+collapses 67 raw strings to 56 canonical names through 7 variant groups
+(`J Biol Chem` / `Journal of Biological Chemistry`, `PNAS` plus four variants,
+`J Neurosci` / `Journal of Neuroscience` / `The Journal of Neuroscience`,
+`eLife` / `Elife`, `PLoS ONE` / `PLoS One`, …). Meta-research over journals is
+misleading until this is fixed upstream.
 
-**F8 — A publication row does not imply data.** 8 of 211 papers contribute
-no measurement rows; they should be either justified (context papers) or
+**F8 — A publication row does not imply data.** 8 of 211 papers contribute no
+biophysics or bioactivity rows; two of them (publication 35 and 90) do carry
+`unmapped_measurement` rows, so 6 papers have no row at all across the three
+measurement tables. They should be either justified (context papers) or
 dropped, and the answer belongs in the data notes.
 
 ## 4. Generated report
@@ -109,10 +122,10 @@ Every number is a query result; no value is transcribed by hand.
 
 - Year range: **1986–2026**
 - Distinct journal strings (raw): **67**
-- Distinct journals after normalisation: **59**
+- Distinct journals after normalisation: **56**
 - Rows per publication: total 1084 across 211 papers (median 4.0, max 32, 8 with no rows)
 
-### Publications per year
+#### Publications per year
 
 | Year | Publications |
 |---|---|
@@ -150,19 +163,19 @@ Every number is a query result; no value is transcribed by hand.
 | 2025 | 2 |
 | 2026 | 2 |
 
-### Top journals (normalised)
+#### Top journals (normalised)
 
 | Journal | Publications |
 |---|---|
+| Proceedings of the National Academy of Sciences | 23 |
 | Journal of Biological Chemistry | 22 |
-| Proceedings of the National Academy of Sciences | 20 |
 | The Journal of General Physiology | 20 |
 | eLife | 15 |
 | Nature Communications | 13 |
 | Biophysical Journal | 12 |
+| The Journal of Neuroscience | 11 |
 | Neuron | 8 |
 | The EMBO Journal | 8 |
-| The Journal of Neuroscience | 8 |
 | PLOS ONE | 7 |
 | Cell Reports | 6 |
 | British Journal of Pharmacology | 4 |
@@ -170,14 +183,14 @@ Every number is a query result; no value is transcribed by hand.
 | Scientific Reports | 4 |
 | The Journal of Physiology | 4 |
 
-### Journal spelling variants (data-quality list)
+#### Journal spelling variants (data-quality list)
 
 - **Journal of Biological Chemistry** ← `J Biol Chem`, `Journal of Biological Chemistry`
 - **PLOS ONE** ← `PLoS ONE`, `PLoS One`
-- **Proceedings of the National Academy of Sciences** ← `PNAS`, `Proc Natl Acad Sci USA`, `Proceedings of the National Academy of Sciences`
+- **Proceedings of the National Academy of Sciences** ← `PNAS`, `Proc Natl Acad Sci U S A`, `Proc Natl Acad Sci USA`, `Proceedings of the National Academy of Sciences`, `Proceedings of the National Academy of Sciences USA`
 - **The EMBO Journal** ← `EMBO J`, `The EMBO Journal`
 - **The Journal of General Physiology** ← `J Gen Physiol`, `The Journal of General Physiology`
-- **The Journal of Neuroscience** ← `J Neurosci`, `The Journal of Neuroscience`
+- **The Journal of Neuroscience** ← `J Neurosci`, `Journal of Neuroscience`, `The Journal of Neuroscience`
 - **eLife** ← `Elife`, `eLife`
 
 ### 3. Channels
@@ -250,6 +263,28 @@ Every number is a query result; no value is transcribed by hand.
 | medium | 400 |
 | low | 11 |
 
+#### Confidence by family
+
+| Family | Confidence | Rows |
+|---|---|---|
+| DEG_ENaC_ASIC | high | 91 |
+| DEG_ENaC_ASIC | medium | 17 |
+| K2P | high | 87 |
+| K2P | medium | 58 |
+| MSCL_MSCS | high | 72 |
+| MSCL_MSCS | medium | 120 |
+| OSCA_TMEM63 | high | 90 |
+| OSCA_TMEM63 | medium | 2 |
+| PIEZO | high | 159 |
+| PIEZO | low | 2 |
+| PIEZO | medium | 27 |
+| TMC | high | 13 |
+| TMC | low | 1 |
+| TMC | medium | 139 |
+| TRP | high | 25 |
+| TRP | low | 8 |
+| TRP | medium | 37 |
+
 ### 7. Evidence-location taxonomy
 
 | Bucket | Rows |
@@ -278,7 +313,7 @@ Every number is a query result; no value is transcribed by hand.
 
 ### 10. MIMIC field coverage snapshot
 
-### stimulus
+#### stimulus
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
@@ -289,7 +324,7 @@ Every number is a query result; no value is transcribed by hand.
 | probe_geometry | 0 | 0.0% |
 | probe_diameter_um | 0 | 0.0% |
 
-### recording
+#### recording
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
@@ -299,14 +334,14 @@ Every number is a query result; no value is transcribed by hand.
 | holding_potential_mv | 619 | 65.3% |
 | analysis_method | 0 | 0.0% |
 
-### cell_context
+#### cell_context
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
 | expression_system | 907 | 95.7% |
 | cell_type | 781 | 82.4% |
 
-### environment
+#### environment
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
@@ -315,14 +350,14 @@ Every number is a query result; no value is transcribed by hand.
 | bath_solution | 735 | 77.5% |
 | pipette_solution | 650 | 68.6% |
 
-### analysis
+#### analysis
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
 | n | 503 | 53.1% |
 | n_cells | 0 | 0.0% |
 
-### provenance
+#### provenance
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
