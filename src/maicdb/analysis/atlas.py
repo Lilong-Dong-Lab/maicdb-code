@@ -152,7 +152,7 @@ def delta_p50_table(engine: Engine) -> list[EffectRow]:
                     delta_p50=float(row["delta_p50_value"]),
                     unit=row["delta_p50_unit"] or "",
                     variant_linked=row["variant_id"] is not None,
-                variant=row["hgvs_protein"],
+                    variant=row["hgvs_protein"],
                     functional_effect=row["functional_effect"],
                     variant_position=position,
                     domains=tuple(domains),
@@ -191,14 +191,24 @@ class _CellAcc:
 
 def compound_channel_matrix(engine: Engine) -> list[MatrixCell]:
     """The compound × channel activity matrix, sparse (populated cells
-    only), deterministic order (compound, then gene)."""
+    only), deterministic order (compound, then gene).
+
+    ``compound.molecular_weight`` is deliberately NOT passed to
+    ``p_activity``: the data-v1.0 μg/ml rows are silica nanoparticles
+    with NULL MW, so ``mass_from_mw`` is unreachable today. When
+    curation adds MW values, passing them here activates mass→molar
+    resolution for this surface.
+    """
     groups: dict[tuple[str, str], _CellAcc] = {}
     with engine.connect() as conn:
         for row in conn.execute(_MATRIX_SQL).mappings():
             key = (str(row["compound_name"]), str(row["gene_symbol"]))
             cell = groups.setdefault(key, _CellAcc(family=str(row["family"])))
             cell.n += 1
-            act = p_activity(row["activity_value"], row["activity_units"] or "")
+            # pass the unit through as-is: NULL must reach p_activity as
+            # None (basis missing_value, matching P1's own census of these
+            # same rows) — coercing to "" would mislabel them unknown_unit
+            act = p_activity(row["activity_value"], row["activity_units"])
             cell.basis[act.basis] = cell.basis.get(act.basis, 0) + 1
             if act.value is not None:
                 cell.p_sum += act.value

@@ -102,14 +102,23 @@ class TestMatrix:
         multi_extra = sum(c.k - 1 for c in matrix)
         assert multi_extra == 63
 
-    def test_value_coverage_and_bases(self, matrix):
+    def test_value_coverage_and_bases(self, engine, matrix):
         """Census via P1's basis classes (the bioactivity corpus): 70
         of 73 cells resolve a mean pActivity; basis totals over all
-        136 measurements — molar 128, unknown_unit 3 (NULL units),
-        already_plog 1, mass_no_mw 4 (μ g/ml silica rows without MW) —
-        matches P1's artifact pins in tests/test_analysis_artifact.py
-        (there 'missing 3' refers to NULL activity_value, absent
-        here: all 136 values are present)."""
+        136 measurements — molar 128, missing_value 3 (NULL units,
+        passed through as None so the basis names the truth),
+        already_plog 1, mass_no_mw 4 (μg/ml silica rows without MW) —
+        exactly MATCHING P1's own artifact census of these same rows
+        (tests/test_analysis_artifact.py TestPActivityPins). Also
+        pinned here (gate PR #77 MINOR-2): pchembl is NULL on all 136
+        rows (SELECT COUNT(pchembl) FROM bioactivity → 0) — the
+        value-axis choice rests on it; a future release that fills
+        pchembl must revisit this module."""
+        with engine.connect() as conn:
+            pchembl_null = conn.execute(
+                text("SELECT COUNT(*) FROM bioactivity WHERE pchembl IS NULL")
+            ).one()[0]
+        assert pchembl_null == 136
         with_value = [c for c in matrix if c.pactivity is not None]
         assert len(with_value) == 70
         bases: dict[str, int] = {}
@@ -118,7 +127,7 @@ class TestMatrix:
                 bases[basis] = bases.get(basis, 0) + n
         assert bases == {
             "molar": 128,
-            "unknown_unit": 3,
+            "missing_value": 3,
             "already_plog": 1,
             "mass_no_mw": 4,
         }
