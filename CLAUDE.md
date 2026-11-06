@@ -54,6 +54,11 @@ install -e .` alone is NOT reliable — the flag comes back.)
    reproduction commands, the repo's `CODING_STANDARDS.md` (reviewer rules),
    and the vault defect-register path
    (`report/PR10-30_Retrospective_Review_2026-08-26_agent.md` in the vault).
+   Brief the reviewer for LOCAL verification (`git -C` diff, sqlite3,
+   pytest; at most one `gh` call): reviewers stall on clone/fetch steps
+   when the network flakes (observed twice 2026-11-05; stall signature is
+   a reviewer transcript stuck near spawn size minutes in — nudge once,
+   then respawn with a leaner brief).
    - CLEAN → write the digest into the VAULT's `report/` as
      `ReviewDigest_maicdb-code-<topic>_<date>_agent.md` (the vault is the
      project's record home) via a small vault docs PR, then merge.
