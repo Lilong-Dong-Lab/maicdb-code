@@ -34,12 +34,25 @@ printf '%s\n' "$pytest_out" | tail -3
 # passed-count must equal ONE of the counts declared in ci.yml (the
 # local-with-vault reference and both signature pins); any drift blocks the
 # commit until the pins are re-derived and updated.
+# PR #70 gate NIT-1: the two block causes are kept distinct. --pins does
+# NOT check the local-reference comment's presence (that check lives in
+# the matrix script's FULL mode only), so if the comment is deleted the
+# allowed set shrinks silently and a legitimate with-vault run then
+# blocked with the wrong explanation ("tests added/removed without
+# re-pinning"). When the sed yields nothing AND the count still matches
+# nothing, the real problem is the vanished reference, and the message
+# says so.
+local_ref=$(sed -n 's/.*Local with-vault reference: \([0-9]*\) passed.*/\1/p' .github/workflows/ci.yml)
 allowed=$( {
-    sed -n 's/.*Local with-vault reference: \([0-9]*\) passed.*/\1/p' .github/workflows/ci.yml
+    [ -n "$local_ref" ] && printf '%s\n' "$local_ref"
     grep -oE '[0-9]+ passed, [0-9]+ skipped' .github/workflows/ci.yml | sed 's/ passed.*//'
 } | sort -u)
 got=$(printf '%s\n' "$pytest_out" | grep -Eo '[0-9]+ passed' | tail -1 | sed 's/ passed//')
 if [ -n "$got" ] && ! printf '%s\n' "$allowed" | grep -qx -- "$got"; then
-    echo "hook: suite count ${got} matches no declared signature (allowed: $(echo "$allowed" | tr '\n' ' ')) — tests were added/removed without re-pinning; derive via bash scripts/derive-pins-clean.sh and re-pin ci.yml + KNOWN-QUIRKS quirk 3 (--no-verify overrides)" >&2
+    if [ -z "$local_ref" ]; then
+        echo "hook: ci.yml no longer declares a 'Local with-vault reference: N passed' comment — with-vault runs cannot be validated against any local signature; restore the comment (bash scripts/check-suite-matrix.sh full mode derives it) — blocked (--no-verify overrides)" >&2
+    else
+        echo "hook: suite count ${got} matches no declared signature (allowed: $(echo "$allowed" | tr '\n' ' ')) — tests were added/removed without re-pinning; derive via bash scripts/derive-pins-clean.sh and re-pin ci.yml + KNOWN-QUIRKS quirk 3 (--no-verify overrides)" >&2
+    fi
     exit 1
 fi
