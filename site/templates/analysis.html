@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.analysis_heading }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="analysis-page">
+  <h1>{{ strings.analysis_heading }}</h1>
+  <p class="page-intro">{{ strings.analysis_intro }}</p>
+  <p class="data-tag">{{ strings.analysis_data_tag_label }}:
+    <code>{{ headlines.audit_data_tag }}</code></p>
+
+  <ul class="home-stats" aria-label="{{ strings.analysis_heading }}">
+    <li><span class="stat-value">{{ headlines.audit_n_records }}</span><span class="stat-label">{{ strings.analysis_stat_records }}</span></li>
+    <li><span class="stat-value">{{ fmt.pct(headlines.audit_mean_score) }}%</span><span class="stat-label">{{ strings.analysis_stat_compliance }}</span></li>
+    <li><span class="stat-value">{{ headlines.bio_cells }}</span><span class="stat-label">{{ strings.analysis_stat_meta_cells }}</span></li>
+    <li><span class="stat-value">{{ headlines.bio_identifiable }}</span><span class="stat-label">{{ strings.analysis_stat_identifiable }}</span></li>
+    <li><span class="stat-value">{{ headlines.atlas_cells }}</span><span class="stat-label">{{ strings.analysis_stat_matrix_cells }}</span></li>
+    <li><span class="stat-value">{{ headlines.trends_first_year }}–{{ headlines.trends_last_year }}</span><span class="stat-label">{{ strings.analysis_stat_years }}</span></li>
+  </ul>
+
+  <section class="analysis-cards">
+    <section class="analysis-card">
+      <h2><a href="audit/">{{ strings.analysis_audit_title }}</a></h2>
+      <p>{{ strings.analysis_audit_summary }}</p>
+    </section>
+    <section class="analysis-card">
+      <h2><a href="atlas/">{{ strings.analysis_atlas_title }}</a></h2>
+      <p>{{ strings.analysis_atlas_summary }}</p>
+    </section>
+    <section class="analysis-card">
+      <h2><a href="trends/">{{ strings.analysis_trends_title }}</a></h2>
+      <p>{{ strings.analysis_trends_summary }}</p>
+    </section>
+    <section class="analysis-card">
+      <h2><a href="methods/">{{ strings.analysis_methods_title }}</a></h2>
+      <p>{{ strings.analysis_methods_summary }}</p>
+    </section>
+  </section>
+
+  <section class="analysis-biophysics">
+    <h2>{{ strings.analysis_biophysics_title }}</h2>
+    <p>{{ strings.analysis_biophysics_summary }}</p>
+    <p>{{ strings.bio_thresholds_note }}</p>
+    <p>{{ strings.bio_heterogeneity_note }}</p>
+  </section>
+
+  <section class="analysis-figures">
+    <h2>{{ strings.analysis_figures_heading }}</h2>
+    <figure>
+      <img src="figures/p50-forest.png" alt="{{ strings.fig_alt_forest }}">
+    </figure>
+    <figure>
+      <img src="figures/pubs-per-year.png" alt="{{ strings.fig_alt_pubs }}">
+    </figure>
+    <figure>
+      <img src="figures/compliance-by-year.png" alt="{{ strings.fig_alt_compliance }}">
+    </figure>
+  </section>
+</article>
+{% endblock %}

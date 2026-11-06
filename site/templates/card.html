@@ -29,6 +29,16 @@
 
   <section class="identity">
     <h2>{{ strings.card_identity_heading }}</h2>
+    {# MIMIC badge (P7, spec §8): field-level compliance across this
+       channel's records (P2 scoring, ADR-0005 denominators). Channels
+       without experiment records carry no block and render no badge. #}
+    {% if card.mimic is defined and card.mimic.score is not none %}
+    <p class="mimic-badge" aria-label="{{ strings.card_mimic_aria }}" title="{{ strings.card_mimic_note }}">
+      <strong>{{ strings.card_mimic_label }}</strong>
+      <span class="mimic-score">{{ fmt.pct(card.mimic.score) }}%</span>
+      <span class="mimic-detail">{{ card.mimic.reported }}/{{ card.mimic.applicable }} · {{ card.mimic.n_records }} {{ strings.card_mimic_records_label }}</span>
+    </p>
+    {% endif %}
     <dl class="identity-fields">
       <dt>{{ strings.card_field_maicdb_id }}</dt><dd>{{ card.gene.maicdb_id }}</dd>
       <dt>{{ strings.card_field_gene_symbol }}</dt><dd>{{ card.gene.gene_symbol }}</dd>

@@ -12,11 +12,19 @@ Build outputs (spec §6; default ``--out site``):
                                         + home-scale ``totals`` + the
                                         parameter index (16, M3-T5)
 - ``site/_data/channels/<slug>.json``  one card payload per channel (×12,
-                                        bioactivity block where rows exist)
+                                        bioactivity block where rows exist,
+                                        MIMIC badge block where records
+                                        exist — P7)
 - ``site/_data/parameters/<name>.json`` one comparison payload per
                                         registered parameter (×16, M3-T5)
                                         — the library's ``export`` JSON
                                         written verbatim
+- ``site/_data/analysis/<track>.json`` the four analysis payloads
+                                        (audit / biophysics / atlas /
+                                        trends, P7) — the P3/P4/P5/P6
+                                        modules' outputs serialized
+                                        verbatim by
+                                        ``maicdb.analysis.site_payloads``
 - ``site/_data/search-index.json``     flat search index (spec Q9)
 - ``site/_site/``                      rendered pages, EN (unprefixed):
                                         home, browse, 12 channel cards,
@@ -52,6 +60,11 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from sqlalchemy import func, select
 
+from maicdb.analysis import figures as analysis_figures
+from maicdb.analysis.site_payloads import (
+    analysis_payloads,
+    channel_mimic_blocks,
+)
 from maicdb.models import Bioactivity, BiophysicsExperiment, Channel, Publication, UnmappedMeasurement
 from maicdb.query import (
     PARAMETERS,
@@ -249,6 +262,50 @@ def _site_pages(
         ("parameters.html", "parameters", {}),
         ("downloads.html", "downloads", {"download_files": download_files}),
     ]
+    # Analysis section (P7, spec §8): landing + one page per track +
+    # methods. Track pages read their JSON payload here (thin consumer
+    # — the page never queries the DB); the landing carries only the
+    # headline numbers lifted from the payloads.
+    audit = json.loads(
+        (data_dir / "analysis" / "audit.json").read_text(encoding="utf-8")
+    )
+    atlas = json.loads(
+        (data_dir / "analysis" / "atlas.json").read_text(encoding="utf-8")
+    )
+    biophysics = json.loads(
+        (data_dir / "analysis" / "biophysics.json").read_text(encoding="utf-8")
+    )
+    trends = json.loads(
+        (data_dir / "analysis" / "trends.json").read_text(encoding="utf-8")
+    )
+    headlines = _analysis_headlines(audit, atlas, biophysics, trends)
+    # Breakdown label keys are built here (build-side machine strings)
+    # so the audit template can look them up in ``strings`` without a
+    # string literal (the Q3 scanner: template literals are violations).
+    breakdowns_list = [
+        (axis, f"breakdown_{axis}", rows)
+        for axis, rows in sorted(audit["breakdowns"].items())
+    ]
+    pages.extend(
+        [
+            ("analysis.html", "analysis", {"headlines": headlines}),
+            (
+                "audit.html",
+                "analysis/audit",
+                {"audit": audit, "breakdowns_list": breakdowns_list},
+            ),
+            ("atlas.html", "analysis/atlas", {"atlas": atlas}),
+            (
+                "trends.html",
+                "analysis/trends",
+                {
+                    "trends": trends,
+                    **_trends_pivots(trends),
+                },
+            ),
+            ("methods.html", "analysis/methods", {"headlines": headlines}),
+        ]
+    )
     gene_slugs = {
         entry["gene_symbol"]: entry["slug"]
         for fam in index["families"]
@@ -286,10 +343,76 @@ def _site_pages(
     return pages
 
 
+def _trends_pivots(trends: dict) -> dict:
+    """The trends page's year-axis pivots, derived from the payload (the
+    page reshapes; the module owns order and counting).
+
+    * ``trends_family_grid``: (year, {family: k}) rows; a family absent
+      from a year maps to None → the template renders a dash (absence,
+      not zero).
+    * ``trends_adoption_grid``: (parameter label, [k per year]) with
+      None where that parameter had no row that year — the module's
+      full cross-tab has every (year, parameter) combination, so None
+      never occurs at data-v1.0, but the dash path exists for honesty.
+    """
+    families: list[str] = []
+    for row in trends["pubs_per_year_by_family"]:
+        if row["family"] not in families:
+            families.append(row["family"])
+    by_year: dict[int, dict[str, int]] = {}
+    for row in trends["pubs_per_year_by_family"]:
+        by_year.setdefault(row["year"], {})[row["family"]] = row["k"]
+    family_grid = [
+        (year, {fam: cells.get(fam) for fam in families})
+        for year, cells in sorted(by_year.items())
+    ]
+
+    years = sorted({row["year"] for row in trends["parameter_adoption"]})
+    per_param: dict[str, dict[int, int]] = {}
+    for row in trends["parameter_adoption"]:
+        per_param.setdefault(row["parameter"], {})[row["year"]] = row["k"]
+    adoption_grid = [
+        (label, [per_param.get(label, {}).get(y) for y in years])
+        for label in per_param
+    ]
+    return {
+        "trends_families": families,
+        "trends_family_grid": family_grid,
+        "trends_adoption_years": years,
+        "trends_adoption_grid": adoption_grid,
+    }
+
+
+def _analysis_headlines(
+    audit: dict, atlas: dict, biophysics: dict, trends: dict
+) -> dict:
+    """Landing-page headline numbers, lifted (not recomputed) from the
+    payloads — the page renders payload facts only."""
+    identifiable = [
+        c for c in biophysics["threshold_meta"] if c.get("identifiable")
+    ]
+    return {
+        "audit_data_tag": audit["data_freeze_tag"],
+        "audit_n_records": audit["n_records"],
+        "audit_mean_score": audit["mean_score"],
+        "audit_fields": len(audit["field_totals"]),
+        "atlas_cells": atlas["n_cells"],
+        "atlas_compounds": atlas["n_compounds"],
+        "atlas_channels": atlas["n_channels"],
+        "atlas_delta_rows": len(atlas["delta_p50"]),
+        "bio_cells": len(biophysics["threshold_meta"]),
+        "bio_identifiable": len(identifiable),
+        "trends_years": len(trends["pubs_per_year_total"]),
+        "trends_first_year": trends["pubs_per_year_total"][0]["year"],
+        "trends_last_year": trends["pubs_per_year_total"][-1]["year"],
+    }
+
+
 #: Which top-nav item each page template belongs to (M3 a11y pass): the
 #: header link for that section carries ``aria-current="page"``. Card and
 #: comparison pages belong to the Channels / Parameters sections
-#: respectively — the same nav entry the reader came through.
+#: respectively — the same nav entry the reader came through. The five
+#: analysis pages (P7) belong to Analysis.
 _NAV_FLAGS_by_template = {
     "home.html": "home",
     "browse.html": "channels",
@@ -297,11 +420,16 @@ _NAV_FLAGS_by_template = {
     "parameters.html": "parameters",
     "parameter.html": "parameters",
     "downloads.html": "downloads",
+    "analysis.html": "analysis",
+    "audit.html": "analysis",
+    "atlas.html": "analysis",
+    "trends.html": "analysis",
+    "methods.html": "analysis",
 }
 
 
 def _nav_flags(template: str) -> dict[str, bool]:
-    """The four ``is_<section>`` flags the header consumes (template-scan
+    """The five ``is_<section>`` flags the header consumes (template-scan
     safe: no string literals inside the template's conditionals)."""
     section = _NAV_FLAGS_by_template[template]
     return {
@@ -309,6 +437,7 @@ def _nav_flags(template: str) -> dict[str, bool]:
         "is_channels": section == "channels",
         "is_parameters": section == "parameters",
         "is_downloads": section == "downloads",
+        "is_analysis": section == "analysis",
     }
 
 
@@ -335,6 +464,15 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         {"path": rel, "size": _human_size((repo_root / rel).stat().st_size)}
         for rel in _DOWNLOAD_FILES
     ]
+    # The analysis payloads (P7) — loaded for the figure render; the
+    # page contexts load their own copies in ``_site_pages`` (both from
+    # the same data layer, so they cannot drift).
+    payloads = {
+        name: json.loads(
+            (data_dir / "analysis" / f"{name}.json").read_text(encoding="utf-8")
+        )
+        for name in ("audit", "biophysics", "atlas", "trends")
+    }
     pages = _site_pages(index, data_dir, download_files)
     env = Environment(
         loader=FileSystemLoader(site_dir / "templates"),
@@ -342,6 +480,14 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         undefined=StrictUndefined,
         keep_trailing_newline=True,
     )
+    # Display formatting (P7): number formatting lives here, not in the
+    # templates — a format literal inside a template is exactly the
+    # machine-string the Q3 scanner exists to catch. None never reaches
+    # these (every call site guards with strings.table_empty first).
+    env.globals["fmt"] = {
+        "pct": lambda x: f"{x * 100:.0f}",
+        "f3": lambda x: f"{x:.3f}",
+    }
     strings = {
         code: json.loads((site_dir / f"strings.{code}.json").read_text(encoding="utf-8"))
         for code in _LOCALES
@@ -366,6 +512,12 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
     for locale, (tree_dir, alt_locale) in _LOCALES.items():
         tree = out_dir / tree_dir
         shutil.copytree(site_dir / "assets", tree / "assets", dirs_exist_ok=True)
+        # Figures (P7, spec §8): rendered from the payloads into each
+        # tree's analysis/figures/ — same bytes both trees (deterministic
+        # render, metadata stripped; test_analysis_figures locks it).
+        written.extend(
+            analysis_figures.render_all(payloads, tree / "analysis" / "figures")
+        )
         for rel in _DOWNLOAD_FILES:
             dest = tree / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -433,6 +585,12 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         genes = list(
             conn.scalars(select(Channel.gene_symbol).order_by(Channel.gene_symbol))
         )
+        # gene_symbol → channel id, the MIMIC badge join key (P7). The
+        # analysis module keys blocks by channel id; cards are keyed by
+        # gene symbol.
+        gene_ids = dict(
+            conn.execute(select(Channel.gene_symbol, Channel.id)).all()
+        )
         # Home-scale census (SQL, never transcribed — ticket #38): one
         # measurement = one row across the three fact tables; the
         # publications count is the normalized citation table itself.
@@ -480,6 +638,9 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
     written: list[Path] = []
     families: dict[str, dict] = {}
     search_entries: list[dict] = []
+    # MIMIC badge blocks, computed once (P2's scoring engine behind P7's
+    # per-channel field-level aggregation — site_payloads docstring).
+    mimic_blocks = channel_mimic_blocks(engine)
     for gene in genes:
         card = channel_card(engine, gene)
         # Bioactivity rides the same payload where data exists (spec Q11 —
@@ -490,6 +651,11 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         bioactivity = bioactivity_card(engine, gene)
         if bioactivity["n_rows"]:
             card["bioactivity"] = bioactivity
+        # MIMIC badge (spec §8): every channel with ≥1 experiment gets
+        # the block; channels with none render no badge (no lie).
+        mimic = mimic_blocks.get(gene_ids.get(gene))
+        if mimic is not None:
+            card["mimic"] = mimic
         identity = card["gene"]
         path = channels_dir / f"{slugify(gene)}.json"
         _dump(path, card)
@@ -574,6 +740,16 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 "n_rows": sum(r["count"] for r in json.loads(doc)["rows"]),
             }
         )
+
+    # Analysis payloads (P7, spec §8): the four track modules' outputs
+    # serialized verbatim — pages read these JSON files, never the DB.
+    payloads = analysis_payloads(engine)
+    analysis_dir = data_dir / "analysis"
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+    for name, payload in payloads.items():
+        path = analysis_dir / f"{name}.json"
+        _dump(path, payload)
+        written.append(path)
 
     index = {
         "families": [families[fam] for fam in sorted(families)],

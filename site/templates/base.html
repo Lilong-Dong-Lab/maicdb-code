@@ -16,6 +16,7 @@
         <a href="{{ root }}/"{% if is_home %} aria-current="page"{% endif %}>{{ strings.nav_home }}</a>
         <a href="{{ root }}/channels/"{% if is_channels %} aria-current="page"{% endif %}>{{ strings.nav_channels }}</a>
         <a href="{{ root }}/parameters/"{% if is_parameters %} aria-current="page"{% endif %}>{{ strings.nav_parameters }}</a>
+        <a href="{{ root }}/analysis/"{% if is_analysis %} aria-current="page"{% endif %}>{{ strings.nav_analysis }}</a>
         <a href="{{ root }}/downloads/"{% if is_downloads %} aria-current="page"{% endif %}>{{ strings.nav_downloads }}</a>
       </nav>
       <a class="lang-switch" lang="{{ alt_lang }}" href="{{ alt }}/">{{ strings.language_switch_label }}</a>

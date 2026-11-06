@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.methods_heading }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="methods">
+  <h1>{{ strings.methods_heading }}</h1>
+  <p class="page-intro">{{ strings.methods_intro }}</p>
+  <p class="data-tag">{{ strings.analysis_data_tag_label }}:
+    <code>{{ headlines.audit_data_tag }}</code></p>
+
+  <section>
+    <h2>{{ strings.methods_tri_state_heading }}</h2>
+    <p>{{ strings.methods_tri_state_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_scales_heading }}</h2>
+    <p>{{ strings.methods_scales_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_pooling_heading }}</h2>
+    <p>{{ strings.methods_pooling_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_dl_heading }}</h2>
+    <p>{{ strings.methods_dl_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_signs_heading }}</h2>
+    <p>{{ strings.methods_signs_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_basis_heading }}</h2>
+    <p>{{ strings.methods_basis_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_selectivity_heading }}</h2>
+    <p>{{ strings.methods_selectivity_body }}</p>
+  </section>
+  <section>
+    <h2>{{ strings.methods_descriptive_heading }}</h2>
+    <p>{{ strings.methods_descriptive_body }}</p>
+  </section>
+</article>
+{% endblock %}

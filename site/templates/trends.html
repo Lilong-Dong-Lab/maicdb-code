@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.trends_heading }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="analysis-page">
+  <h1>{{ strings.trends_heading }}</h1>
+  <p class="page-intro">{{ strings.trends_intro }}</p>
+  <p class="data-tag">{{ strings.analysis_data_tag_label }}:
+    <code>{{ trends.data_freeze_tag }}</code></p>
+
+  <section>
+    <h2>{{ strings.trends_total_heading }}</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_year }}</th>
+          <th>{{ strings.col_pubs }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in trends.pubs_per_year_total %}
+        <tr>
+          <td class="num">{{ row.year }}</td>
+          <td class="num">{{ row.k }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>{{ strings.trends_by_family_heading }}</h2>
+    <p class="disclosure">{{ strings.trends_by_family_note }}</p>
+    <details>
+      <summary>{{ strings.col_year }} × {{ strings.col_family }} ({{ trends_families | length }})</summary>
+      <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ strings.col_year }}</th>
+            {% for fam in trends_families %}
+            <th>{{ fam }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {# year × family pivot of the module's row list — the module
+             owns the order and the distinct-publication counting; the
+             page only reshapes. Absent cell = dash (no data, not zero). #}
+          {% for year, cells in trends_family_grid %}
+          <tr>
+            <td class="num">{{ year }}</td>
+            {% for fam in trends_families %}
+            <td class="num">{{ cells.get(fam) if cells.get(fam) is not none else strings.table_empty }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>{{ strings.trends_adoption_heading }}</h2>
+    <p class="disclosure">{{ strings.trends_adoption_note }}</p>
+    <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_parameter }}</th>
+          {% for year in trends_adoption_years %}
+          <th>{{ year }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for label, series in trends_adoption_grid %}
+        <tr>
+          <td>{{ label }}</td>
+          {% for v in series %}
+          <td class="num">{{ v if v is not none else strings.table_empty }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>{{ strings.trends_assay_heading }}</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_mode }}</th>
+          <th>{{ strings.col_year }}</th>
+          <th>{{ strings.col_k }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in trends.assay_drift %}
+        <tr>
+          <td>{{ row.recording_mode or strings.table_empty }}</td>
+          <td class="num">{{ row.year }}</td>
+          <td class="num">{{ row.k }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>{{ strings.trends_expression_heading }}</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_system }}</th>
+          <th>{{ strings.col_year }}</th>
+          <th>{{ strings.col_k }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in trends.model_system_drift %}
+        <tr>
+          <td>{{ row.expression_system or strings.table_empty }}</td>
+          <td class="num">{{ row.year }}</td>
+          <td class="num">{{ row.k }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="analysis-figures">
+    <h2>{{ strings.analysis_figures_heading }}</h2>
+    <figure>
+      <img src="../figures/parameter-adoption.png" alt="{{ strings.fig_alt_adoption }}">
+    </figure>
+  </section>
+</article>
+{% endblock %}
