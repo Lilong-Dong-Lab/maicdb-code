@@ -65,6 +65,11 @@ GIT_LOCATION_VARS = (
     "GIT_WORK_TREE",
     "GIT_OBJECT_DIRECTORY",
     "GIT_COMMON_DIR",
+    # belt-and-braces (gate PR #73 NIT-1): provably inert for this
+    # module's corruption class, listed to close git(1)'s
+    # repo-location family
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CEILING_DIRECTORIES",
 )
 
 
@@ -109,8 +114,15 @@ def test_git_helper_strips_hook_index_env(
     the MAIN repository's index — ``git commit -am`` through the hook
     died with ``invalid object ... for 'app.py'``. The sentinel below
     is that poison: with the OLD unsanitized helper, ``git add -A``
-    wrote the fixture index INTO the sentinel file and this test went
-    red; the sanitized helper leaves it byte-empty.
+    against a byte-empty index file dies exit 128 ("index file smaller
+    than expected") and this test goes red via CalledProcessError; the
+    sanitized helper never touches the sentinel (it stays byte-empty)
+    and the fixture proceeds. Writing an index INTO a poisoned
+    ``GIT_INDEX_FILE`` — the incident's actual corruption path —
+    requires a valid pre-existing index (the main repo had one); this
+    test pins the never-touched property, which suffices to catch the
+    leak (gate PR #73 MINOR-1 wording; red mode re-executed by the
+    reviewer).
     """
     sentinel = tmp_path / "poisoned-index"
     sentinel.write_bytes(b"")
