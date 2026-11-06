@@ -196,6 +196,132 @@ SYNTH_INDEX = {
 #: JSONs since T4 — the helpers are shared, not forked).
 SYNTH_CARDS = {"frozen1": FROZEN1_CARD, "plain2": PLAIN2_CARD}
 
+#: Synthetic analysis payloads (P7) — schema-shaped minimums the five
+#: analysis pages + the figure render + the landing headlines can all
+#: consume. Every key the templates touch under StrictUndefined is
+#: present; values are synthetic (2 records, 1 field, 1 family, 2
+#: years, 1 parameter, 1 mode, 1 system, 2 compounds × 1 channel).
+#: Real-data pins live in test_analysis_site_payloads_artifact.py and
+#: the site-build artifact tests.
+SYNTH_ANALYSIS = {
+    "audit": {
+        "data_freeze_tag": "data-vTEST@synthetic",
+        "provenance": "synthetic",
+        "n_records": 2,
+        "mean_score": 0.5,
+        "field_totals": {
+            "recording_mode": {
+                "reported": 1, "not_reported": 0, "not_extracted": 1,
+                "applicable": 2, "compliance": 0.5,
+            },
+        },
+        "heatmap": {
+            "K2P": {
+                "recording_mode": {
+                    "reported": 1, "not_reported": 0, "not_extracted": 1,
+                    "applicable": 2, "compliance": 0.5,
+                },
+            },
+        },
+        "compliance_by_year": {
+            "years": [{"year": 2009, "k": 1, "mean": 0.4},
+                      {"year": 2011, "k": 1, "mean": 0.6}],
+            "pre_k": 1, "pre_mean": 0.4,
+            "post_k": 1, "post_mean": 0.6,
+            "unassigned_k": 0, "piezo_year": 2010,
+        },
+        "breakdowns": {
+            "family": [{"group": "K2P", "k": 2, "mean": 0.5}],
+            "journal": [{"group": "J", "k": 2, "mean": 0.5}],
+            "recording_mode": [{"group": "WHOLE_CELL", "k": 2, "mean": 0.5}],
+            "stimulus_type": [{"group": "SUCTION", "k": 2, "mean": 0.5}],
+        },
+        "four_field_audit": {
+            "fields": {
+                "stimulus_velocity": {
+                    "field_name": "stimulus_velocity", "total": 2,
+                    "missing_as_written": 2, "applicable": 1,
+                    "missing_when_applicable": 1,
+                },
+            },
+            "failing_any_as_written": [2, 2],
+            "failing_any_adr": [1, 2],
+        },
+    },
+    "biophysics": {
+        "data_freeze_tag": "data-vTEST@synthetic",
+        "provenance": "synthetic",
+        "threshold_meta": [
+            {
+                "family": "K2P", "stimulus_type": "SUCTION",
+                "k": 2, "n": 2, "pooled_mmhg": 30.0,
+                "pooled_kpa": 4.0, "identifiable": True,
+                "ci_mmhg": [20.0, 40.0], "pi_mmhg": [10.0, 50.0],
+                "i2": 0.5, "negative_n": 0,
+            },
+        ],
+        "kinetics_atlas": [],
+        "lab_spread": [],
+        "boltzmann_demo": [],
+    },
+    "atlas": {
+        "data_freeze_tag": "data-vTEST@synthetic",
+        "provenance": "synthetic",
+        "n_cells": 2, "n_compounds": 2, "n_channels": 1,
+        "delta_p50": [
+            {
+                "maicdb_id": "MAIC:BX:00001", "gene_symbol": "TREK-1",
+                "family": "K2P", "delta_p50": 30.0, "unit": "mmHg",
+                "variant_linked": False, "variant": None,
+                "functional_effect": None, "variant_position": None,
+                "domains": (),
+            },
+        ],
+        "matrix": [
+            {
+                "compound_name": "A", "gene_symbol": "TREK-1",
+                "family": "K2P", "k": 1, "pactivity": 5.0,
+                "basis_counts": [["molar", 1]],
+            },
+            {
+                "compound_name": "B", "gene_symbol": "TREK-1",
+                "family": "K2P", "k": 1, "pactivity": None,
+                "basis_counts": [["missing_value", 1]],
+            },
+        ],
+        "selectivity": [
+            {
+                "compound_name": "A", "channels_with_value": 1,
+                "best_pactivity": 5.0, "best_channel": "TREK-1",
+                "selectivity_gap": None, "best_off_target_channel": None,
+            },
+        ],
+    },
+    "trends": {
+        "data_freeze_tag": "data-vTEST@synthetic",
+        "provenance": "synthetic",
+        "pubs_per_year_by_family": [
+            {"year": 2009, "family": "K2P", "k": 1},
+            {"year": 2011, "family": "K2P", "k": 1},
+        ],
+        "pubs_per_year_total": [
+            {"year": 2009, "k": 1}, {"year": 2011, "k": 1},
+        ],
+        "parameter_adoption": [
+            {"year": 2009, "parameter": "p50", "k": 1, "of_year": 1},
+            {"year": 2011, "parameter": "p50", "k": 1, "of_year": 1},
+        ],
+        "assay_drift": [
+            {"year": 2009, "recording_mode": "WHOLE_CELL", "k": 1},
+            {"year": 2011, "recording_mode": "WHOLE_CELL", "k": 1},
+        ],
+        "model_system_drift": [
+            {"year": 2009, "expression_system": "HEK", "k": 1},
+            {"year": 2011, "expression_system": "XO", "k": 1},
+        ],
+    },
+}
+
 #: Synthetic parameter-comparison docs (M3-T5), mirroring the library's
 #: ``export(format="json")`` payload shape — the data layer writes that
 #: output verbatim, so the fixture must match it field for field:
@@ -356,6 +482,14 @@ def render_fixture(tmp_path: Path) -> Path:
     (data_dir / "search-index.json").write_text(
         json.dumps(SYNTH_SEARCH_INDEX), encoding="utf-8"
     )
+    # Analysis payloads (P7): the five analysis pages + the figure
+    # render consume these — minimal schema-shaped synthetic payloads
+    # (SYNTH_ANALYSIS), same pattern as the synth cards/parameters.
+    (data_dir / "analysis").mkdir()
+    for name, payload in SYNTH_ANALYSIS.items():
+        (data_dir / "analysis" / f"{name}.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
     out_dir = tmp_path / "_site"
     load_build_module().render_site(
         data_dir=data_dir,

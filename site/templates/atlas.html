@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.atlas_heading }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="analysis-page">
+  <h1>{{ strings.atlas_heading }}</h1>
+  <p class="page-intro">{{ strings.atlas_intro }}</p>
+  <p class="data-tag">{{ strings.analysis_data_tag_label }}:
+    <code>{{ atlas.data_freeze_tag }}</code></p>
+
+  <section>
+    <h2>{{ strings.atlas_delta_heading }}</h2>
+    <p class="disclosure">{{ strings.atlas_delta_note }}</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_maicdb_id }}</th>
+          <th>{{ strings.col_gene }}</th>
+          <th>{{ strings.col_family }}</th>
+          <th>{{ strings.col_delta_p50 }}</th>
+          <th>{{ strings.col_unit }}</th>
+          <th>{{ strings.col_variant }}</th>
+          <th>{{ strings.col_position }}</th>
+          <th>{{ strings.col_domains }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in atlas.delta_p50 %}
+        <tr>
+          <td><code>{{ row.maicdb_id }}</code></td>
+          <td>{{ row.gene_symbol }}</td>
+          <td>{{ row.family }}</td>
+          <td class="num">{{ row.delta_p50 }}</td>
+          <td>{{ row.unit }}</td>
+          <td>{{ row.variant or strings.table_empty }}</td>
+          <td class="num">{{ row.variant_position if row.variant_position is not none else strings.table_empty }}</td>
+          <td>{{ row.domains | join(", ") if row.domains else strings.table_empty }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>{{ strings.atlas_matrix_heading }}</h2>
+    <p class="disclosure">{{ strings.atlas_matrix_note }}</p>
+    <details>
+      <summary>{{ strings.col_compound }} × {{ strings.col_gene }} ({{ atlas.n_cells }} / {{ atlas.n_compounds * atlas.n_channels }})</summary>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ strings.col_compound }}</th>
+            <th>{{ strings.col_gene }}</th>
+            <th>{{ strings.col_family }}</th>
+            <th>{{ strings.col_k }}</th>
+            <th>{{ strings.col_pactivity }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cell in atlas.matrix %}
+          <tr>
+            <td>{{ cell.compound_name }}</td>
+            <td>{{ cell.gene_symbol }}</td>
+            <td>{{ cell.family }}</td>
+            <td class="num">{{ cell.k }}</td>
+            <td class="num">{{ fmt.f3(cell.pactivity) if cell.pactivity is not none else strings.table_empty }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </section>
+
+  <section>
+    <h2>{{ strings.atlas_selectivity_heading }}</h2>
+    <p class="disclosure">{{ strings.atlas_selectivity_note }}</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_compound }}</th>
+          <th>{{ strings.col_best_channel }}</th>
+          <th>{{ strings.col_pactivity }}</th>
+          <th>{{ strings.col_off_target }}</th>
+          <th>{{ strings.col_gap }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in atlas.selectivity %}
+        <tr>
+          <td>{{ row.compound_name }}</td>
+          <td>{{ row.best_channel }}</td>
+          <td class="num">{{ fmt.f3(row.best_pactivity) }}</td>
+          <td>{{ row.best_off_target_channel or strings.table_empty }}</td>
+          <td class="num">{{ fmt.f3(row.selectivity_gap) if row.selectivity_gap is not none else strings.table_empty }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="analysis-figures">
+    <h2>{{ strings.analysis_figures_heading }}</h2>
+    <figure>
+      <img src="../figures/matrix-heatmap.png" alt="{{ strings.fig_alt_matrix }}">
+    </figure>
+  </section>
+</article>
+{% endblock %}

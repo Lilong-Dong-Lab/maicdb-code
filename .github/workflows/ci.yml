@@ -46,23 +46,23 @@ jobs:
           diff -r site/_site /tmp/site-rebuild/_site
           test -f site/_site/index.html && test -f site/_site/zh/index.html
       - name: Test suite (summary pinned — KNOWN-QUIRKS quirk 3)
-        # CI runs without the vault checkout: the 7 vault-dependent loader
+        # CI runs without the vault checkout: the 8 vault-dependent loader
         # tests auto-skip and db/maicdb.sqlite ships in-repo, so the query
         # suite runs in full (the 18 tag-gated Zenodo tests run: fetch-depth
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: 348 passed (execution-derived 2026-11-06 via scripts/derive-pins-clean.sh: 340 + the 8 vault-dependent `tests/test_loader.py` tests that skip without a vault — the atlas tests are already inside 340; the macOS TCC-locked machine cannot derive this line — quirk 8 — so re-derive, never assume. See KNOWN-QUIRKS quirk 3 history).
+        # Local with-vault reference: 363 passed (execution-derived 2026-11-06 via scripts/derive-pins-clean.sh: 355 + the 8 vault-dependent `tests/test_loader.py` tests that skip without a vault — the atlas tests are already inside 355; the macOS TCC-locked machine cannot derive this line — quirk 8 — so re-derive, never assume. See KNOWN-QUIRKS quirk 3 history).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
-          # digit-boundary anchors on both ends: "340 passed" or "1 warning"
+          # digit-boundary anchors on both ends: "355 passed" or "1 warning"
           # inside "11 warnings" must NOT match the pin (vacuous-pass guard)
-          grep -qE "(^|[^0-9])340 passed, 8 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
-            if grep -qE "(^|[^0-9])322 passed, 26 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
-              echo "::error::'322 passed, 26 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
+          grep -qE "(^|[^0-9])355 passed, 8 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
+            if grep -qE "(^|[^0-9])337 passed, 26 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
+              echo "::error::'337 passed, 26 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
             else
-              echo "::error::suite summary drifted from the pinned '340 passed, 8 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
+              echo "::error::suite summary drifted from the pinned '355 passed, 8 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
             fi
             exit 1
           }

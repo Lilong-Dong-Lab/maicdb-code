@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.audit_heading }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="analysis-page">
+  <h1>{{ strings.audit_heading }}</h1>
+  <p class="page-intro">{{ strings.audit_intro }}</p>
+  <p class="data-tag">{{ strings.analysis_data_tag_label }}:
+    <code>{{ audit.data_freeze_tag }}</code></p>
+
+  <section>
+    <h2>{{ strings.audit_field_totals_heading }}</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_field }}</th>
+          <th>{{ strings.col_reported }}</th>
+          <th>{{ strings.col_not_reported }}</th>
+          <th>{{ strings.col_not_extracted }}</th>
+          <th>{{ strings.col_applicable }}</th>
+          <th>{{ strings.col_compliance }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for name, cell in audit.field_totals | dictsort %}
+        <tr>
+          <td>{{ name }}</td>
+          <td class="num">{{ cell.reported }}</td>
+          <td class="num">{{ cell.not_reported }}</td>
+          <td class="num">{{ cell.not_extracted }}</td>
+          <td class="num">{{ cell.applicable }}</td>
+          <td class="num">{% if cell.compliance is none %}{{ strings.table_empty }}{% else %}{{ fmt.pct(cell.compliance) }}%{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="disclosure">{{ strings.audit_provenance_note }}</p>
+  </section>
+
+  <section>
+    <h2>{{ strings.audit_heatmap_heading }}</h2>
+    <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_field }}</th>
+          {% for fam in audit.heatmap | dictsort %}
+          <th>{{ fam[0] }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {# field order = the corpus-wide table's order (dictsort of the
+           first slice's fields is unstable across slices); iterate the
+           union of field names from field_totals, which the module sorts. #}
+        {% for name in audit.field_totals %}
+        <tr>
+          <td>{{ name }}</td>
+          {% for fam in audit.heatmap | dictsort %}
+          {% set cell = fam[1].get(name) %}
+          {% if cell is none or cell.compliance is none %}
+          <td class="num">{{ strings.table_empty }}</td>
+          {% else %}
+          <td class="num">{{ fmt.pct(cell.compliance) }}%</td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>{{ strings.audit_era_heading }}</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_group }}</th>
+          <th>{{ strings.col_k }}</th>
+          <th>{{ strings.col_mean }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{ strings.audit_era_pre_label }} (&lt; {{ audit.compliance_by_year.piezo_year }})</td>
+          <td class="num">{{ audit.compliance_by_year.pre_k }}</td>
+          <td class="num">{% if audit.compliance_by_year.pre_mean is none %}{{ strings.table_empty }}{% else %}{{ fmt.pct(audit.compliance_by_year.pre_mean) }}%{% endif %}</td>
+        </tr>
+        <tr>
+          <td>{{ strings.audit_era_post_label }} (≥ {{ audit.compliance_by_year.piezo_year }})</td>
+          <td class="num">{{ audit.compliance_by_year.post_k }}</td>
+          <td class="num">{% if audit.compliance_by_year.post_mean is none %}{{ strings.table_empty }}{% else %}{{ fmt.pct(audit.compliance_by_year.post_mean) }}%{% endif %}</td>
+        </tr>
+        <tr>
+          <td>{{ strings.audit_era_unassigned_label }}</td>
+          <td class="num">{{ audit.compliance_by_year.unassigned_k }}</td>
+          <td class="num">{{ strings.table_empty }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="disclosure">{{ strings.audit_era_piezo_note }}</p>
+  </section>
+
+  <section>
+    <h2>{{ strings.audit_breakdowns_heading }}</h2>
+    {# breakdowns_list is context: (axis, strings key, rows) — the
+       label key is built in build.py so no string literal enters the
+       template (the Q3 scanner). #}
+    {% for axis, label_key, rows in breakdowns_list %}
+    <h3>{{ strings[label_key] }}</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_group }}</th>
+          <th>{{ strings.col_k }}</th>
+          <th>{{ strings.col_mean }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.group }}</td>
+          <td class="num">{{ row.k }}</td>
+          <td class="num">{{ fmt.pct(row.mean) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endfor %}
+  </section>
+
+  <section>
+    <h2>{{ strings.audit_four_field_heading }}</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ strings.col_field }}</th>
+          <th>{{ strings.col_total }}</th>
+          <th>{{ strings.audit_four_field_as_written_label }}</th>
+          <th>{{ strings.col_applicable }}</th>
+          <th>{{ strings.audit_four_field_adr_label }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for name, row in audit.four_field_audit.fields | dictsort %}
+        <tr>
+          <td>{{ name }}</td>
+          <td class="num">{{ row.total }}</td>
+          <td class="num">{{ row.missing_as_written }}</td>
+          <td class="num">{{ row.applicable }}</td>
+          <td class="num">{{ row.missing_when_applicable }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="aggregate-row">
+          <td>{{ strings.audit_four_field_any_label }}</td>
+          <td class="num">{{ audit.four_field_audit.failing_any_as_written[1] }}</td>
+          <td class="num">{{ audit.four_field_audit.failing_any_as_written[0] }}</td>
+          <td class="num">{{ audit.four_field_audit.failing_any_adr[1] }}</td>
+          <td class="num">{{ audit.four_field_audit.failing_any_adr[0] }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="disclosure">{{ strings.audit_four_field_any_note }}</p>
+  </section>
+</article>
+{% endblock %}
