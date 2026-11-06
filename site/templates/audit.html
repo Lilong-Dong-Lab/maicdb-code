@@ -84,12 +84,12 @@
         <tr>
           <td>{{ strings.audit_era_pre_label }} (&lt; {{ audit.compliance_by_year.piezo_year }})</td>
           <td class="num">{{ audit.compliance_by_year.pre_k }}</td>
-          <td class="num">{{ fmt.pct(audit.compliance_by_year.pre_mean) }}%</td>
+          <td class="num">{% if audit.compliance_by_year.pre_mean is none %}{{ strings.table_empty }}{% else %}{{ fmt.pct(audit.compliance_by_year.pre_mean) }}%{% endif %}</td>
         </tr>
         <tr>
           <td>{{ strings.audit_era_post_label }} (≥ {{ audit.compliance_by_year.piezo_year }})</td>
           <td class="num">{{ audit.compliance_by_year.post_k }}</td>
-          <td class="num">{{ fmt.pct(audit.compliance_by_year.post_mean) }}%</td>
+          <td class="num">{% if audit.compliance_by_year.post_mean is none %}{{ strings.table_empty }}{% else %}{{ fmt.pct(audit.compliance_by_year.post_mean) }}%{% endif %}</td>
         </tr>
         <tr>
           <td>{{ strings.audit_era_unassigned_label }}</td>

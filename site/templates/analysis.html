@@ -9,7 +9,7 @@
 
   <ul class="home-stats" aria-label="{{ strings.analysis_heading }}">
     <li><span class="stat-value">{{ headlines.audit_n_records }}</span><span class="stat-label">{{ strings.analysis_stat_records }}</span></li>
-    <li><span class="stat-value">{{ fmt.pct(headlines.audit_mean_score) }}%</span><span class="stat-label">{{ strings.analysis_stat_compliance }}</span></li>
+    <li><span class="stat-value">{% if headlines.audit_mean_score is none %}{{ strings.table_empty }}{% else %}{{ fmt.pct(headlines.audit_mean_score) }}%{% endif %}</span><span class="stat-label">{{ strings.analysis_stat_compliance }}</span></li>
     <li><span class="stat-value">{{ headlines.bio_cells }}</span><span class="stat-label">{{ strings.analysis_stat_meta_cells }}</span></li>
     <li><span class="stat-value">{{ headlines.bio_identifiable }}</span><span class="stat-label">{{ strings.analysis_stat_identifiable }}</span></li>
     <li><span class="stat-value">{{ headlines.atlas_cells }}</span><span class="stat-label">{{ strings.analysis_stat_matrix_cells }}</span></li>
