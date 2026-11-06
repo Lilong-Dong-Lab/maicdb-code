@@ -11,15 +11,13 @@ figure module strips Software/Date metadata; the byte-stability test
 locks the rule).
 """
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
-from maicdb.analysis.figures import render_all  # noqa: E402
-from maicdb.analysis.site_payloads import analysis_payloads  # noqa: E402
-from maicdb.query import open_readonly  # noqa: E402
+from maicdb.analysis.figures import render_all
+from maicdb.analysis.site_payloads import analysis_payloads
+from maicdb.query import open_readonly
 
 
 def main() -> int:
