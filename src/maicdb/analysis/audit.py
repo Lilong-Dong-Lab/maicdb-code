@@ -25,6 +25,16 @@ report the mean of per-record scores (spec §5.1 defines the score
 per experiment). The weighted sensitivity analysis re-weights the five
 MIMIC categories within each record (unweighted stays the headline).
 
+The ``OTHER`` recording-mode decision (ADR-0005 assigns P3 the
+per-record call, with disclosure): the aggregate views here DISCLOSE
+rather than invent — they inherit P2's default (for the 12 of 948
+``OTHER``-mode records the conditional fields are not applicable).
+Excluding those 12 records shifts the unweighted corpus mean by
+−0.0002 (0.421838 → 0.421637, module output 2026-11-06), immaterial at
+v1.0; a per-record adjudication is a curation-semantics decision
+reserved for the project lead and vault curation, not an analysis
+default.
+
 Category weighting and grouping keys are validated; outputs are
 deterministic (sorted keys; records consumed in ``score_all`` order).
 """
@@ -307,7 +317,7 @@ def breakdown(
     Records whose key value is missing (None or empty) are dropped —
     the artifact tests cross-foot the retained k against the coverage
     census so a silent coverage change cannot hide behind this view.
-    Groups sort by name; empty keys yield ValueError.
+    Groups sort by name; an unknown ``key`` argument raises ValueError.
     """
     if key not in BREAKDOWN_KEYS:
         raise ValueError(f"key must be one of {BREAKDOWN_KEYS}, got {key!r}")
@@ -409,12 +419,14 @@ def four_field_audit(
       geometry are 0% populated corpus-wide, so as-written every
       data-v1.0 record fails the list.
     * *ADR-aware* — a record fails only when the field is applicable
-      (ADR-0005 rules) AND absent; a NULL stimulus_type/recording_mode
-      excludes the dependent fields (one cannot demand velocity for an
-      unknown stimulus), so such records cannot fail them. The naive
-      SQL complement of the as-written form is NULL-poisoned and
-      undercounts the clean set — the artifact test pins the NULL-safe
-      CASE-form census instead.
+      (ADR-0005 rules) AND absent; a NULL stimulus_type excludes the
+      dependent fields within this list's scope (one cannot demand
+      velocity for an unknown stimulus), so such records cannot fail
+      them. recording_mode itself is always applicable, so a NULL-mode
+      record still fails the list (the 39). The naive SQL complement of
+      the as-written form is NULL-poisoned and undercounts the clean
+      set — the artifact test pins the NULL-safe CASE-form census
+      instead.
 
     Context is the strict conjunction over ``CONTEXT_FIELDS`` (docstring
     of ``MANDATED_FIELDS``). Records are consumed in list order;
