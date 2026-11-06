@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 
 from maicdb.analysis.trends import (
     PARAMETERS,
@@ -192,3 +193,28 @@ class TestModelSystemDrift:
         none_2011 = next(r.k for r in ms
                          if r.year == 2011 and r.expression_system is None)
         assert none_2011 == 23
+
+
+class TestEmptyStringCensus:
+    def test_no_empty_strings_in_counted_columns(self, engine, records):
+        """Census (NULLIF-vs-raw equality per counted column): for every
+        parameter column plus recording_mode and expression_system,
+        COUNT(col) == COUNT(NULLIF(col,'')) — no empty strings exist at
+        data-v1.0, so plain COUNT is a faithful presence measure. This
+        pins the claim the module docstring cites: a future release
+        that introduces '' would silently inflate every presence count
+        here (COUNT counts '' as present) — the drift this test exists
+        to catch (gate PR #74 MINOR-2)."""
+        columns = [col for col, _ in PARAMETERS] + [
+            "recording_mode",
+            "expression_system",
+        ]
+        with engine.connect() as conn:
+            for col in columns:
+                raw, nullif = conn.execute(
+                    text(
+                        f"SELECT COUNT({col}), COUNT(NULLIF({col}, ''))"
+                        " FROM biophysics_experiment"
+                    )
+                ).one()
+                assert raw == nullif, f"{col}: {raw - nullif} empty strings"

@@ -6,8 +6,12 @@ drift. Descriptive counts only." Needs P1's loaders only, not the P2
 scoring (spec §4: "P6 needs P1 only — no per-record scoring"); this
 module reads the frozen artifact's own columns directly.
 
-Three views, all descriptive counts (spec §6: every table carries k;
-the audit guardrail against hypothesis tests applies a fortiori here):
+Three views, all descriptive counts (spec §6: "every table carries
+k/n"; the publication and drift rows carry k only because their
+denominator is constant per year and pinned by the artifact tests'
+of_year cross-foot — parameter_adoption rows carry the denominator
+explicitly; the §6 guardrail against hypothesis tests applies a
+fortiori here):
 
 * publications per year — per (year, family) distinct-publication
   counts via the experiment join, plus the overall per-year distinct
@@ -55,7 +59,8 @@ __all__ = [
 # The parameter vocabulary: biophysics_experiment value columns, in
 # schema order. Presence = column IS NOT NULL (spec §3's census counts;
 # text/enum columns count the same way — no empty strings exist at
-# data-v1.0, census-pinned in the artifact tests).
+# data-v1.0, pinned by the artifact tests' NULLIF-vs-raw equality
+# census: COUNT(col) == COUNT(NULLIF(col,'')) per counted column).
 PARAMETERS: tuple[tuple[str, str], ...] = (
     ("p50_value", "p50"),
     ("t50_value", "t50"),
