@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 # check-closed-ac.sh — list CLOSED issues whose bodies still contain unticked
-# AC checkboxes (`- [ ]`). Exit 1 on findings (audit gate), 0 when clean.
+# AC checkboxes (`- [ ]`, `* [ ]`, `+ [ ]`, any indent/spacing — the scan is
+# unanchored, so nested items count too). Exit 1 on findings (audit gate),
+# 0 when clean.
 #
 # Rationale: retro 2026-11-07 — issue #19 sat closed-COMPLETED for 10 days with
 # all four AC boxes unticked (docs/agents/issue-tracker.md "Closing an
@@ -18,7 +20,7 @@ limit="${1:-50}"
 out=$(gh issue list --state closed --limit "$limit" \
   --json number,title,body --jq '
     .[] | select(.body != null)
-    | {number, title, unticked: ([.body | scan("- \\[ \\]")] | length)}
+    | {number, title, unticked: ([.body | scan("[*+-] +\\[ \\]")] | length)}
     | select(.unticked > 0)
     | "#\(.number)  \(.unticked) unticked  \(.title)"')
 
