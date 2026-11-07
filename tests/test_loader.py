@@ -8,7 +8,12 @@ Two tiers:
   the sibling vault checkout and assert conservation, determinism (two runs
   → byte-identical SQL dumps), and enum coverage. Vault discovery:
   ``$MAICDB_VAULT`` env var, else the sibling
-  ``../Project_DataBase_MAICDB`` next to this repo.
+  ``../Project_DataBase_MAICDB`` next to this repo. The presence probe is
+  READ-based (quirk 8, retro 2026-11-06): under macOS TCC denial the vault
+  path still ``stat``s fine but every read is EPERM, so a stat-based probe
+  turned "skip" into 7 red ``CalledProcessError`` failures (2026-11-06
+  incident). One real read makes an unreadable vault skip honestly, and the
+  skip-count pin (quirk 3) surfaces it.
 """
 
 from __future__ import annotations
@@ -32,7 +37,22 @@ import os
 # env var wins (explicit override), else the sibling checkout
 VAULT = Path(os.environ.get("MAICDB_VAULT") or
              Path(__file__).resolve().parents[2] / "Project_DataBase_MAICDB")
-VAULT_PRESENT = VAULT.exists()
+
+
+def _vault_readable(path: Path) -> bool:
+    """Presence probe that READS (quirk 8): ``exists()`` and ``is_dir()``
+    survive macOS TCC denial (stat succeeds, reads EPERM), so a stat-only
+    probe reports a locked vault as present and the full-load tests fail
+    red instead of skipping. One real open() of a tracked file settles it.
+    """
+    try:
+        (path / "README.md").open("rb").close()
+        return True
+    except OSError:
+        return False
+
+
+VAULT_PRESENT = VAULT.exists() and _vault_readable(VAULT)
 #: The 12 channel directories the frozen corpus ships (census: spec §4 —
 #: ``SELECT gene_symbol FROM channel`` lowercased, data-v1.0 tree).
 VAULT_CHANNEL_DIRS = [
