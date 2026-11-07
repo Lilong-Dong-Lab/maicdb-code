@@ -12,6 +12,10 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
+## Closing an AC-carrying issue
+
+Tick every `- [ ]` box in the body (or point each unticked box at where its evidence lives) **before** closing. When re-scoping moves execution to sub-issues, either keep the AC carrier open or copy the boxes into the umbrella. A closed-COMPLETED issue with empty boxes is a record gap, not a formality — one-way-door gates (visibility flips, archives) depend on that record. Audit on demand: `scripts/check-closed-ac.sh` (exit 1 on findings). Witness: #19 sat closed 2026-10-28 with all four boxes unticked; repaired 2026-11-07 (retro).
+
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
 ## Pull requests as a triage surface
