@@ -1,18 +1,18 @@
 {
-  "vault_head": "5a8ff0ed5cacf62dd2517fd23a6f0d1848c93b7e",
-  "freeze_tag": "data-v1.0",
+  "vault_head": "037c841f4832a46c05c03ae6efa2e9ba25291e3f",
+  "freeze_tag": "data-v1.1",
   "schema_version": "0.2.0",
   "counts": {
-    "publication": 211,
+    "publication": 216,
     "channel": 12,
     "external_reference": 6,
     "compound": 86,
-    "variant": 125,
+    "variant": 133,
     "structure_publication_links": 10,
     "structure": 12,
-    "biophysics": 948,
-    "bioactivity": 136,
-    "unmapped": 16,
+    "biophysics": 960,
+    "bioactivity": 137,
+    "unmapped": 28,
     "unit_conversions": 105
   },
   "disclosures": [

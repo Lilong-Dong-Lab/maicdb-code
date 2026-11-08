@@ -1,14 +1,14 @@
 """Loader: map the vault's frozen curation corpus onto the formal schema.
 
 Implements ``docs/loader-mapping.md`` (spec v0.2, all decisions DECIDED
-2026-09-01/02): reads the vault repo at a frozen ``data-v1.0`` state and
+2026-09-01/02; re-targeted to the vault ``data-v1.1`` freeze 2026-11-08):
 produces ``maicdb.sqlite`` + a byte-stable ``maicdb.sql`` dump + a load
 manifest with conservation asserts.
 
 Ports, verbatim where possible, the staging loader's proven transforms
 (vault ``tools/db-load/build_staging_db.py``): the 105 pre-authorized unit
-conversions, the three-way row routing (948 biophysics / 136 bioactivity /
-16 unmapped, incl. the 130 gap-adjudicated migrations), and the
+conversions, the three-way row routing (960 biophysics / 137 bioactivity /
+28 unmapped, incl. the 131 gap-adjudicated migrations), and the
 modulator-role dedup with majority-frequency resolution.
 
 Determinism: every row's ``created_at`` is pinned to :data:`FREEZE_EPOCH`
@@ -60,9 +60,9 @@ from maicdb.database import make_engine, create_all
 __all__ = ["load_vault", "main"]
 
 #: The data-freeze epoch pinned into every row's created_at for determinism.
-FREEZE_EPOCH = datetime(2026, 9, 1, 0, 0, 0)
-FREEZE_DATE = date(2026, 9, 1)
-FREEZE_TAG = "data-v1.0"
+FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
+FREEZE_DATE = date(2026, 11, 8)
+FREEZE_TAG = "data-v1.1"
 SCHEMA_VERSION = "0.2.0"
 
 LAYERS = ["piezo1", "piezo2", "trpv4", "asic", "mscs", "mscl", "osca",
@@ -158,7 +158,7 @@ UNIT_ENUMS = {
 }
 
 # ---- Gap-adjudicated migrations (vault staging GAP_MIGRATIONS, formal column
-# ---- names; the 130 corpus rows the curation phase adjudicated INTO
+# ---- names; the 131 corpus rows the curation phase adjudicated INTO
 # ---- biophysics). delta_p50-kind gap rows are TMC nm displacement drifts —
 # ---- they land in the threshold-fold-shift pair, NOT the card delta columns.
 GAP_MIGRATIONS = {
@@ -171,8 +171,16 @@ GAP_MIGRATIONS = {
     "osmotic_threshold": ("osmotic_threshold_value", "osmotic_threshold_unit"),
 }
 
-# ---- Adjudicated-kept gap rows (16): the KEEP rulings, verbatim from the
+# ---- Adjudicated-kept gap rows: the KEEP rulings, verbatim from the
 # ---- staging adjudication table (adjudication labels are load-bearing).
+# ---- 16 rulings at data-v1.0; v1.1 adds 12 (2026-11-07 Duru proteoliposome
+# ---- first-opening thresholds mmHg/mN/m + pN/nm as-printed; 2026-11-08
+# ---- batch-3 open_probability Po ×5) → 28 KEEP rows at data-v1.1.
+# ---- Unit strings are load-bearing keys, staging parity: "mm Hg" (spaced) =
+# ---- the v1.0-era in-vivo phenotype thresholds; "mmHg"/"mN/m"/"pN/nm" (v1.1,
+# ---- Duru) = proteoliposome first-opening thresholds — same kind, different
+# ---- semantics; a future paper reporting liposome thresholds spaced MUST
+# ---- extend this table, never reuse the in-vivo label.
 GAP_KEEPS = {
     ("ion_selectivity_ratio", "mV/decade"):
         "KEEP: kind-borrowed (Erev-vs-[K+] slope in mV/decade, not a ratio)",
@@ -183,10 +191,23 @@ GAP_KEEPS = {
         "reserve p50 for patch-clamp midpoints)",
     ("pressure_threshold", "µm"):
         "KEEP: first-response detection threshold (not a midpoint)",
+    ("pressure_threshold", "mmHg"):
+        "KEEP: proteoliposome first-opening pressure threshold "
+        "(not a midpoint; p50 column owns Boltzmann midpoints)",
+    ("pressure_threshold", "mN/m"):
+        "KEEP: proteoliposome first-opening tension threshold "
+        "(not a midpoint; t50 column owns tension midpoints)",
+    ("pressure_threshold", "pN/nm"):
+        "KEEP: proteoliposome first-opening tension threshold, as-printed "
+        "spelling (1 pN/nm = 1 mN/m exact equivalence, no conversion; "
+        "not a midpoint)",
     ("block_voltage", "mV"):
         "KEEP: niche permeation metric (blocker V50, not a reversal potential)",
     ("block_voltage", ""):
         "KEEP: Woodhull electrical distance delta (dimensionless)",
+    ("open_probability", ""):
+        "KEEP: channel/resting open probability Po (dimensionless 0..1 "
+        "fraction, not a midpoint or threshold)",
     ("x50", "nm"):
         "KEEP: demoted-contested (combined TRPV4+PIEZO1 current, not channel-isolated)",
     ("tau_act", "ms"):
@@ -718,16 +739,19 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------
+    # data-v1.1 calibers: 1125 rows = 960 biophysics (829 normal-route + 131
+    # gap-adjudicated migrations) + 137 bioactivity + 28 unmapped (KEEP rows;
+    # v1.0 was 1100 = 948 + 136 + 16).
     expected = {"publication": None, "channel": 12, "structure": 12,
-                "biophysics": 948, "bioactivity": 136, "unmapped": 16}
+                "biophysics": 960, "bioactivity": 137, "unmapped": 28}
     for table, want in expected.items():
         got = manifest["counts"][table]
         if want is not None and got != want:
             raise AssertionError(f"conservation: {table} = {got}, expected {want}")
     total = sum(manifest["counts"][t] for t in ("biophysics", "bioactivity", "unmapped"))
-    if total != 1100 or len(rows) != 1100:
+    if total != 1125 or len(rows) != 1125:
         raise AssertionError(
-            f"conservation: facts {total} (want 1100); rows read {len(rows)} (want 1100)")
+            f"conservation: facts {total} (want 1125); rows read {len(rows)} (want 1125)")
 
     # ---- deterministic SQL dump ---------------------------------------------
     out_sql = out_sqlite.with_suffix(".sql")
