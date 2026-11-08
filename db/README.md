@@ -2,6 +2,13 @@
 
 The formal-schema database loaded from the vault's frozen curation corpus.
 
+> [!note] id semantics (ADR-0006)
+> `maicdb_id` accessions (`MAIC:BX:*`) are **per-release row keys** — cite
+> them with the release tag, and use the vault `measurement_id` for
+> cross-release identity. Assignment freezes at the first public release
+> (`docs/adr/0006-maicdb-id-stability.md`); each freeze retarget may
+> renumber until then.
+
 | File | Content | Regenerate |
 |---|---|---|
 | `maicdb.sqlite` | The database (schema v0.2, 10 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
