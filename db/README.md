@@ -1,4 +1,4 @@
-# MAIC-DB v1.1 published database artifacts
+# MAIC-DB v1.2 published database artifacts
 
 The formal-schema database loaded from the vault's frozen curation corpus.
 
