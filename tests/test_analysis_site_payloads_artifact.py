@@ -13,7 +13,8 @@ Two pin kinds (the P3/P5 convention):
   SERIALIZED payloads carry those numbers unchanged, so a page and its
   module output cannot disagree).
 
-All numbers derived on ``data-v1.1@037c841f4832``, 2026-11-08, by
+All numbers derived on ``data-v1.2@dd49d8e65ac1`` (a zero-row retarget of
+data-v1.1 — the v1.1-derived census is unchanged), 2026-11-08, by
 execution of ``analysis_payloads`` against the published artifact.
 """
 
