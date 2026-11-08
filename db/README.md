@@ -41,5 +41,5 @@ F-004 disclosure tokens verbatim, `condition_key`, `n`). License:
 > [!note] Date semantics
 > `db_meta.release_date` records the **data-freeze epoch** (2026-11-08 for
 > data-v1.1; 2026-09-01 for data-v1.0), the constant baked into the byte-stable
-> dump — the dump pins the freeze date, not the release day. the dump is deterministic by construction, so it pins the
-> freeze date, not the publication day.
+> dump — the dump is deterministic by construction, so it pins the freeze
+> date, not the publication day.
