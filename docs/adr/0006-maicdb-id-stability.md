@@ -51,12 +51,16 @@ undefined behavior. Decided 2026-11-08.
 
 **Ripple sites (what legitimately moves per release, and what must not
 silently).** Test pins on accessions (`MAIC:BX:00409` in query tests, site
-payloads, corpus-stats fixtures) move with each renumber — a moved pin
+payload tests, and the analysis-artifact tests) move with each renumber — a
+moved pin
 carries a derivation note per the pin discipline; an unexplained moved
-accession pin is a gate finding. `db/load-manifest.json` remains the
+accession pin is a gate finding. Count-only pins (corpus-stats and friends)
+do not move on a renumber. `db/load-manifest.json` remains the
 identity document of a release (vault_head + counts + content keys);
 `db/README.md` states the per-release semantics alongside this ADR.
 
-**No code changes in this ADR.** Documentation-only decision; the loader,
-site, and citation policy (ADR-0003) gain pointers, and the stage-2
+**No code changes in this ADR.** Documentation-only decision; this PR adds
+the db/README.md pointer, and the loader, site, and citation policy
+(ADR-0003) will gain pointers in follow-up PRs as their surfaces are
+touched; the stage-2
 mechanism is specified here so the future PR is transcription, not design.
