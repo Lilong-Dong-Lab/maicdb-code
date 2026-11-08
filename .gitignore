@@ -84,6 +84,9 @@ skills-lock.json
 # the vault repo already ignores its own
 .scratch/
 
+# firecrawl plugin cache (web-scrape artifacts from agent sessions) — machine-local
+.firecrawl/
+
 # Site build outputs (site/build.py default; generated, never committed)
 site/_data/
 site/_site/
