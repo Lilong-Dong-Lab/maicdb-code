@@ -17,7 +17,9 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 
 ## Provenance
 
-- **Input**: vault repo `Lilong-Dong-Lab/Project_DataBase_MAICDB` @ tag **`data-v1.1`**
+- **Input**: vault repo `Lilong-Dong-Lab/Project_DataBase_MAICDB` @ tag **`data-v1.2`**
+  (a zero-row retarget of `data-v1.1`: identical 1125-row corpus — the vault
+  delta is additive piezo1/piezo2 corroboration artifacts only)
   (see the manifest's `vault_head` / `data_freeze_tag` — the dump embeds the
   exact vault commit it was loaded from; determinism is per-vault-state).
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
@@ -47,6 +49,6 @@ F-004 disclosure tokens verbatim, `condition_key`, `n`). License:
 
 > [!note] Date semantics
 > `db_meta.release_date` records the **data-freeze epoch** (2026-11-08 for
-> data-v1.1; 2026-09-01 for data-v1.0), the constant baked into the byte-stable
+> data-v1.1 and data-v1.2; 2026-09-01 for data-v1.0), the constant baked into the byte-stable
 > dump — the dump is deterministic by construction, so it pins the freeze
 > date, not the publication day.

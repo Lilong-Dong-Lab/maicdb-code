@@ -14,8 +14,8 @@ Two seams, both consuming ``render_site()``:
   renders in both locales.
 
 Real-data provenance: the unmapped count is the published artifact's
-census (data-v1.1, read-only SQL, recorded in load-manifest
-``counts.unmapped``):
+census (data-v1.2 — v1.1 census unchanged, read-only SQL, recorded in
+load-manifest ``counts.unmapped``):
 
     SELECT COUNT(*) FROM unmapped_measurement;   -- 28
 """
@@ -64,9 +64,10 @@ def test_downloads_files_copied_into_both_trees_and_linked(tmp_path):
     page links every one of them with the page-depth relative prefix
     (the downloads page sits one level down → ``../``).
 
-    Source bytes: the in-repo published artifacts (data-v1.1), sizes
-    ``stat``-ed 2026-11-08 — sqlite 3223552, sql 2249927, manifest 1171,
-    CITATION.cff 1338.
+    Source bytes: the in-repo published artifacts (data-v1.2; sizes
+    unchanged from data-v1.1 — the retargeted tag strings are
+    same-length), sizes ``stat``-ed 2026-11-08 — sqlite 3223552,
+    sql 2249927, manifest 1171, CITATION.cff 1338.
     """
     out = render_fixture(tmp_path)
     for tree in (out, out / "zh"):

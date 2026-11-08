@@ -201,13 +201,14 @@ def test_freeze_enforcement():
 @requires_vault
 def test_full_load_conservation(tmp_path):
     out = tmp_path / "conserv.sqlite"
-    manifest = load_vault(VAULT, out, require_tag="data-v1.1",
+    manifest = load_vault(VAULT, out, require_tag="data-v1.2",
                           manifest_path=tmp_path / "m.json")
     c = manifest["counts"]
     # Spec §4 conservation (compound 86 = 85 roled + unroled silica family —
     # the formal NOT-NULL compound link requires it; publication 216 = 210
     # extraction + 6 structure-only citations: both deltas disclosed).
-    # data-v1.1 calibers: 1125 = 960 (829 normal-route + 131 gap migrations)
+    # data-v1.1 calibers (unchanged at data-v1.2 — zero-row retarget):
+    # 1125 = 960 (829 normal-route + 131 gap migrations)
     # + 137 + 28 KEEP; v1.0 was 1100 = 948 + 136 + 16, variant 125 → 133.
     assert (c["biophysics"], c["bioactivity"], c["unmapped"]) == (960, 137, 28)
     assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 133

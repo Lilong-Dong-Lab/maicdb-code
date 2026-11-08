@@ -1,7 +1,8 @@
 """Site data-layer build tests (M3-T2, issue #37).
 
 Real-data provenance: every pinned value below comes from the published
-artifact (data-v1.1, vault head 037c841f) via read-only census SQL,
+artifact (data-v1.2 = the data-v1.1 census unchanged, a zero-row retarget;
+vault head dd49d8e) via read-only census SQL,
 re-derived independently by the spec gate review (vault digest
 ``report/ReviewDigest_maicdb-code-m3-website-spec_2026-11-02_agent.md``).
 The qualitative-row caliber, verbatim (issue #37's found caliber —
