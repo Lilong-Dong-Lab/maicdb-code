@@ -51,21 +51,23 @@ def records(engine):
 
 class TestLoaderCensuses:
     def test_full_coverage(self, records):
-        """Census: 948 experiments (spec §3); every experiment joins to
-        a publication year and a family (same LEFT JOIN coverage
-        censuses as the P3 file: year NULL 0, family NULL 0)."""
-        assert len(records) == 948
+        """Census: 960 experiments (data-v1.1 = 948 + 12; spec §3 was the
+        v1.0 base); every experiment joins to a publication year and a
+        family (same LEFT JOIN coverage censuses as the P3 file: year
+        NULL 0, family NULL 0)."""
+        assert len(records) == 960
         assert sum(1 for r in records if r.year is None) == 0
         assert sum(1 for r in records if r.family is None) == 0
 
     def test_parameter_labels_are_census_totals(self, records):
         """Census (COUNT over the column, spec §3's coverage line):
-        p50 152, conductance 263, tau_inact 93, x50 46 — the loader's
+        p50 159 (152 + 7 Duru 2026 SUCTION rows), conductance 265
+        (263 + 2 OSCA1.2 JBC rows), tau_inact 93, x50 46 — the loader's
         presence detection must reproduce them exactly (this pins the
         label-vs-column pairing of PARAMETERS)."""
         for label, expected in (
-            ("p50", 152),
-            ("conductance", 263),
+            ("p50", 159),
+            ("conductance", 265),
             ("tau_inact", 93),
             ("x50", 46),
         ):
@@ -74,19 +76,18 @@ class TestLoaderCensuses:
 
 class TestPubsPerYear:
     def test_views_and_their_coincidence(self, records):
-        """Census: DISTINCT (family, year, publication_id) tuples → 184;
-        DISTINCT (year, publication_id) → 184. Module shapes: 105
-        (year, family) cells summing to 184; 33 year totals summing to
-        184. The two views coincide at data-v1.0 (no publication spans
-        two families in one year) — pinned as a corpus fact, not a
-        license to sum later (the pure tests hold the non-additivity
-        contract)."""
+        """Census: DISTINCT (family, year, publication_id) tuples → 188;
+        DISTINCT (year, publication_id) → 188. Module shapes: 107
+        (year, family) cells summing to 188; 33 year totals summing to
+        188. The two views coincide (no publication spans two families
+        in one year) — pinned as a corpus fact, not a license to sum
+        later (the pure tests hold the non-additivity contract)."""
         by_family = pubs_per_year_by_family(records)
         total = pubs_per_year_total(records)
-        assert len(by_family) == 105
-        assert sum(r.k for r in by_family) == 184
+        assert len(by_family) == 107
+        assert sum(r.k for r in by_family) == 188
         assert len(total) == 33
-        assert sum(t.k for t in total) == 184
+        assert sum(t.k for t in total) == 188
 
     def test_year_anchors(self, records):
         """Census (COUNT DISTINCT publication_id JOIN year): 2010 → 5,
@@ -144,7 +145,7 @@ class TestParameterAdoption:
         assert cell("p50", 1998) == 1
         assert cell("thermal_threshold", 2002) == 4
         # corpus totals re-land through the grid
-        for label, expected in (("p50", 152), ("conductance", 263)):
+        for label, expected in (("p50", 159), ("conductance", 265)):
             assert sum(r.k for r in pa if r.parameter == label) == expected
 
 
@@ -177,12 +178,14 @@ class TestAssayDrift:
 
 class TestModelSystemDrift:
     def test_sparse_shape(self, records):
-        """Sparse grid: 253 observed (year, expression_system) rows
-        over 225 distinct systems (224 non-null DISTINCT NULLIF census
-        + the None bucket, 41 NULL records)."""
+        """Sparse grid: 258 observed (year, expression_system) rows
+        over 230 distinct systems (229 non-null DISTINCT NULLIF census
+        + the None bucket, 41 NULL records; +5 systems in v1.1 —
+        ASIC2a oocytes, OSCA1.2/TMEM63B HEK293T, two Duru liposome
+        preparations)."""
         ms = model_system_drift(records)
-        assert len(ms) == 253
-        assert len({r.expression_system for r in ms}) == 225
+        assert len(ms) == 258
+        assert len({r.expression_system for r in ms}) == 230
         assert sum(r.k for r in ms if r.expression_system is None) == 41
 
     def test_anchor(self, records):
@@ -200,7 +203,7 @@ class TestEmptyStringCensus:
         """Census (NULLIF-vs-raw equality per counted column): for every
         parameter column plus recording_mode and expression_system,
         COUNT(col) == COUNT(NULLIF(col,'')) — no empty strings exist at
-        data-v1.0, so plain COUNT is a faithful presence measure. This
+        data-v1.1, so plain COUNT is a faithful presence measure. This
         pins the claim the module docstring cites: a future release
         that introduces '' would silently inflate every presence count
         here (COUNT counts '' as present) — the drift this test exists

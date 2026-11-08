@@ -1,7 +1,7 @@
 """Site data-layer build tests (M3-T2, issue #37).
 
 Real-data provenance: every pinned value below comes from the published
-artifact (data-v1.0, vault head 5a8ff0e) via read-only census SQL,
+artifact (data-v1.1, vault head 037c841f) via read-only census SQL,
 re-derived independently by the spec gate review (vault digest
 ``report/ReviewDigest_maicdb-code-m3-website-spec_2026-11-02_agent.md``).
 The qualitative-row caliber, verbatim (issue #37's found caliber —
@@ -20,7 +20,7 @@ spec §4 records the results):
        AND e.thermal_threshold_c IS NULL
        AND e.osmotic_threshold_value IS NULL
     → 12 rows (1×PIEZO2, 1×ASIC, 1×TREK-1, 3×TREK-2, 6×TRPV4); hence
-      948 table rows − 12 = 936 parameterized rows.
+      960 table rows − 12 = 948 parameterized rows.
 """
 
 import hashlib
@@ -125,12 +125,13 @@ def test_build_emits_family_index(tmp_path):
 
     Pinned to the artifact census (spec §4), ``n_parameterized_rows``
     caliber — rows carrying at least one normalized parameter value:
-    7 families; PIEZO splits PIEZO1 160 / PIEZO2 27; 936 across all
-    channels. The 948-row table census minus 936 = 12 qualitative rows
+    7 families; PIEZO splits PIEZO1 160 / PIEZO2 27; 948 across all
+    channels. The 960-row table census minus 948 = 12 qualitative rows
     whose as-reported value is non-numeric (LINEAR, OUTWARD_RECTIFYING,
     ranges like "185-224") and which belong to no parameter block
     (census: all-16-parameter-columns NULL per gene — 1×PIEZO2,
-    1×ASIC, 1×TREK-1, 3×TREK-2, 6×TRPV4).
+    1×ASIC, 1×TREK-1, 3×TREK-2, 6×TRPV4; unchanged by v1.1 — all 12
+    new rows carry at least one parameter).
     """
     out = tmp_path / "out"
     run_build(out)
@@ -146,7 +147,7 @@ def test_build_emits_family_index(tmp_path):
     assert counts == {"piezo1": 160, "piezo2": 27}
 
     total = sum(c["n_parameterized_rows"] for c in all_channels.values())
-    assert total == 936
+    assert total == 948
 
     # Per-parameter counts ride along for the browse page (T4): PIEZO1's
     # 56 P50 rows are the README transcript's own pinned number.
@@ -199,8 +200,9 @@ def test_build_index_carries_bioactivity_and_qualitative_counts(tmp_path):
           SELECT c.gene_symbol, COUNT(*) FROM bioactivity b
             JOIN channel c ON b.channel_id = c.id GROUP BY 1;
 
-      → TRPV4 37, TRESK 34, ASIC 24, TMC 19, PIEZO1 14, TREK-1 4,
-        OSCA 2, MscS 1, TRAAK 1; PIEZO2/MscL/TREK-2 carry 0.
+      → TRPV4 37, TRESK 34, ASIC 25 (+1 v1.1: ASIC2a amiloride IC50),
+        TMC 19, PIEZO1 14, TREK-1 4, OSCA 2, MscS 1, TRAAK 1;
+        PIEZO2/MscL/TREK-2 carry 0.
 
     * ``n_qualitative_rows`` — biophysics rows with ALL 16 registered
       parameter columns NULL (the as-reported-only caliber, spec §4;
@@ -213,7 +215,7 @@ def test_build_index_carries_bioactivity_and_qualitative_counts(tmp_path):
     all_channels = {c["slug"]: c for f in index["families"] for c in f["channels"]}
 
     assert {s: c["n_bioactivity_rows"] for s, c in all_channels.items()} == {
-        "asic": 24, "mscl": 0, "mscs": 1, "osca": 2, "piezo1": 14,
+        "asic": 25, "mscl": 0, "mscs": 1, "osca": 2, "piezo1": 14,
         "piezo2": 0, "tmc": 19, "traak": 1, "trek-1": 4, "trek-2": 0,
         "tresk": 34, "trpv4": 37,
     }
@@ -281,16 +283,16 @@ def test_locale_string_skeletons_parity():
 @requires_db
 def test_build_emits_home_totals(tmp_path):
     """index.json carries the home-scale ``totals`` block, computed from
-    SQL — never a transcribed number (ticket #38: the 1100/12/7/211
+    SQL — never a transcribed number (ticket #38: the 1125/12/7/216
     overview comes from the data layer, not the template).
 
     Pinned to the artifact census (spec §4). Census SQL, re-runnable
     read-only against db/maicdb.sqlite:
 
-        SELECT (SELECT COUNT(*) FROM biophysics_experiment)   -- 948
-             + (SELECT COUNT(*) FROM bioactivity)             -- 136
-             + (SELECT COUNT(*) FROM unmapped_measurement);   --  16  → 1100
-        SELECT COUNT(*) FROM publication;                     -- 211
+        SELECT (SELECT COUNT(*) FROM biophysics_experiment)   -- 960
+             + (SELECT COUNT(*) FROM bioactivity)             -- 137
+             + (SELECT COUNT(*) FROM unmapped_measurement);   --  28  → 1125
+        SELECT COUNT(*) FROM publication;                     -- 216
         SELECT COUNT(*) FROM channel;                         --  12
         SELECT COUNT(DISTINCT family) FROM channel;           --   7
     """
@@ -298,11 +300,11 @@ def test_build_emits_home_totals(tmp_path):
     run_build(out)
     totals = json.loads((out / "_data" / "index.json").read_text())["totals"]
     assert totals == {
-        "n_measurements": 1100,
-        "n_unmapped": 16,
+        "n_measurements": 1125,
+        "n_unmapped": 28,
         "n_channels": 12,
         "n_families": 7,
-        "n_publications": 211,
+        "n_publications": 216,
     }
 
 
@@ -317,8 +319,8 @@ def test_build_renders_home_in_both_locale_trees(tmp_path):
     assert "<html lang=\"en\">" in en
     assert "<html lang=\"zh\">" in zh
     for html in (en, zh):
-        assert ">1100<" in html and ">12<" in html
-        assert ">7<" in html and ">211<" in html
+        assert ">1125<" in html and ">12<" in html
+        assert ">7<" in html and ">216<" in html
     # all 7 real family names surface as entry links (census §4)
     for family in (
         "DEG_ENaC_ASIC", "K2P", "MSCL_MSCS", "OSCA_TMEM63", "PIEZO", "TMC", "TRP",

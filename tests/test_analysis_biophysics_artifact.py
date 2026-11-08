@@ -50,24 +50,24 @@ def records(engine):
 
 class TestInputCensuses:
     def test_p50_corpus(self, records):
-        """Census: p50_value COUNT → 152; units 148 mmHg + 4 psi
-        (GROUP BY p50_unit); negatives 88 (SUM(p50_value < 0)); zeros 0
-        (the log domain's hard guard); positives 64."""
-        assert len(records) == 152
+        """Census: p50_value COUNT → 159 (152 + 7 Duru 2026 MscL SUCTION
+        rows); units 155 mmHg + 4 psi (GROUP BY p50_unit); negatives 90
+        (SUM(p50_value < 0); +2 negative Duru rows); zeros 0 (the log
+        domain's hard guard); positives 69."""
+        assert len(records) == 159
         units = {r.p50_unit: sum(1 for x in records if x.p50_unit == r.p50_unit)
                  for r in records}
-        assert units == {"mmHg": 148, "psi": 4}
+        assert units == {"mmHg": 155, "psi": 4}
         neg = sum(1 for r in records if r.p50_mmhg < 0)
         pos = sum(1 for r in records if r.p50_mmhg > 0)
         zero = sum(1 for r in records if r.p50_mmhg == 0)
-        assert (neg, pos, zero) == (88, 64, 0)
+        assert (neg, pos, zero) == (90, 69, 0)
 
     def test_condition_key_degeneration(self, engine):
         """Census (the cluster-fallback justification): P50 rows with a
-        condition_key → 152, DISTINCT condition_key → 152 — the spec's
-        publication × condition_key unit is record-level on data-v1.0,
-        so the module clusters at publication level (see
-        ``biophysics.cluster_key``)."""
+        condition_key → 159, DISTINCT condition_key → 159 — the spec's
+        publication × condition_key unit is record-level, so the module
+        clusters at publication level (see ``biophysics.cluster_key``)."""
         with engine.connect() as conn:
             n, k = conn.execute(
                 text(
@@ -76,14 +76,15 @@ class TestInputCensuses:
                     "AND condition_key IS NOT NULL"
                 )
             ).one()
-        assert (n, k) == (152, 152)
+        assert (n, k) == (159, 159)
 
     def test_cell_structure(self, records):
         """Census (JOIN channel, GROUP BY family, stimulus_type over P50
         rows): n and distinct publications per cell —
-        K2P/PC 3/1, K2P/SUCTION 12/4, MSCL/PC 19/7, MSCL/SUCTION 23/6,
+        K2P/PC 3/1, K2P/SUCTION 12/4, MSCL/PC 19/7, MSCL/SUCTION 30/7,
         OSCA/PC 36/7, PIEZO/PP 5/2, PIEZO/PC 45/9, PIEZO/SUCTION 6/2,
-        TMC/PC 2/1, TRP/PC 1/1."""
+        TMC/PC 2/1, TRP/PC 1/1 (MscL suction +7 rows/+1 pub: Duru
+        2026)."""
         cells: dict[tuple[str, str | None], tuple[int, int]] = {}
         for r in records:
             key = (r.family, r.stimulus_type)
@@ -101,7 +102,7 @@ class TestInputCensuses:
             ("K2P", "PRESSURE_CLAMP"): (3, 1),
             ("K2P", "SUCTION"): (12, 4),
             ("MSCL_MSCS", "PRESSURE_CLAMP"): (19, 7),
-            ("MSCL_MSCS", "SUCTION"): (23, 6),
+            ("MSCL_MSCS", "SUCTION"): (30, 7),
             ("OSCA_TMEM63", "PRESSURE_CLAMP"): (36, 7),
             ("PIEZO", "POSITIVE_PRESSURE"): (5, 2),
             ("PIEZO", "PRESSURE_CLAMP"): (45, 9),
@@ -166,13 +167,14 @@ class TestThresholdMeta:
 
     def test_sign_split_disclosed(self, cells):
         """Census (SUM(p50_value < 0) per cell): negative counts —
-        PIEZO/PC 23, OSCA/PC 29, MSCL/PC 14, MSCL/SUCTION 2, K2P/PC 3,
-        PIEZO/PP 0, TRP/PC 0; mixed signs INSIDE cells (e.g. PIEZO/PC)
-        is the disclosed sign-convention finding."""
+        PIEZO/PC 23, OSCA/PC 29, MSCL/PC 14, MSCL/SUCTION 4 (+2 Duru
+        2026 negative rows), K2P/PC 3, PIEZO/PP 0, TRP/PC 0; mixed
+        signs INSIDE cells (e.g. PIEZO/PC) is the disclosed
+        sign-convention finding."""
         assert cells[("PIEZO", "PRESSURE_CLAMP")].negative_n == 23
         assert cells[("OSCA_TMEM63", "PRESSURE_CLAMP")].negative_n == 29
         assert cells[("MSCL_MSCS", "PRESSURE_CLAMP")].negative_n == 14
-        assert cells[("MSCL_MSCS", "SUCTION")].negative_n == 2
+        assert cells[("MSCL_MSCS", "SUCTION")].negative_n == 4
         assert cells[("K2P", "PRESSURE_CLAMP")].negative_n == 3
         assert cells[("PIEZO", "POSITIVE_PRESSURE")].negative_n == 0
         assert cells[("TRP", "PRESSURE_CLAMP")].negative_n == 0
@@ -228,9 +230,10 @@ class TestLabSpread:
     def test_nine_cells_with_anchors(self, records):
         """Module-output determinism; gate = ≥2 distinct publications
         per (gene, stimulus). 9 cells. Anchors: PIEZO1/PC k 9 n 45 geo
-        35.14 sd 0.199; MscL/SUCTION k 4 n 17 geo 83.76 sd 0.1431.
-        Signed range kept as-reported: MscL/PC spans −163.0..255.0 —
-        the sign-convention inconsistency made visible per gene."""
+        35.14 sd 0.199; MscL/SUCTION k 5 n 24 geo 83.20 sd 0.1243
+        (+1 pub/+7 rows: Duru 2026). Signed range kept as-reported:
+        MscL/PC spans −163.0..255.0 — the sign-convention
+        inconsistency made visible per gene."""
         ls = lab_spread(records)
         assert len(ls) == 9
         by_key = {(c.gene_symbol, c.stimulus_type): c for c in ls}
@@ -239,9 +242,9 @@ class TestLabSpread:
         assert pz.geo_mean_mmhg == pytest.approx(35.14, abs=1e-2)
         assert pz.geo_sd_log10 == pytest.approx(0.199, abs=1e-3)
         ms = by_key[("MscL", "SUCTION")]
-        assert (ms.k, ms.n) == (4, 17)
-        assert ms.geo_mean_mmhg == pytest.approx(83.76, abs=1e-2)
-        assert ms.geo_sd_log10 == pytest.approx(0.1431, abs=1e-3)
+        assert (ms.k, ms.n) == (5, 24)
+        assert ms.geo_mean_mmhg == pytest.approx(83.20, abs=1e-2)
+        assert ms.geo_sd_log10 == pytest.approx(0.1243, abs=1e-3)
         mpc = by_key[("MscL", "PRESSURE_CLAMP")]
         assert (mpc.min_mmhg, mpc.max_mmhg) == (-163.0, 255.0)
 
@@ -266,11 +269,13 @@ class TestBoltzmannDemo:
         demo = boltzmann_demo(engine, ck)
         assert len(demo) == 4
         ids = [(d["slope_maicdb_id"], d["threshold_maicdb_id"]) for d in demo]
+        # v1.1 renumbering: +1 below the Duru 2026 insertion block
+        # (00199–00206), +12 above it — same rows, same condition_keys.
         assert ids == [
-            ("MAIC:BX:00197", "MAIC:BX:00190"),
-            ("MAIC:BX:00749", "MAIC:BX:00748"),
-            ("MAIC:BX:00785", "MAIC:BX:00784"),
-            ("MAIC:BX:00806", "MAIC:BX:00799"),
+            ("MAIC:BX:00198", "MAIC:BX:00191"),
+            ("MAIC:BX:00761", "MAIC:BX:00760"),
+            ("MAIC:BX:00797", "MAIC:BX:00796"),
+            ("MAIC:BX:00818", "MAIC:BX:00811"),
         ]
         top = demo[0]
         assert top["token_overlap"] == 13

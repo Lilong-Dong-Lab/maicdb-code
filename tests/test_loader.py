@@ -201,16 +201,18 @@ def test_freeze_enforcement():
 @requires_vault
 def test_full_load_conservation(tmp_path):
     out = tmp_path / "conserv.sqlite"
-    manifest = load_vault(VAULT, out, require_tag="data-v1.0",
+    manifest = load_vault(VAULT, out, require_tag="data-v1.1",
                           manifest_path=tmp_path / "m.json")
     c = manifest["counts"]
     # Spec §4 conservation (compound 86 = 85 roled + unroled silica family —
-    # the formal NOT-NULL compound link requires it; publication 211 = 205
+    # the formal NOT-NULL compound link requires it; publication 216 = 210
     # extraction + 6 structure-only citations: both deltas disclosed).
-    assert (c["biophysics"], c["bioactivity"], c["unmapped"]) == (948, 136, 16)
-    assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 125
+    # data-v1.1 calibers: 1125 = 960 (829 normal-route + 131 gap migrations)
+    # + 137 + 28 KEEP; v1.0 was 1100 = 948 + 136 + 16, variant 125 → 133.
+    assert (c["biophysics"], c["bioactivity"], c["unmapped"]) == (960, 137, 28)
+    assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 133
     assert c["unit_conversions"] == 105
-    assert c["compound"] == 86 and c["publication"] == 211
+    assert c["compound"] == 86 and c["publication"] == 216
     assert any("silica" in d.lower() or "unroled" in d.lower()
                for d in manifest["disclosures"])
 
@@ -243,10 +245,10 @@ def test_all_nine_recording_modes_present(tmp_path):
 
 @requires_vault
 def test_migration_values_land_typed(tmp_path):
-    """The 130 adjudicated migrations land in typed columns (no silent NULLs):
-    isr 66 + ca_permeability 4 + fold-shift 23 + delta_p50-gap 12 (nm drifts
+    """The 131 adjudicated migrations land in typed columns (no silent NULLs):
+    isr 66 + ca_permeability 4 + fold-shift 24 + delta_p50-gap 12 (nm drifts
     into the shift pair) + rise 13 + thermal 9 + osmotic 3; the card's
-    delta_p50_value carries the 16 normal-routed rows."""
+    delta_p50_value carries the 17 normal-routed rows."""
     import sqlite3
     out = tmp_path / "mig.sqlite"
     load_vault(VAULT, out, require_tag=None)
@@ -258,9 +260,9 @@ def test_migration_values_land_typed(tmp_path):
         "osmotic_threshold_value", "delta_p50_value")}
     conn.close()
     assert got == {"ion_selectivity_ratio": 66, "ca_permeability": 4,
-                   "threshold_fold_shift_value": 35,  # 23 fold-shift + 12 nm drifts
+                   "threshold_fold_shift_value": 36,  # 24 fold-shift + 12 nm drifts (v1.1 +1 Duru)
                    "macroscopic_rise_time_ms": 13, "thermal_threshold_c": 9,
-                   "osmotic_threshold_value": 3, "delta_p50_value": 16}
+                   "osmotic_threshold_value": 3, "delta_p50_value": 17}  # +1 normal-route TMEM63B JGP row (OSCA-EX-00097, 10.1085/jgp.202614003)
 
 
 @requires_vault

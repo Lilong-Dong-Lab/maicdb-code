@@ -10,14 +10,14 @@ Two seams, both consuming ``render_site()``:
   license identifiers come from CITATION.cff, and the unmapped
   disclosure carries the data layer's count.
 * **DB-backed** — the full CLI build against the published artifact:
-  ``totals.n_unmapped`` is pinned to the census (16) and the disclosure
+  ``totals.n_unmapped`` is pinned to the census (28) and the disclosure
   renders in both locales.
 
 Real-data provenance: the unmapped count is the published artifact's
-census (data-v1.0, read-only SQL, recorded in spec §4 and load-manifest
+census (data-v1.1, read-only SQL, recorded in load-manifest
 ``counts.unmapped``):
 
-    SELECT COUNT(*) FROM unmapped_measurement;   -- 16
+    SELECT COUNT(*) FROM unmapped_measurement;   -- 28
 """
 
 import json
@@ -64,8 +64,8 @@ def test_downloads_files_copied_into_both_trees_and_linked(tmp_path):
     page links every one of them with the page-depth relative prefix
     (the downloads page sits one level down → ``../``).
 
-    Source bytes: the in-repo published artifacts (data-v1.0), sizes
-    ``stat``-ed 2026-11-02 — sqlite 3112960, sql 2176274, manifest 1171,
+    Source bytes: the in-repo published artifacts (data-v1.1), sizes
+    ``stat``-ed 2026-11-08 — sqlite 3223552, sql 2249927, manifest 1171,
     CITATION.cff 1338.
     """
     out = render_fixture(tmp_path)
@@ -88,7 +88,7 @@ def test_downloads_sizes_displayed_in_si_units(tmp_path):
     out = render_fixture(tmp_path)
     for locale in ("en", "zh"):
         html = _page(out, locale)
-        for size in ("3.1 MB", "2.2 MB", "1.2 kB", "1.3 kB"):
+        for size in ("3.2 MB", "2.2 MB", "1.2 kB", "1.3 kB"):
             assert size in html, size
 
 
@@ -132,18 +132,19 @@ def test_downloads_unmapped_disclosure_both_locales(tmp_path):
 @requires_db
 def test_db_downloads_unmapped_disclosure_pins_census(tmp_path):
     """The real build's disclosure count is the artifact census —
-    ``SELECT COUNT(*) FROM unmapped_measurement`` → 16 (spec §4,
-    load-manifest ``counts.unmapped``) — surfaced via ``totals`` and
-    rendered in both locales (ticket acceptance)."""
+    ``SELECT COUNT(*) FROM unmapped_measurement`` → 28 (load-manifest
+    ``counts.unmapped``; 16 + 7 Duru 2026 + 5 PNAS Po at data-v1.1) —
+    surfaced via ``totals`` and rendered in both locales (ticket
+    acceptance)."""
     out = tmp_path / "out"
     run_build(out)
     totals = json.loads((out / "_data" / "index.json").read_text(encoding="utf-8"))[
         "totals"
     ]
-    assert totals["n_unmapped"] == 16
+    assert totals["n_unmapped"] == 28
     site = out / "_site"
     for prefix in ("", "zh/"):
         html = (site / prefix / "downloads" / "index.html").read_text(encoding="utf-8")
-        assert ">16<" in html
+        assert ">28<" in html
         locale = "zh" if prefix else "en"
         assert _strings(locale)["downloads_unmapped_note"] in html

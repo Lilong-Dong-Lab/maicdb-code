@@ -11,7 +11,7 @@ Two pin kinds, disclosed per test (same convention as the P2 file):
   pinned by the raw-SQL censuses alongside.
 
 Enforcement caveat worth its own note: the ADR-aware any-field failure
-count (899) is pinned against the NULL-safe CASE-form census. The naive
+count (911) is pinned against the NULL-safe CASE-form census. The naive
 ``NOT (stimulus_type = 'INDENTATION' AND probe_geometry IS NULL)``
 complement form is NULL-poisoned — UNKNOWN rows drop out of the clean
 set and it returns 24 instead of the true 49 (live witness 2026-11-06:
@@ -76,21 +76,23 @@ def records(engine):
 
 class TestLoaderCensuses:
     def test_full_coverage(self, scores, meta, engine):
-        """Census: 948 experiments (spec §3), every row joins to a
-        channel family and a publication year (``SELECT COUNT(*) FROM
-        biophysics_experiment e LEFT JOIN channel c ... LEFT JOIN
-        publication p ... WHERE c.family IS NULL OR p.year IS NULL`` →
-        0)."""
-        assert len(scores) == 948
-        assert len(meta) == 948
+        """Census: 960 experiments (data-v1.1 = 948 + 12: Duru 2026 MscL
+        8 + osca JBC/intracellular-pH 2 + TMEM63B jgp 1 + ASIC2a JBC 1),
+        every row joins to a channel family and a publication year
+        (``SELECT COUNT(*) FROM biophysics_experiment e LEFT JOIN channel
+        c ... LEFT JOIN publication p ... WHERE c.family IS NULL OR
+        p.year IS NULL`` → 0)."""
+        assert len(scores) == 960
+        assert len(meta) == 960
         assert all(m.family is not None for m in meta.values())
         assert all(m.year is not None for m in meta.values())
         assert all(m.journal is not None for m in meta.values())
 
     def test_family_slices(self, engine, scores):
         """Census: 12 channels; experiments per family — DEG/ENaC/ASIC
-        108, K2P 145, MscL/MscS 192, OSCA/TMEM63 92, PIEZO 188, TMC 153,
-        TRP 70 (GROUP BY c.family over the experiment join)."""
+        109, K2P 145, MscL/MscS 200, OSCA/TMEM63 95, PIEZO 188, TMC 153,
+        TRP 70 (GROUP BY c.family over the experiment join; data-v1.1
+        deltas: MscL +8 Duru 2026, OSCA +3, ASIC +1)."""
         families = load_families(engine)
         assert len(families) == 12
         counts: dict[str, int] = {}
@@ -99,22 +101,22 @@ class TestLoaderCensuses:
                 counts.get(families[s.channel_id], 0) + 1
             )
         assert counts == {
-            "DEG_ENaC_ASIC": 108,
+            "DEG_ENaC_ASIC": 109,
             "K2P": 145,
-            "MSCL_MSCS": 192,
-            "OSCA_TMEM63": 92,
+            "MSCL_MSCS": 200,
+            "OSCA_TMEM63": 95,
             "PIEZO": 188,
             "TMC": 153,
             "TRP": 70,
         }
 
     def test_era_coverage(self, scores, meta):
-        """Census: publication year present on all 948 (1986–2026);
-        pre-2010 = 239 rows, post = 709 (``WHERE p.year < 2010`` /
-        ``>= 2010``)."""
+        """Census: publication year present on all 960 (1986–2026);
+        pre-2010 = 239 rows, post = 721 (``WHERE p.year < 2010`` /
+        ``>= 2010``; all 12 data-v1.1 additions are 2026 papers)."""
         era = compliance_by_year(scores, {k: m.year for k, m in meta.items()})
         assert era.pre_k == 239
-        assert era.post_k == 709
+        assert era.post_k == 721
         assert era.unassigned_k == 0
 
 
@@ -123,32 +125,36 @@ class TestFieldTotals:
     reproduce spec §3's populated census exactly."""
 
     def test_environment_fields(self, scores):
-        """Census: temperature_c COUNT → 85 (9% — the spec's headline);
-        ph → 547; recording_mode non-null/non-empty → 909 (96%;
-        NULLIF form)."""
+        """Census: temperature_c COUNT → 85 (9% — the spec's headline;
+        unchanged in v1.1 — the 12 new rows carry no temperature);
+        ph → 551 (+4: the two JBC intracellular-pH papers + TMEM63B jgp
+        + ASIC2a JBC); recording_mode non-null/non-empty → 921 (96%;
+        NULLIF form; all 12 new rows carry a mode)."""
         totals = field_totals(scores)
         temp = totals["temperature_c"]
-        assert (temp.reported, temp.not_extracted, temp.applicable) == (85, 863, 948)
-        assert temp.compliance == pytest.approx(85 / 948, abs=1e-9)
+        assert (temp.reported, temp.not_extracted, temp.applicable) == (85, 875, 960)
+        assert temp.compliance == pytest.approx(85 / 960, abs=1e-9)
         ph = totals["ph"]
-        assert (ph.reported, ph.applicable) == (547, 948)
+        assert (ph.reported, ph.applicable) == (551, 960)
         rec = totals["recording_mode"]
-        assert (rec.reported, rec.not_extracted, rec.applicable) == (909, 39, 948)
+        assert (rec.reported, rec.not_extracted, rec.applicable) == (921, 39, 960)
 
     def test_conditional_velocity_denominator(self, scores):
         """Census: stimulus_type IN (INDENTATION, TOUCH, SHEAR_STRESS) →
         129 applicable; stimulus_velocity populated → 0 (spec §3) — so
-        ADR-aware velocity compliance is exactly 0.0 on data-v1.0."""
+        ADR-aware velocity compliance is exactly 0.0 (the 12 data-v1.1
+        additions are pressure/stretch/pH designs outside the IN-list,
+        so the denominator is unchanged)."""
         totals = field_totals(scores)
         vel = totals["stimulus_velocity"]
         assert (vel.reported, vel.applicable) == (0, 129)
         assert vel.compliance == 0.0
 
     def test_cell_type(self, scores):
-        """Census: NULLIF(cell_type,'') IS NULL → 167 (82% populated —
-        spec §3)."""
+        """Census: NULLIF(cell_type,'') IS NULL → 175 (82% populated —
+        spec §3; +4 from the data-v1.1 JBC/jgp papers)."""
         cell = field_totals(scores)["cell_type"]
-        assert (cell.reported, cell.not_extracted, cell.applicable) == (781, 167, 948)
+        assert (cell.reported, cell.not_extracted, cell.applicable) == (785, 175, 960)
 
 
 class TestHeatmap:
@@ -178,30 +184,30 @@ class TestEnforcement:
 
     def test_as_written_row_counts(self, scores, records):
         """Census (applicability ignored, vault §9's own reading):
-        stimulus_velocity IS NULL → 948; probe_geometry IS NULL → 948;
+        stimulus_velocity IS NULL → 960; probe_geometry IS NULL → 960;
         NULLIF(recording_mode,'') IS NULL → 39; context (NULLIF
-        cell_type OR temperature_c IS NULL) → 882 (joint presence 66);
-        any-field OR-form → 948 of 948 — the 100% motivation number."""
+        cell_type OR temperature_c IS NULL) → 894 (joint presence 66);
+        any-field OR-form → 960 of 960 — the 100% motivation number."""
         audit = four_field_audit(records)
         rows = audit.fields
-        assert rows["stimulus_velocity"].missing_as_written == 948
-        assert rows["probe_geometry"].missing_as_written == 948
+        assert rows["stimulus_velocity"].missing_as_written == 960
+        assert rows["probe_geometry"].missing_as_written == 960
         assert rows["recording_mode"].missing_as_written == 39
-        assert rows["experimental_context"].missing_as_written == 882
-        assert audit.failing_any_as_written == (948, 948)
+        assert rows["experimental_context"].missing_as_written == 894
+        assert audit.failing_any_as_written == (960, 960)
         assert rows["stimulus_velocity"].as_written_fail_rate == 1.0
         assert rows["experimental_context"].as_written_fail_rate == (
-            pytest.approx(882 / 948, abs=1e-9)
+            pytest.approx(894 / 960, abs=1e-9)
         )
 
     def test_adr_aware_row_counts(self, scores, records):
         """Census (ADR-0005 applicability): velocity applicable (moving
         probe IN-list) 129, missing 129; geometry applicable
         (INDENTATION) 95, missing 95; recording_mode ALWAYS applicable
-        (one of ADR-0005's 12 unconditional fields — applicable 948;
-        the 909 figure is its POPULATED count, not its applicable set),
-        missing (NULL/empty) 39; context applicable 948, incomplete
-        882."""
+        (one of ADR-0005's 12 unconditional fields — applicable 960;
+        the 921 figure is its POPULATED count, not its applicable set),
+        missing (NULL/empty) 39; context applicable 960, incomplete
+        894."""
         audit = four_field_audit(records)
         rows = audit.fields
         vel = rows["stimulus_velocity"]
@@ -210,82 +216,82 @@ class TestEnforcement:
         geo = rows["probe_geometry"]
         assert (geo.applicable, geo.missing_when_applicable) == (95, 95)
         rec = rows["recording_mode"]
-        assert (rec.applicable, rec.missing_when_applicable) == (948, 39)
-        assert rec.adr_fail_rate == pytest.approx(39 / 948, abs=1e-9)
+        assert (rec.applicable, rec.missing_when_applicable) == (960, 39)
+        assert rec.adr_fail_rate == pytest.approx(39 / 960, abs=1e-9)
         ctx = rows["experimental_context"]
-        assert (ctx.applicable, ctx.missing_when_applicable) == (948, 882)
+        assert (ctx.applicable, ctx.missing_when_applicable) == (960, 894)
 
     def test_adr_aware_any_field_null_safe(self, scores, records):
         """Census (NULL-safe CASE form — see module docstring for the
         NULL-poisoned NOT-form trap): any-field ADR-aware failures →
-        899; clean set → 49 (899 + 49 = 948)."""
+        911; clean set → 49 (911 + 49 = 960)."""
         audit = four_field_audit(records)
-        assert audit.failing_any_adr == (899, 948)
+        assert audit.failing_any_adr == (911, 960)
         # clean set cross-foot
-        clean = 948 - audit.failing_any_adr[0]
+        clean = 960 - audit.failing_any_adr[0]
         assert clean == 49
 
     def test_the_pair_is_the_headline(self, scores, records):
-        """Spec §5.1: as-written 100% fail vs ADR-aware 899/948 — both
+        """Spec §5.1: as-written 100% fail vs ADR-aware 911/960 — both
         numbers stated, the tri-state defense visible in the gap."""
         audit = four_field_audit(records)
-        assert audit.failing_any_as_written[0] == 948  # 100% as written
-        assert 0 < audit.failing_any_adr[0] < 948
-        # ...and the ADR-aware rate is still damning (~94.8%)
-        assert audit.failing_any_adr[0] / 948 == pytest.approx(
-            899 / 948, abs=1e-9
+        assert audit.failing_any_as_written[0] == 960  # 100% as written
+        assert 0 < audit.failing_any_adr[0] < 960
+        # ...and the ADR-aware rate is still damning (~94.9%)
+        assert audit.failing_any_adr[0] / 960 == pytest.approx(
+            911 / 960, abs=1e-9
         )
 
 
 class TestViews:
     def test_era_contrast_determinism(self, scores, meta):
         """Module-output determinism pins; inputs pinned by the era
-        census above (239/709, span 1986–2026). Mean per-record
-        compliance: pre-PIEZO 0.347260, post-PIEZO 0.446977 — the
+        census above (239/721, span 1986–2026). Mean per-record
+        compliance: pre-PIEZO 0.347260, post-PIEZO 0.445470 — the
         corpus's metadata reporting improved after 2010."""
         era = compliance_by_year(scores, {k: m.year for k, m in meta.items()})
         assert len(era.years) == 33
         assert era.years[0].year == 1986 and era.years[-1].year == 2026
         assert era.pre_mean == pytest.approx(0.347260, abs=1e-6)
-        assert era.post_mean == pytest.approx(0.446977, abs=1e-6)
+        assert era.post_mean == pytest.approx(0.445470, abs=1e-6)
         # boundary rows (determinism: first/last year)
         assert (era.years[0].k, era.years[0].mean) == (
             3, pytest.approx(0.270833, abs=1e-6),
         )
         assert (era.years[-1].k, era.years[-1].mean) == (
-            8, pytest.approx(0.332237, abs=1e-6),
+            20, pytest.approx(0.346734, abs=1e-6),
         )
 
     def test_breakdown_crossfoot_and_groups(self, scores, meta):
         """Group k cross-foots against coverage censuses: recording_mode
-        groups sum to 909 (39 NULL dropped — census above); family to
-        948; journal to 948 across 58 distinct journals (COUNT
+        groups sum to 921 (39 NULL dropped — census above); family to
+        960; journal to 960 across 60 distinct journals (COUNT
         DISTINCT). Determinism pins: the largest recording_mode group
-        CELL_ATTACHED (k 222 — census per-mode counts in the P2 file)
-        mean 0.480011; MSCL/MscS family (k 192) mean 0.438570."""
+        CELL_ATTACHED (k 223 — census per-mode counts in the P2 file)
+        mean 0.480381; MSCL/MscS family (k 200) mean 0.432455."""
         by_mode = breakdown(scores, meta, "recording_mode")
-        assert sum(g.k for g in by_mode) == 909
+        assert sum(g.k for g in by_mode) == 921
         ca = next(g for g in by_mode if g.group == "CELL_ATTACHED")
-        assert ca.k == 222
-        assert ca.mean == pytest.approx(0.480011, abs=1e-6)
+        assert ca.k == 223
+        assert ca.mean == pytest.approx(0.480381, abs=1e-6)
         by_family = breakdown(scores, meta, "family")
-        assert len(by_family) == 7 and sum(g.k for g in by_family) == 948
+        assert len(by_family) == 7 and sum(g.k for g in by_family) == 960
         mscl = next(g for g in by_family if g.group == "MSCL_MSCS")
-        assert (mscl.k, mscl.mean) == (192, pytest.approx(0.438570, abs=1e-6))
+        assert (mscl.k, mscl.mean) == (200, pytest.approx(0.432455, abs=1e-6))
         by_journal = breakdown(scores, meta, "journal")
-        assert len(by_journal) == 58 and sum(g.k for g in by_journal) == 948
+        assert len(by_journal) == 60 and sum(g.k for g in by_journal) == 960
 
     def test_weighted_sensitivity(self, scores):
         """Module-output determinism pin: environment-weighted (×2,
-        others 1) mean = 0.442246, ABOVE the unweighted corpus mean
-        0.421838 (P2 artifact pin) — environmental fields are reported
+        others 1) mean = 0.441430, ABOVE the unweighted corpus mean
+        0.421020 (P2 artifact pin) — environmental fields are reported
         comparatively well, so weighting them up lifts the score. The
         direction is the sensitivity result; the magnitudes are the
         pins."""
         weights = {"environment": 2.0, "stimulus": 1.0, "recording": 1.0,
                    "cell_context": 1.0, "analysis": 1.0}
         wmean = category_weighted_mean(scores, weights)
-        assert wmean == pytest.approx(0.442246, abs=1e-6)
+        assert wmean == pytest.approx(0.441430, abs=1e-6)
         unweighted = sum(s.score for s in scores) / len(scores)
-        assert unweighted == pytest.approx(0.421838, abs=1e-6)
+        assert unweighted == pytest.approx(0.421020, abs=1e-6)
         assert wmean > unweighted

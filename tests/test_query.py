@@ -133,9 +133,11 @@ def test_channel_card_rows_carry_maicdb_id(engine):
     experiment's ``maicdb_id`` — a stable per-row reference key for the
     site data layer, independent of ``measurement_id`` attribution.
 
-    Pinned against the artifact (data-v1.0, vault head 5a8ff0e):
+    Pinned against the artifact (data-v1.1, vault head 037c841f):
     ``SELECT e.maicdb_id FROM biophysics_experiment e WHERE
-    e.measurement_id='PIEZO1-EX-00005'`` → ``MAIC:BX:00397``.
+    e.measurement_id='PIEZO1-EX-00005'`` → ``MAIC:BX:00409`` (00397 at
+    data-v1.0; the id sequence shifted +12 after the v1.1 insertion
+    block 00109/00199–00206/00402–00404).
     #12's deferral clause is respected on the retrieval side:
     ``provenance_by_maicdb_id()`` is NOT added — the NULL-measurement_id
     census is 0 (pinned by PR #29 in tests/test_zenodo_bundle.py), so a
@@ -146,7 +148,7 @@ def test_channel_card_rows_carry_maicdb_id(engine):
         r for r in card["parameters"]["p50"]["rows"]
         if r["measurement_id"] == "PIEZO1-EX-00005"
     )
-    assert row["maicdb_id"] == "MAIC:BX:00397"
+    assert row["maicdb_id"] == "MAIC:BX:00409"
     # Every row carries a non-empty key, not just the pinned one.
     assert all(r["maicdb_id"] for r in card["parameters"]["p50"]["rows"])
 
@@ -233,11 +235,13 @@ def test_parameter_comparison_per_unit_aggregates(engine):
     zero-count genes included (computed from the channel table, never
     hardcoded).
 
-    Pinned (data notes §2 / A1 panel p2a expectations, census on data-v1.0):
-    * 152 P50 rows = 148 mmHg + 4 psi; the 4 psi rows are all MscL
-      (values 1.0, 1.3, 1.6, 3.6 → median 1.45); MscL also carries 17 mmHg
+    Pinned (data notes §2 / A1 panel p2a expectations, census on
+    data-v1.1):
+    * 159 P50 rows = 155 mmHg + 4 psi (+7 MscL mmHg: the Duru 2026
+      SUCTION rows); the 4 psi rows are all MscL
+      (values 1.0, 1.3, 1.6, 3.6 → median 1.45); MscL also carries 24 mmHg
       p50 rows (census ``SELECT p50_unit, COUNT(*) … WHERE gene_symbol=
-      'MscL'`` → mmHg 17, psi 4).
+      'MscL'`` → mmHg 24, psi 4).
     * Zero-threshold genes: PIEZO2, TRESK (data notes §6.3) and ASIC
       (census ``SELECT c.gene_symbol … WHERE p50/t50/x50 NOT NULL`` lists
       only MscL, MscS, OSCA, PIEZO1, TMC, TRAAK, TREK-1, TREK-2, TRPV4).
@@ -245,18 +249,18 @@ def test_parameter_comparison_per_unit_aggregates(engine):
     cmp_rows = parameter_comparison(engine, "p50")
 
     # No cross-unit pooling: p50's counted rows each carry one stored unit
-    # (data-v1.0 has zero NULL-unit p50 rows — census ``SELECT COUNT(*) …
+    # (data-v1.1 has zero NULL-unit p50 rows — census ``SELECT COUNT(*) …
     # WHERE p50_value IS NOT NULL AND p50_unit IS NULL`` → 0; NULL-unit
     # buckets are pinned in the null-unit test below).
     assert all(isinstance(r["unit"], str) for r in cmp_rows if r["count"] > 0)
 
     by_gene_unit = {(r["gene"], r["unit"]): r for r in cmp_rows}
-    assert sum(r["count"] for r in cmp_rows) == 152
+    assert sum(r["count"] for r in cmp_rows) == 159
     assert by_gene_unit[("MscL", "psi")]["count"] == 4
     assert by_gene_unit[("MscL", "psi")]["min"] == 1.0
     assert by_gene_unit[("MscL", "psi")]["median"] == 1.45
     assert by_gene_unit[("MscL", "psi")]["max"] == 3.6
-    assert by_gene_unit[("MscL", "mmHg")]["count"] == 17
+    assert by_gene_unit[("MscL", "mmHg")]["count"] == 24
 
     # All 12 genes reported; the three zero-threshold genes carry empty stats.
     genes = {r["gene"] for r in cmp_rows}
@@ -311,7 +315,7 @@ def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
     (rule 5). Before the fix these rows were silently dropped and every
     gene exported a false ``count=0``.
 
-    Pinned (census on data-v1.0):
+    Pinned (census on data-v1.1):
     * ``slope`` — 13 rows over 6 genes (ASIC 1, MscL 3, PIEZO1 2, TRAAK 2,
       TREK-1 3, TREK-2 2), ``slope_unit`` NULL on all 13
       (``SELECT c.gene_symbol, COUNT(*) … WHERE b.slope IS NOT NULL
@@ -319,7 +323,8 @@ def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
     * ``ion_selectivity_ratio`` — 66 rows over 7 genes; the parameter has
       no unit column at all (registry ``unit_column=None``).
     * ``threshold_fold_shift`` — MscL carries BOTH buckets (4 rows unit
-      NULL + 4 rows "%"), proving a NULL unit never pools with a stored one.
+      NULL + 5 rows "%", +1 Duru 2026 row), proving a NULL unit never
+      pools with a stored one.
     * direction-blind ratios (``ratio_direction`` NULL on every row —
       loader-mapping §3.4): the median is OMITTED with a note (A1 panel p4
       semantics: direction-unstated groups report count/min/max only);
@@ -367,7 +372,7 @@ def test_parameter_comparison_null_unit_rows_reported_not_erased(engine):
         for r in parameter_comparison(engine, "threshold_fold_shift")
     }
     assert tfs[("MscL", None)]["count"] == 4
-    assert tfs[("MscL", "%")]["count"] == 4
+    assert tfs[("MscL", "%")]["count"] == 5
 
 
 def test_provenance_full_evidence_row(engine):
@@ -455,7 +460,7 @@ def test_export_json_round_trip_and_disclosure(engine):
     assert doc["parameter"] == "p50"
     assert doc["frozen_layer_disclosure"] == FROZEN_LAYER_DISCLOSURE
     assert "as recorded" in doc["sign_convention"]
-    assert sum(r["count"] for r in doc["rows"]) == 152
+    assert sum(r["count"] for r in doc["rows"]) == 159
     assert all(isinstance(r["measurement_ids"], list) for r in doc["rows"])
 
 
@@ -708,16 +713,17 @@ def test_bioactivity_card_pins(engine):
     """``bioactivity_card`` — compound↔channel rows with the full evidence
     chain, for the M3-T4 card page's bioactivity block (spec §3 Q11).
 
-    Pinned against the artifact (data-v1.0, read-only census SQL):
+    Pinned against the artifact (data-v1.1, read-only census SQL):
 
         SELECT c.gene_symbol, COUNT(*) FROM bioactivity b
           JOIN channel c ON b.channel_id = c.id GROUP BY 1 ORDER BY 2 DESC;
-        → TRPV4 37, TRESK 34, ASIC 24, TMC 19, PIEZO1 14, TREK-1 4,
-          OSCA 2, MscS 1, TRAAK 1 (9 genes; PIEZO2/MscL/TREK-2 absent).
+        → TRPV4 37, TRESK 34, ASIC 25 (+1 v1.1: ASIC2a amiloride IC50),
+          TMC 19, PIEZO1 14, TREK-1 4, OSCA 2, MscS 1, TRAAK 1
+          (9 genes; PIEZO2/MscL/TREK-2 absent).
 
     Exemplar row (``SELECT * FROM bioactivity WHERE maicdb_id='MAIC:BA:00001'``
     + compound join): ASIC-00025, Hi1a IC50 0.4 nM, relation '=', confidence
-    'high', n '8'. Columns all-NULL this release (census 136/136) stay out
+    'high', n '8'. Columns all-NULL this release (census 137/137) stay out
     of the payload: pchembl, assay_format, cell_line, target_species,
     target_chembl_id.
     """
@@ -725,7 +731,7 @@ def test_bioactivity_card_pins(engine):
 
     asic = bioactivity_card(engine, "ASIC")
     assert asic["gene"] == "ASIC"
-    assert asic["n_rows"] == 24
+    assert asic["n_rows"] == 25
     assert "frozen_layer_disclosure" not in asic
 
     row = next(r for r in asic["rows"] if r["maicdb_id"] == "MAIC:BA:00001")
