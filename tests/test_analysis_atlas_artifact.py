@@ -8,7 +8,7 @@ Two pin kinds, disclosed per test (P2–P4 convention):
   are pinned by the raw-SQL censuses alongside.
 
 The dominant disclosed fact: the spec's structural-domain mapping and
-much of the variant chain are DATA-THIN at data-v1.0 — every such
+much of the variant chain are DATA-THIN at data-v1.1 — every such
 vacuity is pinned as the honest descriptive result (they are curation
 demands, not analysis defects).
 """
@@ -55,25 +55,26 @@ def matrix(engine):
 
 class TestDeltaP50:
     def test_sixteen_rows_all_mmhg(self, effects):
-        """Census: COUNT(delta_p50_value) → 16; all rows mmHg (GROUP BY
+        """Census: COUNT(delta_p50_value) → 17 (16 + 1: the v1.1 jgp
+        TMEM63B-variant row, 18.0 mmHg); all rows mmHg (GROUP BY
         delta_p50_unit); value range 5.0–61.7 (MIN/MAX)."""
-        assert len(effects) == 16
+        assert len(effects) == 17
         assert {r.unit for r in effects} == {"mmHg"}
         assert min(r.delta_p50 for r in effects) == 5.0
         assert max(r.delta_p50 for r in effects) == pytest.approx(61.7, abs=1e-9)
 
     def test_variant_chain_is_data_thin(self, effects):
         """Census pins for every link of the spec's variant chain:
-        variant-linked rows → 3 (SUM(variant_id IS NOT NULL)); the 3
-        linked variants carry NULL hgvs_protein and NULL
-        functional_effect; positions on 2 of 3 (both 2456 — JOIN
-        variant); the structural-domain mapping is VACUOUS —
-        COUNT(residues_covered) and COUNT(coverage_pct) on structure →
-        0 of 12 — so all 16 rows map to zero domains. Each vacuity is
-        a curation demand (spec §5.2's own pattern), pinned here so
-        future curation that fills them turns this test green-on-new
-        facts, not silently."""
-        assert sum(1 for r in effects if r.variant_linked) == 3
+        variant-linked rows → 4 (SUM(variant_id IS NOT NULL); +1 v1.1
+        jgp TMEM63B-variant row); the linked variants carry NULL
+        hgvs_protein and NULL functional_effect; positions on 2 of 4
+        (both 2456 — JOIN variant); the structural-domain mapping is
+        VACUOUS — COUNT(residues_covered) and COUNT(coverage_pct) on
+        structure → 0 of 12 — so all 17 rows map to zero domains. Each
+        vacuity is a curation demand (spec §5.2's own pattern), pinned
+        here so future curation that fills them turns this test
+        green-on-new facts, not silently."""
+        assert sum(1 for r in effects if r.variant_linked) == 4
         assert all(r.variant is None for r in effects)
         assert all(r.functional_effect is None for r in effects)
         assert sorted(
@@ -83,42 +84,42 @@ class TestDeltaP50:
 
     def test_gene_split(self, effects):
         """Census (JOIN channel GROUP BY gene over ΔP50 rows): MscL 1,
-        MscS 9, PIEZO1 6."""
+        MscS 9, PIEZO1 6, OSCA 1 (v1.1 jgp TMEM63B row)."""
         from collections import Counter
 
         counts = Counter(r.gene_symbol for r in effects)
-        assert counts == Counter({"MscS": 9, "PIEZO1": 6, "MscL": 1})
+        assert counts == Counter({"MscS": 9, "PIEZO1": 6, "MscL": 1, "OSCA": 1})
 
 
 class TestMatrix:
     def test_sparse_shape(self, matrix):
-        """Census: 136 activity rows (all with activity_value); 73
+        """Census: 137 activity rows (all with activity_value); 73
         distinct compound × channel pairs → the matrix has 73 cells
-        summing k=136 (21 pairs carry >1 measurement — the 63 extra
+        summing k=137 (21 pairs carry >1 measurement — the 64 extra
         rows aggregate into cell means, n per cell). Possible cells
         69 × 9 = 621 → ~12% populated: sparse by construction."""
         assert len(matrix) == 73
-        assert sum(c.k for c in matrix) == 136
+        assert sum(c.k for c in matrix) == 137
         multi_extra = sum(c.k - 1 for c in matrix)
-        assert multi_extra == 63
+        assert multi_extra == 64
 
     def test_value_coverage_and_bases(self, engine, matrix):
         """Census via P1's basis classes (the bioactivity corpus): 70
         of 73 cells resolve a mean pActivity; basis totals over all
-        136 measurements — molar 128, missing_value 3 (NULL units,
-        passed through as None so the basis names the truth),
-        already_plog 1, mass_no_mw 4 (μg/ml silica rows without MW) —
-        exactly MATCHING P1's own artifact census of these same rows
-        (tests/test_analysis_artifact.py TestPActivityPins). Also
-        pinned here (gate PR #77 MINOR-2): pchembl is NULL on all 136
-        rows (SELECT COUNT(pchembl) FROM bioactivity → 0) — the
-        value-axis choice rests on it; a future release that fills
-        pchembl must revisit this module."""
+        137 measurements — molar 129 (+1: v1.1 ASIC2a amiloride IC50),
+        missing_value 3 (NULL units, passed through as None so the
+        basis names the truth), already_plog 1, mass_no_mw 4 (μg/ml
+        silica rows without MW) — exactly MATCHING P1's own artifact
+        census of these same rows (tests/test_analysis_artifact.py
+        TestPActivityPins). Also pinned here (gate PR #77 MINOR-2):
+        pchembl is NULL on all 137 rows (SELECT COUNT(pchembl) FROM
+        bioactivity → 0) — the value-axis choice rests on it; a future
+        release that fills pchembl must revisit this module."""
         with engine.connect() as conn:
             pchembl_null = conn.execute(
                 text("SELECT COUNT(*) FROM bioactivity WHERE pchembl IS NULL")
             ).one()[0]
-        assert pchembl_null == 136
+        assert pchembl_null == 137
         with_value = [c for c in matrix if c.pactivity is not None]
         assert len(with_value) == 70
         bases: dict[str, int] = {}
@@ -126,7 +127,7 @@ class TestMatrix:
             for basis, n in c.basis_counts:
                 bases[basis] = bases.get(basis, 0) + n
         assert bases == {
-            "molar": 128,
+            "molar": 129,
             "missing_value": 3,
             "already_plog": 1,
             "mass_no_mw": 4,

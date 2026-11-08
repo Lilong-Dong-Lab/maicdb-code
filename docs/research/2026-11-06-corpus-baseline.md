@@ -109,21 +109,21 @@ Every number is a query result; no value is transcribed by hand.
 
 | Table | Rows |
 |---|---|
-| bioactivity | 136 |
-| biophysics_experiment | 948 |
+| bioactivity | 137 |
+| biophysics_experiment | 960 |
 | channel | 12 |
 | compound | 86 |
 | external_reference | 6 |
-| publication | 211 |
-| unmapped_measurement | 16 |
-| variant | 125 |
+| publication | 216 |
+| unmapped_measurement | 28 |
+| variant | 133 |
 
 ### 2. Publication bibliometrics
 
 - Year range: **1986–2026**
-- Distinct journal strings (raw): **67**
-- Distinct journals after normalisation: **56**
-- Rows per publication: total 1084 across 211 papers (median 4.0, max 32, 8 with no rows)
+- Distinct journal strings (raw): **69**
+- Distinct journals after normalisation: **57**
+- Rows per publication: total 1097 across 216 papers (median 4.0, max 32, 9 with no rows)
 
 #### Publications per year
 
@@ -161,15 +161,15 @@ Every number is a query result; no value is transcribed by hand.
 | 2023 | 5 |
 | 2024 | 12 |
 | 2025 | 2 |
-| 2026 | 2 |
+| 2026 | 7 |
 
 #### Top journals (normalised)
 
 | Journal | Publications |
 |---|---|
-| Proceedings of the National Academy of Sciences | 23 |
-| Journal of Biological Chemistry | 22 |
-| The Journal of General Physiology | 20 |
+| Journal of Biological Chemistry | 24 |
+| Proceedings of the National Academy of Sciences | 24 |
+| The Journal of General Physiology | 21 |
 | eLife | 15 |
 | Nature Communications | 13 |
 | Biophysical Journal | 12 |
@@ -189,7 +189,7 @@ Every number is a query result; no value is transcribed by hand.
 - **PLOS ONE** ← `PLoS ONE`, `PLoS One`
 - **Proceedings of the National Academy of Sciences** ← `PNAS`, `Proc Natl Acad Sci U S A`, `Proc Natl Acad Sci USA`, `Proceedings of the National Academy of Sciences`, `Proceedings of the National Academy of Sciences USA`
 - **The EMBO Journal** ← `EMBO J`, `The EMBO Journal`
-- **The Journal of General Physiology** ← `J Gen Physiol`, `The Journal of General Physiology`
+- **The Journal of General Physiology** ← `J Gen Physiol`, `Journal of General Physiology`, `The Journal of General Physiology`
 - **The Journal of Neuroscience** ← `J Neurosci`, `Journal of Neuroscience`, `The Journal of Neuroscience`
 - **eLife** ← `Elife`, `eLife`
 
@@ -199,10 +199,10 @@ Every number is a query result; no value is transcribed by hand.
 |---|---|---|---|---|
 | PIEZO1 | PIEZO | 160 | 14 | 23 |
 | TMC | TMC | 153 | 19 | 24 |
-| ASIC | DEG_ENaC_ASIC | 108 | 24 | 19 |
+| ASIC | DEG_ENaC_ASIC | 109 | 25 | 20 |
 | MscS | MSCL_MSCS | 103 | 1 | 23 |
-| OSCA | OSCA_TMEM63 | 92 | 2 | 12 |
-| MscL | MSCL_MSCS | 89 | 0 | 18 |
+| MscL | MSCL_MSCS | 97 | 0 | 19 |
+| OSCA | OSCA_TMEM63 | 95 | 2 | 14 |
 | TRPV4 | TRP | 70 | 37 | 23 |
 | TREK-1 | K2P | 46 | 4 | 13 |
 | TREK-2 | K2P | 42 | 0 | 16 |
@@ -214,10 +214,10 @@ Every number is a query result; no value is transcribed by hand.
 
 | Channel | p50 | t50 | x50 | slope | tau_act | tau_inact | tau_deact | conductance | reversal_potential | delta_p50 | ion_selectivity_ratio | ca_permeability | threshold_fold_shift | macroscopic_rise_time | thermal_threshold | osmotic_threshold |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ASIC | 0 | 0 | 0 | 1 | 21 | 14 | 14 | 14 | 28 | 0 | 11 | 4 | 0 | 0 | 0 | 0 |
-| MscL | 21 | 15 | 0 | 3 | 0 | 1 | 1 | 39 | 0 | 1 | 0 | 0 | 8 | 0 | 0 | 0 |
+| ASIC | 0 | 0 | 0 | 1 | 21 | 14 | 14 | 14 | 29 | 0 | 11 | 4 | 0 | 0 | 0 | 0 |
+| MscL | 28 | 15 | 0 | 3 | 0 | 1 | 1 | 39 | 0 | 1 | 0 | 0 | 9 | 0 | 0 | 0 |
 | MscS | 21 | 14 | 0 | 0 | 1 | 3 | 11 | 27 | 5 | 9 | 4 | 0 | 8 | 0 | 0 | 0 |
-| OSCA | 36 | 0 | 4 | 0 | 13 | 12 | 2 | 13 | 2 | 0 | 8 | 0 | 0 | 2 | 0 | 0 |
+| OSCA | 36 | 0 | 4 | 0 | 13 | 12 | 2 | 15 | 2 | 1 | 8 | 0 | 0 | 2 | 0 | 0 |
 | PIEZO1 | 56 | 9 | 4 | 2 | 0 | 28 | 4 | 31 | 14 | 6 | 5 | 0 | 1 | 0 | 0 | 0 |
 | PIEZO2 | 0 | 0 | 0 | 0 | 0 | 15 | 0 | 4 | 4 | 0 | 0 | 0 | 0 | 4 | 0 | 0 |
 | TMC | 2 | 0 | 38 | 0 | 1 | 9 | 0 | 47 | 17 | 0 | 27 | 0 | 12 | 0 | 0 | 0 |
@@ -229,37 +229,37 @@ Every number is a query result; no value is transcribed by hand.
 
 | Parameter | Rows |
 |---|---|
-| p50 | 152 |
+| p50 | 159 |
 | t50 | 41 |
 | x50 | 46 |
 | slope | 13 |
 | tau_act | 45 |
 | tau_inact | 93 |
 | tau_deact | 40 |
-| conductance | 263 |
-| reversal_potential | 97 |
-| delta_p50 | 16 |
+| conductance | 265 |
+| reversal_potential | 98 |
+| delta_p50 | 17 |
 | ion_selectivity_ratio | 66 |
 | ca_permeability | 4 |
-| threshold_fold_shift | 35 |
+| threshold_fold_shift | 36 |
 | macroscopic_rise_time | 13 |
 | thermal_threshold | 9 |
 | osmotic_threshold | 3 |
 
 ### 5. Unit spellings per parameter
 
-- **p50**: `mmHg` ×148, `psi` ×4
+- **p50**: `mmHg` ×155, `psi` ×4
 - **t50**: `mN/m` ×26, `dyn/cm` ×15
 - **x50**: `nm` ×37, `um` ×9
 - **osmotic_threshold**: `%` ×1, `% HTS` ×1, `mOsm` ×1
-- **delta_p50**: `mmHg` ×16
-- **threshold_fold_shift**: `%` ×13, `nm` ×12, `fold` ×6
+- **delta_p50**: `mmHg` ×17
+- **threshold_fold_shift**: `%` ×14, `nm` ×12, `fold` ×6
 
 ### 6. Confidence
 
 | Confidence | Rows |
 |---|---|
-| high | 537 |
+| high | 549 |
 | medium | 400 |
 | low | 11 |
 
@@ -267,13 +267,13 @@ Every number is a query result; no value is transcribed by hand.
 
 | Family | Confidence | Rows |
 |---|---|---|
-| DEG_ENaC_ASIC | high | 91 |
+| DEG_ENaC_ASIC | high | 92 |
 | DEG_ENaC_ASIC | medium | 17 |
 | K2P | high | 87 |
 | K2P | medium | 58 |
-| MSCL_MSCS | high | 72 |
+| MSCL_MSCS | high | 80 |
 | MSCL_MSCS | medium | 120 |
-| OSCA_TMEM63 | high | 90 |
+| OSCA_TMEM63 | high | 93 |
 | OSCA_TMEM63 | medium | 2 |
 | PIEZO | high | 159 |
 | PIEZO | low | 2 |
@@ -289,7 +289,7 @@ Every number is a query result; no value is transcribed by hand.
 
 | Bucket | Rows |
 |---|---|
-| results | 779 |
+| results | 792 |
 | table | 122 |
 | figure legend | 101 |
 | abstract | 45 |
@@ -303,13 +303,13 @@ Every number is a query result; no value is transcribed by hand.
 
 | Field | Rows | Min | Median | Max |
 |---|---|---|---|---|
-| ph | 547 | 5.0 | 7.3 | 9.5 |
+| ph | 551 | 5.0 | 7.3 | 9.5 |
 | temperature_c | 85 | 17.0 | 24.0 | 38.0 |
 
 ### 9. Bioactivity block
 
-- Rows: **136**, compounds: **69**, channels: **9**
-- Activity types: `IC50` ×91, `EC50` ×21, `KD` ×13, `KI` ×8, `PEC50` ×3
+- Rows: **137**, compounds: **69**, channels: **9**
+- Activity types: `IC50` ×92, `EC50` ×21, `KD` ×13, `KI` ×8, `PEC50` ×3
 
 ### 10. MIMIC field coverage snapshot
 
@@ -317,7 +317,7 @@ Every number is a query result; no value is transcribed by hand.
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
-| stimulus_type | 824 | 86.9% |
+| stimulus_type | 836 | 87.1% |
 | stimulus_waveform | 0 | 0.0% |
 | stimulus_velocity | 0 | 0.0% |
 | stimulus_duration_ms | 0 | 0.0% |
@@ -328,51 +328,51 @@ Every number is a query result; no value is transcribed by hand.
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
-| recording_mode | 909 | 95.9% |
+| recording_mode | 921 | 95.9% |
 | sampling_rate_khz | 0 | 0.0% |
 | filter_khz | 0 | 0.0% |
-| holding_potential_mv | 619 | 65.3% |
+| holding_potential_mv | 629 | 65.5% |
 | analysis_method | 0 | 0.0% |
 
 #### cell_context
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
-| expression_system | 907 | 95.7% |
-| cell_type | 781 | 82.4% |
+| expression_system | 919 | 95.7% |
+| cell_type | 785 | 81.8% |
 
 #### environment
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
-| temperature_c | 85 | 9.0% |
-| ph | 547 | 57.7% |
-| bath_solution | 735 | 77.5% |
-| pipette_solution | 650 | 68.6% |
+| temperature_c | 85 | 8.9% |
+| ph | 551 | 57.4% |
+| bath_solution | 747 | 77.8% |
+| pipette_solution | 662 | 69.0% |
 
 #### analysis
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
-| n | 503 | 53.1% |
+| n | 509 | 53.0% |
 | n_cells | 0 | 0.0% |
 
 #### provenance
 
 | Field | Rows | % of biophysics rows |
 |---|---|---|
-| measurement_id | 948 | 100.0% |
-| evidence_quote | 948 | 100.0% |
-| evidence_location | 946 | 99.8% |
-| confidence | 948 | 100.0% |
-| condition_key | 948 | 100.0% |
+| measurement_id | 960 | 100.0% |
+| evidence_quote | 960 | 100.0% |
+| evidence_location | 958 | 99.8% |
+| confidence | 960 | 100.0% |
+| condition_key | 960 | 100.0% |
 
 ### 11. Condition keys
 
-- Rows: **948**, unique: **939**
-- Structured (underscore, no spaces): **569**; prose-style (contains spaces): **379**
+- Rows: **960**, unique: **951**
+- Structured (underscore, no spaces): **573**; prose-style (contains spaces): **387**
 
-Corpus size used for every percentage above: 948 biophysics rows.
+Corpus size used for every percentage above: 960 biophysics rows.
 
 ## 5. What to do next (proposed, in order)
 

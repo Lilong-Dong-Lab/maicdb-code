@@ -9,39 +9,40 @@ derivation, or a hand-written line added to the section fails the suite
 instead of leaving a silently stale document. The narrative findings above §4 are not
 generated; only the figures their tests name here are pinned.
 
-Real-data provenance (data-v1.0 artifact, read-only). Census SQL, re-runnable
+Real-data provenance (data-v1.1 artifact, read-only). Census SQL, re-runnable
 against ``db/maicdb.sqlite``:
 
     SELECT COUNT(*) FROM channel;                  --  12
-    SELECT COUNT(*) FROM publication;              -- 211
-    SELECT COUNT(*) FROM biophysics_experiment;    -- 948
-    SELECT COUNT(*) FROM bioactivity;              -- 136
-    SELECT COUNT(*) FROM unmapped_measurement;     --  16
-    SELECT COUNT(*) FROM variant;                  -- 125
+    SELECT COUNT(*) FROM publication;              -- 216
+    SELECT COUNT(*) FROM biophysics_experiment;    -- 960
+    SELECT COUNT(*) FROM bioactivity;              -- 137
+    SELECT COUNT(*) FROM unmapped_measurement;     --  28
+    SELECT COUNT(*) FROM variant;                  -- 133
     SELECT COUNT(*) FROM compound;                 --  86
     SELECT COUNT(*) FROM external_reference;       --   6
     SELECT confidence, COUNT(*) FROM biophysics_experiment GROUP BY 1;
-                                                   -- high 537, medium 400, low 11
-    SELECT COUNT(DISTINCT condition_key) FROM biophysics_experiment;  -- 939
+                                                   -- high 549, medium 400, low 11
+    SELECT COUNT(DISTINCT condition_key) FROM biophysics_experiment;  -- 951
     SELECT p50_unit, COUNT(*) FROM biophysics_experiment
-      WHERE p50_unit IS NOT NULL GROUP BY 1;       -- mmHg 148, psi 4
+      WHERE p50_unit IS NOT NULL GROUP BY 1;       -- mmHg 155, psi 4
     SELECT t50_unit, COUNT(*) FROM biophysics_experiment
       WHERE t50_unit IS NOT NULL GROUP BY 1;       -- mN/m 26, dyn/cm 15
-    SELECT COUNT(temperature_c) FROM biophysics_experiment;   --  85 (9.0%)
+    SELECT COUNT(temperature_c) FROM biophysics_experiment;   --  85 (8.9%)
     SELECT MIN(year), MAX(year) FROM publication;  -- 1986, 2026
 
 Journal counts are post-normalisation by the script's alias table (J Biol
 Chem ≡ Journal of Biological Chemistry, PNAS ≡ its expanded form, …). The
-JBC total is 22 = 12 (`Journal of Biological Chemistry`) + 10 (`J Biol
-Chem`); the 19-paper string is `The Journal of General Physiology`, a
-different journal. Normalisation leaves 56 canonical names.
+JBC total is 24 = 13 (`Journal of Biological Chemistry`) + 11 (`J Biol
+Chem`); the canonical JGP string is `The Journal of General Physiology`
+(21 = 19 + `J Gen Physiol` + `Journal of General Physiology`, two alias
+spellings), a different journal. Normalisation leaves 57 canonical names.
 
 MIMIC tier conjunctions (docs/mimic/mimic-v0.1.md §4/§10), same artifact:
 
-    -- provenance 948; +recording_mode 909; L1 808; L2 676
-    -- +n 335; +temperature_c 23; +ph/bath/pipette/holding 11 (L3 complete)
-    -- L1 ∩ temperature_c 53; L1/L2 excluding stimulus_type='OTHER' 578/467
-    -- evidence_location non-NULL 946; expression_system maxlen 296, >90 444
+    -- provenance 960; +recording_mode 921; L1 820; L2 680
+    -- +n 338; +temperature_c 23; +ph/bath/pipette/holding 11 (L3 complete)
+    -- L1 ∩ temperature_c 53; L1/L2 excluding stimulus_type='OTHER' 589/470
+    -- evidence_location non-NULL 958; expression_system maxlen 296, >90 455
 """
 
 import json
@@ -126,13 +127,13 @@ def test_corpus_counts_and_scale(tmp_path):
     home page renders)."""
     stats = run_stats(tmp_path / "stats.json")
     assert stats["counts"] == {
-        "biophysics_experiment": 948,
-        "bioactivity": 136,
-        "unmapped_measurement": 16,
+        "biophysics_experiment": 960,
+        "bioactivity": 137,
+        "unmapped_measurement": 28,
         "channel": 12,
-        "publication": 211,
+        "publication": 216,
         "compound": 86,
-        "variant": 125,
+        "variant": 133,
         "external_reference": 6,
     }
     assert stats["year_range"] == [1986, 2026]
@@ -143,20 +144,20 @@ def test_publication_bibliometrics(tmp_path):
     """Journal normalisation collapses the raw spelling variants; rows per
     paper counts both fact tables once each."""
     stats = run_stats(tmp_path / "stats.json")
-    assert stats["journals_raw_distinct"] == 67
-    assert stats["journals_canonical_distinct"] == 56
+    assert stats["journals_raw_distinct"] == 69
+    assert stats["journals_canonical_distinct"] == 57
     assert stats["top_journals"][0] == [
-        "Proceedings of the National Academy of Sciences",
-        23,
+        "Journal of Biological Chemistry",
+        24,
     ]
-    assert stats["top_journals"][1] == ["Journal of Biological Chemistry", 22]
+    assert stats["top_journals"][1] == ["Proceedings of the National Academy of Sciences", 24]
     # seven variant groups, each with >= 2 distinct raw spellings
     assert len(stats["journal_variant_groups"]) == 7
     for _canon, variants in stats["journal_variant_groups"]:
         assert len(variants) >= 2
     rp = stats["rows_per_publication"]
-    assert rp["total_rows"] == 948 + 136
-    assert rp["with_zero_rows"] == 8
+    assert rp["total_rows"] == 960 + 137
+    assert rp["with_zero_rows"] == 9
     assert rp["max"] == 32
 
 
@@ -165,13 +166,13 @@ def test_confidence_and_condition_key_dialects(tmp_path):
     """Confidence distribution and the two condition-key dialects (F6 in the
     research note): structured underscore keys vs prose keys."""
     stats = run_stats(tmp_path / "stats.json")
-    assert stats["confidence"] == [["high", 537], ["medium", 400], ["low", 11]]
+    assert stats["confidence"] == [["high", 549], ["medium", 400], ["low", 11]]
     ck = stats["condition_keys"]
     assert ck == {
-        "rows": 948,
-        "unique": 939,
-        "underscore_style": 569,
-        "prose_style": 379,
+        "rows": 960,
+        "unique": 951,
+        "underscore_style": 573,
+        "prose_style": 387,
     }
 
 
@@ -180,10 +181,10 @@ def test_units_and_evidence_locations(tmp_path):
     """Unit spellings per parameter (F3) and the evidence-location taxonomy
     (F5) — both are inputs to the MIMIC draft."""
     stats = run_stats(tmp_path / "stats.json")
-    assert stats["units"]["p50"] == [["mmHg", 148], ["psi", 4]]
+    assert stats["units"]["p50"] == [["mmHg", 155], ["psi", 4]]
     assert stats["units"]["t50"] == [["mN/m", 26], ["dyn/cm", 15]]
     assert stats["evidence_locations"] == [
-        ["results", 779],
+        ["results", 792],
         ["table", 122],
         ["figure legend", 101],
         ["abstract", 45],
@@ -205,9 +206,9 @@ def test_mimic_coverage_snapshot(tmp_path):
         for group in stats["mimic_coverage"].values()
         for field, rows, pct in group
     }
-    assert coverage["temperature_c"] == [85, 9.0]
-    assert coverage["n"] == [503, 53.1]
-    assert coverage["condition_key"] == [948, 100.0]
+    assert coverage["temperature_c"] == [85, 8.9]
+    assert coverage["n"] == [509, 53.0]
+    assert coverage["condition_key"] == [960, 100.0]
     zero = sorted(f for f, (rows, _pct) in coverage.items() if rows == 0)
     assert zero == [
         "analysis_method",
@@ -271,7 +272,7 @@ def test_embedded_report_matches_generated_output():
     assert embedded in prepended
     assert _section4(prepended) != embedded
     # 3. a one-number drift inside the block.
-    drift = doc.replace("| 948 |", "| 949 |", 1)
+    drift = doc.replace("| 960 |", "| 961 |", 1)
     assert drift != doc
     assert _section4(drift) != embedded
 
@@ -291,11 +292,11 @@ def test_mimic_tier_and_vocabulary_census():
     l1 = f"{prov} and recording_mode is not null and stimulus_type is not null"
     l2 = f"{l1} and cell_type is not null and expression_system is not null"
     base = "select count(*) from biophysics_experiment where "
-    assert _scalar(base + prov) == 948
-    assert _scalar(base + prov + " and recording_mode is not null") == 909
-    assert _scalar(base + l1) == 808
-    assert _scalar(base + l2) == 676
-    assert _scalar(base + l2 + " and n is not null") == 335
+    assert _scalar(base + prov) == 960
+    assert _scalar(base + prov + " and recording_mode is not null") == 921
+    assert _scalar(base + l1) == 820
+    assert _scalar(base + l2) == 680
+    assert _scalar(base + l2 + " and n is not null") == 338
     assert _scalar(base + l2 + " and n is not null and temperature_c is not null") == 23
     l3 = (
         l2
@@ -306,16 +307,16 @@ def test_mimic_tier_and_vocabulary_census():
     assert _scalar(base + l3) == 11
     # temperature as an L1 counterfactual (draft §4), and the OTHER-free view
     assert _scalar(base + l1 + " and temperature_c is not null") == 53
-    assert _scalar(base + l1 + " and stimulus_type != 'OTHER'") == 578
-    assert _scalar(base + l2 + " and stimulus_type != 'OTHER'") == 467
-    # §6.1 counts (OSMOTIC has zero rows at data-v1.0 and so is absent here)
+    assert _scalar(base + l1 + " and stimulus_type != 'OTHER'") == 589
+    assert _scalar(base + l2 + " and stimulus_type != 'OTHER'") == 470
+    # §6.1 counts (OSMOTIC has zero rows and so is absent here)
     assert _pairs(
         "select coalesce(stimulus_type, '(null)'), count(*) "
         "from biophysics_experiment group by 1"
     ) == {
-        "PRESSURE_CLAMP": 314,
-        "SUCTION": 110,
-        "OTHER": 238,
+        "PRESSURE_CLAMP": 317,
+        "SUCTION": 118,
+        "OTHER": 239,
         "(null)": 124,
         "INDENTATION": 95,
         "TOUCH": 22,
@@ -331,7 +332,7 @@ def test_mimic_tier_and_vocabulary_census():
     assert _scalar(
         "select count(*) from biophysics_experiment "
         "where length(expression_system) > 90"
-    ) == 444
+    ) == 455
     assert _scalar(
         "select count(evidence_location) from biophysics_experiment"
-    ) == 946
+    ) == 958

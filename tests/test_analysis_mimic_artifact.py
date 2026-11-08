@@ -49,9 +49,10 @@ class TestInputCensuses:
     def test_applicability_trigger_counts(self, engine):
         """Census (each count direct SQL): stimulus_type IN (INDENTATION,
         TOUCH, SHEAR_STRESS) → 129; = INDENTATION → 95; recording_mode IN
-        the 6 pipette modes → 778 (222 CELL_ATTACHED + 208 INSIDE_OUT +
-        50 OUTSIDE_OUT + 289 WHOLE_CELL + 4 PERFORATED_PATCH +
-        5 PLANAR_PATCH); NULL recording_mode → 39. Cross-foot with the
+        the 6 pipette modes → 781 (+3 v1.1: INSIDE_OUT ×2, CELL_ATTACHED
+        ×1 on the osca-JBC/jgp rows; per-mode: 223 CELL_ATTACHED + 210
+        INSIDE_OUT + 50 OUTSIDE_OUT + 289 WHOLE_CELL + 4 PERFORATED_PATCH
+        + 5 PLANAR_PATCH); NULL recording_mode → 39. Cross-foot with the
         applicable-count distribution below: NULL 39 + OTHER 12 = the 51
         records whose applicable count is 12."""
         with engine.connect() as conn:
@@ -73,50 +74,52 @@ class TestInputCensuses:
                 "SELECT COUNT(*) FROM biophysics_experiment WHERE "
                 "recording_mode IS NULL"
             )
-        assert (moving, indent, pipette, null_mode) == (129, 95, 778, 39)
+        assert (moving, indent, pipette, null_mode) == (129, 95, 781, 39)
 
     def test_field_population_matches_spec_census(self, scores):
         """Cross-check against spec §3 (raw-SQL census there): reported
         field counts must equal the §3 populated counts where the §3
         census used the same column (n_cells here is the COALESCED value:
-        legacy n text 503 parsed minus 1 unparsed '>4' = 502)."""
+        legacy n text 509 non-NULL minus 4 unparsed ('>4', three '>5')
+        = 505 parsed)."""
         frep: Counter[str] = Counter()
         for s in scores:
             for name, st in s.fields.items():
                 if st.status == "reported":
                     frep[name] += 1
-        assert frep["recording_mode"] == 909
-        assert frep["stimulus_type"] == 824
+        assert frep["recording_mode"] == 921
+        assert frep["stimulus_type"] == 836
         assert frep["temperature_c"] == 85
-        assert frep["n_cells"] == 502
+        assert frep["n_cells"] == 505
 
 
 class TestScoreAggregatePins:
     """Module-output determinism pins (inputs pinned above)."""
 
     def test_score_aggregates(self, scores):
-        assert len(scores) == 948
+        assert len(scores) == 960
         vals = [s.score for s in scores]
-        assert statistics.mean(vals) == pytest.approx(0.421838, abs=5e-7)
+        assert statistics.mean(vals) == pytest.approx(0.421020, abs=5e-7)
         assert statistics.median(vals) == pytest.approx(0.4375)
         assert max(vals) == pytest.approx(0.625)
         assert min(vals) == pytest.approx(0.0833333, abs=5e-7)
         # the honest headline: NO record is fully MIMIC-compliant
         assert sum(1 for v in vals if v == 1.0) == 0
-        assert sum(1 for v in vals if v >= 0.5) == 382
-        assert sum(1 for v in vals if v < 0.5) == 566
-        assert sum(1 for v in vals if v < 0.3) == 112
+        assert sum(1 for v in vals if v >= 0.5) == 385
+        assert sum(1 for v in vals if v < 0.5) == 575
+        assert sum(1 for v in vals if v < 0.3) == 120
 
     def test_applicability_distribution(self, scores):
-        """Applicable-count distribution over the 948 rows; cross-foots
-        with the trigger census: 660 at 16 = the dominant
-        non-moving-stimulus × pipette-mode combination."""
+        """Applicable-count distribution over the 960 rows; cross-foots
+        with the trigger census: 660 + 3 at 16 = the dominant
+        non-moving-stimulus × pipette-mode combination (+3 v1.1
+        pipette-mode rows)."""
         dist = Counter(s.applicable for s in scores)
         assert dict(sorted(dist.items())) == {
             12: 51,
-            14: 108,
+            14: 117,
             15: 11,
-            16: 660,
+            16: 663,
             17: 23,
             19: 95,
         }
@@ -128,12 +131,12 @@ class TestScoreAggregatePins:
                 a = cat.get(c, (0, 0))
                 cat[c] = (a[0] + rep, a[1] + app)
         assert cat == {
-            "stimulus": (824, 3163),
-            "recording": (1437, 3520),
-            "cell_context": (1688, 1896),
-            "environment": (1927, 3622),
-            "analysis": (502, 2844),
+            "stimulus": (836, 3199),
+            "recording": (1450, 3559),
+            "cell_context": (1704, 1920),
+            "environment": (1946, 3661),
+            "analysis": (505, 2880),
         }
         # cross-foot
-        assert sum(v[0] for v in cat.values()) == 6378
-        assert sum(v[1] for v in cat.values()) == 15045
+        assert sum(v[0] for v in cat.values()) == 6441
+        assert sum(v[1] for v in cat.values()) == 15219

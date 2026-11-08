@@ -192,13 +192,14 @@ def test_db_pages_exist_in_both_locales(tmp_path):
 @requires_db
 def test_db_p50_unit_buckets_never_merged(tmp_path):
     """Unit-bucket semantics on real data: MscL's P50 lives in TWO
-    buckets — mmHg (17 rows) and psi (4 rows) — rendered as two table
-    rows, never merged (issue #13; census SQL re-runnable read-only):
+    buckets — mmHg (24 rows, +7 Duru 2026) and psi (4 rows) — rendered as
+    two table rows, never merged (issue #13; census SQL re-runnable
+    read-only):
 
         SELECT c.gene_symbol, e.p50_unit, COUNT(*)
           FROM biophysics_experiment e JOIN channel c ON e.channel_id=c.id
          WHERE e.p50_value IS NOT NULL GROUP BY 1, 2 ORDER BY 1, 2;
-        → (…), ('MscL', 'mmHg', 17), ('MscL', 'psi', 4), (…)
+        → (…), ('MscL', 'mmHg', 24), ('MscL', 'psi', 4), (…)
 
     PIEZO1's single mmHg bucket carries its 56 rows (spec §4 pin)."""
     out = tmp_path / "out"
@@ -214,7 +215,7 @@ def test_db_p50_unit_buckets_never_merged(tmp_path):
         if unit:
             count = re.search(r"<summary>(\d+)</summary>", row)
             units[unit] = int(count.group(1)) if count else None
-    assert units == {"mmHg": 17, "psi": 4}
+    assert units == {"mmHg": 24, "psi": 4}
     # the unit-bucket rule is repo-side: rows demonstrate it, no
     # disclosure sentence renders
     assert "Buckets are split by stored unit" not in html
@@ -315,13 +316,13 @@ def test_db_parameter_jsons_are_the_library_export_verbatim(tmp_path):
 @requires_db
 def test_db_parameter_index_counts_pinned_to_census(tmp_path):
     """``index.json`` gains a ``parameters`` list (name, label, n_rows);
-    ``n_rows`` = the comparison's per-bucket counts summed — the spec §4
-    parameter census, re-derived read-only against db/maicdb.sqlite
-    2026-11-02 (this ticket):
+    ``n_rows`` = the comparison's per-bucket counts summed — the §4
+    parameter census, re-derived read-only against db/maicdb.sqlite at
+    data-v1.1 (2026-11-08):
 
         SELECT COUNT(*) FROM biophysics_experiment
-         WHERE conductance_ps IS NOT NULL;            -- 263
-         WHERE p50_value IS NOT NULL;                 -- 152
+         WHERE conductance_ps IS NOT NULL;            -- 265 (+2 OSCA1.2)
+         WHERE p50_value IS NOT NULL;                 -- 159 (+7 Duru)
          WHERE ion_selectivity_ratio IS NOT NULL;     --  66
          WHERE osmotic_threshold_value IS NOT NULL;   --   3
 
@@ -336,8 +337,8 @@ def test_db_parameter_index_counts_pinned_to_census(tmp_path):
     params = index["parameters"]
     assert [p["name"] for p in params] == list(PARAMETERS)
     by_name = {p["name"]: p for p in params}
-    assert by_name["conductance"]["n_rows"] == 263
-    assert by_name["p50"]["n_rows"] == 152
+    assert by_name["conductance"]["n_rows"] == 265
+    assert by_name["p50"]["n_rows"] == 159
     assert by_name["ion_selectivity_ratio"]["n_rows"] == 66
     assert by_name["osmotic_threshold"]["n_rows"] == 3
     for name, spec in PARAMETERS.items():

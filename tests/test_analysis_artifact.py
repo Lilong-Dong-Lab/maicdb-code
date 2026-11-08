@@ -1,7 +1,7 @@
 """Artifact-gated pins for the P1 harmonization layer.
 
 Every expected number below is a census against the published artifact
-(``db/maicdb.sqlite``, tag ``v1.0.0-data``); the census SQL that
+(``db/maicdb.sqlite``, freeze tag ``data-v1.1``); the census SQL that
 re-derives it is quoted in the test docstring. Per CLAUDE.md, pins against
 the published artifact cite the census SQL — no transcribed values without
 a re-derivation path.
@@ -80,8 +80,9 @@ class TestReplicateCoalescePins:
     def test_coalesce_buckets(self, engine):
         """Census (bucket = coalesce over every biophysics_experiment row):
         n_cells IS NOT NULL → 0 rows (so the "n_cells" bucket never occurs);
-        n text integer-only → 487; n text range-only → 15; n text other → 1
-        (MAIC:BX:00850, '>4'); n text empty/NULL → 445. Total 948."""
+        n text integer-only → 490; n text range-only → 15; n text other → 4
+        (MAIC:BX:00199/00200/00201 '>5' — Duru 2026 additions — and
+        MAIC:BX:00862, '>4'); n text empty/NULL → 451. Total 960."""
         with engine.connect() as conn:
             rows = conn.execute(
                 text("SELECT n_cells, n FROM biophysics_experiment")
@@ -91,10 +92,10 @@ class TestReplicateCoalescePins:
             rep = coalesce_replicates(n_cells, n_text)
             buckets[rep.source] = buckets.get(rep.source, 0) + 1
         assert buckets == {
-            "n_int": 487,
+            "n_int": 490,
             "n_range": 15,
-            "n_unparsed": 1,
-            "none": 445,
+            "n_unparsed": 4,
+            "none": 451,
         }
 
 
@@ -102,9 +103,9 @@ class TestPActivityPins:
     def test_pactivity_buckets(self, engine):
         """Census (bucket = p_activity over every bioactivity row joined to
         compound.molecular_weight): SELECT activity_units, COUNT(*) FROM
-        bioactivity GROUP BY 1 → nM 39, µM 75, μM 12, mM 2 (molar 128),
-        '-log M' 1, μg/ml 4 (all silica nanoparticles with NULL
-        molecular_weight), NULL 3. Total 136."""
+        bioactivity GROUP BY 1 → nM 39, µM 76, μM 12, mM 2 (molar 129 —
+        +1: ASIC2a JBC amiloride IC50), '-log M' 1, μg/ml 4 (all silica
+        nanoparticles with NULL molecular_weight), NULL 3. Total 137."""
         with engine.connect() as conn:
             rows = conn.execute(
                 text(
@@ -118,7 +119,7 @@ class TestPActivityPins:
             pa = p_activity(value, unit, mw)
             buckets[pa.basis] = buckets.get(pa.basis, 0) + 1
         assert buckets == {
-            "molar": 128,
+            "molar": 129,
             "already_plog": 1,
             "mass_no_mw": 4,
             "missing_value": 3,
@@ -129,19 +130,21 @@ class TestSameFitJoinPins:
     def test_marker_hits(self, engine):
         """Census: slope-only rows (slope IS NOT NULL, p50/t50/x50 all NULL)
         = 13; of these, 7 carry the same-fit marker (English "same … fit"
-        or Chinese "同一拟合"): MAIC:BX:00110 (t50), 00147 (ambiguous),
-        00197 (p50), 00749 (p50), 00785 (p50), 00793 (t50), 00806 (p50)."""
+        or Chinese "同一拟合"): MAIC:BX:00111 (t50), 00148 (ambiguous),
+        00198 (p50), 00761 (p50), 00797 (p50), 00805 (t50), 00818 (p50)
+        (v1.1 renumbering: +1 below the Duru 2026 insertion block
+        00199–00206, +12 above it — same rows)."""
         hits = same_fit_marker_hits(engine)
         assert len(hits) == 7
         by_id = {h.maicdb_id: h.kind for h in hits}
         assert by_id == {
-            "MAIC:BX:00110": "t50",
-            "MAIC:BX:00147": "ambiguous",
-            "MAIC:BX:00197": "p50",
-            "MAIC:BX:00749": "p50",
-            "MAIC:BX:00785": "p50",
-            "MAIC:BX:00793": "t50",
-            "MAIC:BX:00806": "p50",
+            "MAIC:BX:00111": "t50",
+            "MAIC:BX:00148": "ambiguous",
+            "MAIC:BX:00198": "p50",
+            "MAIC:BX:00761": "p50",
+            "MAIC:BX:00797": "p50",
+            "MAIC:BX:00805": "t50",
+            "MAIC:BX:00818": "p50",
         }
 
     def test_candidates_and_narrowing(self, engine):
@@ -150,8 +153,8 @@ class TestSameFitJoinPins:
         token-overlap narrowing selects 6 pairs — the live result of the
         deterministic rule in joins.py (narrow_by_condition_key), pinned
         so any change in the rule shows up as a test delta:
-        00197→00190 (p50), 00749→00748 (p50), 00785→00784 (p50),
-        00806→00799 (p50), 00110→00109 (t50), 00793→00792 (t50)."""
+        00198→00191 (p50), 00761→00760 (p50), 00797→00796 (p50),
+        00818→00811 (p50), 00111→00110 (t50), 00805→00804 (t50)."""
         candidates = same_fit_candidates(engine)
         assert len(candidates) == 18
         with engine.connect() as conn:
@@ -166,11 +169,11 @@ class TestSameFitJoinPins:
             (c.slope_maicdb_id, c.threshold_maicdb_id, c.kind) for c in narrowed
         )
         assert pairs == [
-            ("MAIC:BX:00110", "MAIC:BX:00109", "t50"),
-            ("MAIC:BX:00197", "MAIC:BX:00190", "p50"),
-            ("MAIC:BX:00749", "MAIC:BX:00748", "p50"),
-            ("MAIC:BX:00785", "MAIC:BX:00784", "p50"),
-            ("MAIC:BX:00793", "MAIC:BX:00792", "t50"),
-            ("MAIC:BX:00806", "MAIC:BX:00799", "p50"),
+            ("MAIC:BX:00111", "MAIC:BX:00110", "t50"),
+            ("MAIC:BX:00198", "MAIC:BX:00191", "p50"),
+            ("MAIC:BX:00761", "MAIC:BX:00760", "p50"),
+            ("MAIC:BX:00797", "MAIC:BX:00796", "p50"),
+            ("MAIC:BX:00805", "MAIC:BX:00804", "t50"),
+            ("MAIC:BX:00818", "MAIC:BX:00811", "p50"),
         ]
         assert all(c.token_overlap is not None and c.token_overlap > 0 for c in narrowed)

@@ -245,10 +245,10 @@ def test_all_nine_recording_modes_present(tmp_path):
 
 @requires_vault
 def test_migration_values_land_typed(tmp_path):
-    """The 130 adjudicated migrations land in typed columns (no silent NULLs):
-    isr 66 + ca_permeability 4 + fold-shift 23 + delta_p50-gap 12 (nm drifts
+    """The 131 adjudicated migrations land in typed columns (no silent NULLs):
+    isr 66 + ca_permeability 4 + fold-shift 24 + delta_p50-gap 12 (nm drifts
     into the shift pair) + rise 13 + thermal 9 + osmotic 3; the card's
-    delta_p50_value carries the 16 normal-routed rows."""
+    delta_p50_value carries the 17 normal-routed rows."""
     import sqlite3
     out = tmp_path / "mig.sqlite"
     load_vault(VAULT, out, require_tag=None)
@@ -262,7 +262,7 @@ def test_migration_values_land_typed(tmp_path):
     assert got == {"ion_selectivity_ratio": 66, "ca_permeability": 4,
                    "threshold_fold_shift_value": 36,  # 24 fold-shift + 12 nm drifts (v1.1 +1 Duru)
                    "macroscopic_rise_time_ms": 13, "thermal_threshold_c": 9,
-                   "osmotic_threshold_value": 3, "delta_p50_value": 17}  # +1 normal-route Duru delta_p50
+                   "osmotic_threshold_value": 3, "delta_p50_value": 17}  # +1 normal-route TMEM63B JGP row (OSCA-EX-00097, 10.1085/jgp.202614003)
 
 
 @requires_vault

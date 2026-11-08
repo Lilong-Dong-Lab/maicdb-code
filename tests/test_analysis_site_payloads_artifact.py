@@ -13,7 +13,7 @@ Two pin kinds (the P3/P5 convention):
   SERIALIZED payloads carry those numbers unchanged, so a page and its
   module output cannot disagree).
 
-All numbers derived on ``data-v1.0@5a8ff0ed5cac``, 2026-11-06, by
+All numbers derived on ``data-v1.1@037c841f4832``, 2026-11-08, by
 execution of ``analysis_payloads`` against the published artifact.
 """
 
@@ -71,7 +71,7 @@ def test_all_payloads_share_the_freeze_tag(payloads, engine):
         tag = conn.execute(
             text("SELECT value FROM db_meta WHERE key = 'data_freeze_tag'")
         ).scalar()
-    assert tag == "data-v1.0@5a8ff0ed5cac"
+    assert tag == "data-v1.1@037c841f4832"
     assert {p["data_freeze_tag"] for p in payloads.values()} == {tag}
 
 
@@ -97,12 +97,12 @@ def test_audit_payload_census(payloads, engine):
         n = conn.execute(
             text("SELECT COUNT(*) FROM biophysics_experiment")
         ).scalar()
-    assert n == 948  # census: SELECT COUNT(*) FROM biophysics_experiment
-    assert audit["n_records"] == n == 948
+    assert n == 960  # census: SELECT COUNT(*) FROM biophysics_experiment
+    assert audit["n_records"] == n == 960
     # module-output determinism pin: the mean per-record score (inputs —
     # join coverage, applicable counts — are pinned by
     # test_analysis_audit_artifact.py)
-    assert audit["mean_score"] == pytest.approx(0.42184, abs=1e-4)
+    assert audit["mean_score"] == pytest.approx(0.42102, abs=1e-4)
     # Σ field totals cross-check against the scorer itself
     scores = score_all(engine)
     assert sum(c["reported"] for c in audit["field_totals"].values()) == sum(
@@ -131,12 +131,12 @@ def test_audit_payload_keeps_the_compliance_property(payloads):
 
 @requires_db
 def test_badge_blocks_cross_check_the_scorer(payloads, blocks, engine):
-    """12 blocks (one per channel), Σ n_records = 948 = the record
+    """12 blocks (one per channel), Σ n_records = 960 = the record
     census, and the Σ reported/applicable totals equal the scorer's
     own — the field-level badge cannot invent or lose a count."""
     scores = score_all(engine)
     assert len(blocks) == 12
-    assert sum(b["n_records"] for b in blocks.values()) == 948
+    assert sum(b["n_records"] for b in blocks.values()) == 960
     assert sum(b["reported"] for b in blocks.values()) == sum(
         s.reported for s in scores
     )
@@ -214,7 +214,7 @@ def test_atlas_payload_census(payloads, engine):
     # matrix ↔ headline identity: the counts are derived FROM the matrix
     assert len(at["matrix"]) == at["n_cells"]
     assert len(at["selectivity"]) == 66
-    assert len(at["delta_p50"]) == 16
+    assert len(at["delta_p50"]) == 17
     # selectivity rows are a subset surface of the matrix compounds
     assert {r["compound_name"] for r in at["selectivity"]} <= {
         r["compound_name"] for r in at["matrix"]
@@ -248,20 +248,20 @@ def test_biophysics_payload_census(payloads):
 @requires_db
 def test_trends_payload_census(payloads):
     """Row counts and the year-series totals (module-output pins; the
-    P6 artifact file owns the censuses). Σ k over years is 184, NOT the
-    211-publication census: years without a resolvable publication year
+    P6 artifact file owns the censuses). Σ k over years is 188, NOT the
+    216-publication census: years without a resolvable publication year
     never enter the series and a publication counts once per year it
     appears in (the disclosed not-additive rule, P6 module docstring)."""
     tr = payloads["trends"]
     tot = tr["pubs_per_year_total"]
     assert len(tot) == 33
-    assert sum(r["k"] for r in tot) == 184
+    assert sum(r["k"] for r in tot) == 188
     assert (tot[0]["year"], tot[0]["k"]) == (1986, 1)
-    assert (tot[-1]["year"], tot[-1]["k"]) == (2026, 2)
+    assert (tot[-1]["year"], tot[-1]["k"]) == (2026, 6)
     assert len(tr["parameter_adoption"]) == 561
     assert len({r["parameter"] for r in tr["parameter_adoption"]}) == 17
     assert len(tr["assay_drift"]) == 330
-    assert len(tr["model_system_drift"]) == 253
+    assert len(tr["model_system_drift"]) == 258
 
 
 # --------------------------------------------------------------------------- #
@@ -296,7 +296,7 @@ def test_build_emits_analysis_pages_payloads_and_figures(tmp_path):
     audit_html = (site / "analysis" / "audit" / "index.html").read_text(
         encoding="utf-8"
     )
-    assert "data-v1.0@5a8ff0ed5cac" in audit_html
+    assert "data-v1.1@037c841f4832" in audit_html
 
 
 @requires_db
