@@ -1,6 +1,6 @@
 {
-  "vault_head": "037c841f4832a46c05c03ae6efa2e9ba25291e3f",
-  "freeze_tag": "data-v1.1",
+  "vault_head": "dd49d8e65ac1d45d7c30f93e450ceac50595572c",
+  "freeze_tag": "data-v1.2",
   "schema_version": "0.2.0",
   "counts": {
     "publication": 216,

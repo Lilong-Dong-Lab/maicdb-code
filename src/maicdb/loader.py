@@ -1,7 +1,9 @@
 """Loader: map the vault's frozen curation corpus onto the formal schema.
 
 Implements ``docs/loader-mapping.md`` (spec v0.2, all decisions DECIDED
-2026-09-01/02; re-targeted to the vault ``data-v1.1`` freeze 2026-11-08):
+2026-09-01/02; re-targeted to the vault ``data-v1.1`` freeze 2026-11-08,
+then to ``data-v1.2`` 2026-11-08 — a zero-row retarget: identical 1125-row
+corpus, delta = additive piezo1/piezo2 corroboration artifacts only):
 produces ``maicdb.sqlite`` + a byte-stable ``maicdb.sql`` dump + a load
 manifest with conservation asserts.
 
@@ -62,7 +64,7 @@ __all__ = ["load_vault", "main"]
 #: The data-freeze epoch pinned into every row's created_at for determinism.
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
-FREEZE_TAG = "data-v1.1"
+FREEZE_TAG = "data-v1.2"
 SCHEMA_VERSION = "0.2.0"
 
 LAYERS = ["piezo1", "piezo2", "trpv4", "asic", "mscs", "mscl", "osca",

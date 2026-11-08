@@ -13,7 +13,8 @@ Two pin kinds (the P3/P5 convention):
   SERIALIZED payloads carry those numbers unchanged, so a page and its
   module output cannot disagree).
 
-All numbers derived on ``data-v1.1@037c841f4832``, 2026-11-08, by
+All numbers derived on ``data-v1.2@dd49d8e65ac1`` (a zero-row retarget of
+data-v1.1 — the v1.1-derived census is unchanged), 2026-11-08, by
 execution of ``analysis_payloads`` against the published artifact.
 """
 
@@ -71,7 +72,7 @@ def test_all_payloads_share_the_freeze_tag(payloads, engine):
         tag = conn.execute(
             text("SELECT value FROM db_meta WHERE key = 'data_freeze_tag'")
         ).scalar()
-    assert tag == "data-v1.1@037c841f4832"
+    assert tag == "data-v1.2@dd49d8e65ac1"
     assert {p["data_freeze_tag"] for p in payloads.values()} == {tag}
 
 
@@ -296,7 +297,7 @@ def test_build_emits_analysis_pages_payloads_and_figures(tmp_path):
     audit_html = (site / "analysis" / "audit" / "index.html").read_text(
         encoding="utf-8"
     )
-    assert "data-v1.1@037c841f4832" in audit_html
+    assert "data-v1.2@dd49d8e65ac1" in audit_html
 
 
 @requires_db

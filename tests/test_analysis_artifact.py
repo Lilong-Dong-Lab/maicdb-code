@@ -1,7 +1,8 @@
 """Artifact-gated pins for the P1 harmonization layer.
 
 Every expected number below is a census against the published artifact
-(``db/maicdb.sqlite``, freeze tag ``data-v1.1``); the census SQL that
+(``db/maicdb.sqlite``, freeze tag ``data-v1.2`` — a zero-row retarget of
+data-v1.1, so the v1.1-derived census pins carry unchanged); the census SQL that
 re-derives it is quoted in the test docstring. Per CLAUDE.md, pins against
 the published artifact cite the census SQL — no transcribed values without
 a re-derivation path.

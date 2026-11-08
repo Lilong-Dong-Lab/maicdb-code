@@ -133,7 +133,8 @@ def test_channel_card_rows_carry_maicdb_id(engine):
     experiment's ``maicdb_id`` — a stable per-row reference key for the
     site data layer, independent of ``measurement_id`` attribution.
 
-    Pinned against the artifact (data-v1.1, vault head 037c841f):
+    Pinned against the artifact (data-v1.2 = data-v1.1 census unchanged,
+    vault head dd49d8e):
     ``SELECT e.maicdb_id FROM biophysics_experiment e WHERE
     e.measurement_id='PIEZO1-EX-00005'`` → ``MAIC:BX:00409`` (00397 at
     data-v1.0; the id sequence shifted +12 after the v1.1 insertion

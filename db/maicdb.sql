@@ -1535,7 +1535,7 @@ INSERT INTO "db_meta" VALUES('schema_version','0.2.0');
 INSERT INTO "db_meta" VALUES('license','CC-BY-4.0');
 INSERT INTO "db_meta" VALUES('release_date','2026-11-08');
 INSERT INTO "db_meta" VALUES('mimic_standard_version','v0.1-draft (MAICDB_Schema_Design §4.3)');
-INSERT INTO "db_meta" VALUES('data_freeze_tag','data-v1.1@037c841f4832');
+INSERT INTO "db_meta" VALUES('data_freeze_tag','data-v1.2@dd49d8e65ac1');
 INSERT INTO "db_meta" VALUES('vault_repository','Lilong-Dong-Lab/Project_DataBase_MAICDB');
 CREATE TABLE external_reference (
 	id INTEGER NOT NULL, 
