@@ -299,12 +299,14 @@ def verify_vault(vault: Path, require_tag: str | None) -> str:
     if require_tag:
         exists = subprocess.run(
             ["git", "-C", str(vault), "rev-parse", "--verify", f"refs/tags/{require_tag}"],
+            capture_output=True, text=True,
         ).returncode == 0
         if not exists:
             raise RuntimeError(f"tag {require_tag!r} not found in the vault")
         tagged = _git(vault, "rev-list", "-n", "1", require_tag)
         ancestor = subprocess.run(
             ["git", "-C", str(vault), "merge-base", "--is-ancestor", tagged, head],
+            capture_output=True, text=True,
         ).returncode == 0
         if not ancestor:
             raise RuntimeError(

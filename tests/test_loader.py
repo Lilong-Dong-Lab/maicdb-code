@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from maicdb.loader import (
+    FREEZE_TAG,
     GAP_KEEPS,
     UNIT_ENUMS,
     _convert,
@@ -192,10 +193,30 @@ def test_unit_enum_strictness():
 # Full-load tier — requires the vault
 # --------------------------------------------------------------------------- #
 @requires_vault
-def test_freeze_enforcement():
-    """A bogus tag must fail; the freeze contract is load-bearing."""
+def test_freeze_enforcement(capfd):
+    """A bogus tag must fail; the freeze contract is load-bearing.
+
+    The happy path must additionally be stdout/stderr-SILENT: pre-2026-11-09
+    the tag-existence probe (`git rev-parse --verify refs/tags/…`) ran
+    un-captured and leaked the annotated tag-OBJECT sha as loader stdout
+    line 1 (KNOWN-QUIRKS quirk 11 — fixed in the loader-hygiene round; the
+    merge-base probe shared the shape). Asserted on BOTH paths here, in
+    place (no new test function — suite pins stay put).
+
+    The fixture MUST be ``capfd``, not ``capsys``: the leak class is a child
+    ``git`` process writing to fd 1 (un-captured ``subprocess.run`` inherits
+    the fd) — Python-level capture cannot see it, and a ``capsys`` version of
+    these asserts passes even against the pre-fix loader (PR #85 gate R1
+    MINOR, empirically demonstrated). ``capfd`` guards at the fd level.
+    """
     with pytest.raises(RuntimeError):
         verify_vault(VAULT, "data-v9.9")
+    captured = capfd.readouterr()
+    assert captured.out == "" and captured.err == "", "bogus-tag path must not leak"
+    assert verify_vault(VAULT, FREEZE_TAG)  # happy path: returns HEAD sha
+    captured = capfd.readouterr()
+    assert captured.out == "" and captured.err == "", \
+        "verify_vault must be fully silent (quirk 11 leak fixed)"
 
 
 @requires_vault
