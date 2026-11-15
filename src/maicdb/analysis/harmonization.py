@@ -224,7 +224,8 @@ class ActivityRecord:
     compound_name: str
     gene_symbol: str
     family: str
-    activity_value: float  # as reported
+    activity_value: float | None  # as reported; NULL keeps the honest
+    # missing_value basis (0 rows at data-v1.2)
     activity_units: str | None  # as reported (NULL preserved)
     pa: PActivity
 
@@ -362,7 +363,7 @@ def harmonize(engine: Engine) -> HarmonizedCorpus:
                 )
             )
         for row in conn.execute(_BIOACTIVITY_SQL).mappings():
-            value = float(row["activity_value"])
+            value = row["activity_value"]
             units = row["activity_units"]
             bioactivity.append(
                 ActivityRecord(
@@ -372,6 +373,9 @@ def harmonize(engine: Engine) -> HarmonizedCorpus:
                     family=str(row["family"]),
                     activity_value=value,
                     activity_units=units,
+                    # value may be None: p_activity routes NULL to the
+                    # honest missing_value basis (0 rows at data-v1.2,
+                    # but never crash a future release on curation gaps)
                     pa=p_activity(value, units),
                 )
             )

@@ -72,7 +72,6 @@ from scipy import stats as sps
 from sqlalchemy.engine import Engine
 
 from maicdb.analysis.harmonization import P50Record, harmonize
-from maicdb.analysis.units import pressure_to_mmhg
 
 __all__ = [
     "KPA_PER_MMHG",
@@ -477,29 +476,26 @@ def boltzmann_demo(
     from maicdb.analysis.joins import narrow_by_condition_key
 
     corpus = harmonize(engine)
-    p50_of = {
-        r.maicdb_id: (r.p50_value, r.p50_unit) for r in corpus.p50
-    }
+    p50_of = {r.maicdb_id: r.p50_mmhg for r in corpus.p50}
     slope_of = {r.maicdb_id: r.slope for r in corpus.slope_rows}
     joined = narrow_by_condition_key(corpus.same_fit, condition_key_of)
     demo: list[dict[str, object]] = []
     for cand in joined:
         if cand.kind != "p50":
             continue
-        threshold = p50_of.get(cand.threshold_maicdb_id)
+        p50_mmhg = p50_of.get(cand.threshold_maicdb_id)
         slope = slope_of.get(cand.slope_maicdb_id)
-        if threshold is None or slope is None or slope == 0:
+        if p50_mmhg is None or slope is None or slope == 0:
             continue
-        converted = pressure_to_mmhg(*threshold)
         demo.append(
             {
                 "slope_maicdb_id": cand.slope_maicdb_id,
                 "threshold_maicdb_id": cand.threshold_maicdb_id,
                 "marker": cand.marker,
                 "token_overlap": cand.token_overlap,
-                "p50_mmhg": converted.value,
+                "p50_mmhg": p50_mmhg,
                 "slope": slope,
-                "delta_g_kbt": converted.value / slope,
+                "delta_g_kbt": p50_mmhg / slope,
             }
         )
     demo.sort(key=lambda d: (str(d["slope_maicdb_id"]), str(d["threshold_maicdb_id"])))

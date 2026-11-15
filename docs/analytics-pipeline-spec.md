@@ -134,7 +134,10 @@ discovery); the leaf modules stay the pinned vocabulary, and tracks
 P4/P5 keep only their aggregation/statistics — no P4/P5 track opens
 the artifact for a value row or applies a conversion inline (mimic's
 per-record seam and trends' publication counts keep their own reads —
-spec §5).
+spec §5). Log-domain transforms are not corpus-level: the corpus
+stores canonical-domain values, and each track picks its log
+transform at the point of statistics (P4's meta-analysis on
+log10 |P50|, the kinetics quartiles on log10 ms).
 
 **Design rules**
 
