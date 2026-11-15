@@ -61,6 +61,21 @@ Commands touching the vault from a maicdb-code shell session (or vice versa):
   2026-11-02: `cd /tmp/<gone-dir> && git fetch … ; git checkout -b …` created
   a stray branch in maicdb-code because the `cd` failed into the wrong cwd.
 
+## Session logs (retro 2026-11-15)
+
+A session opened outside the canonical checkout — a /tmp throwaway clone, a
+worktree, another machine — writes its transcript under that path's own
+project slug, unreachable from this directory afterwards. Retro rounds and
+forensics read those transcripts as primary sources: the 2026-11-08/09
+freeze rounds (PRs #81–#85) left no local session logs (newest before
+2026-11-15: 11-05); their PR bodies and vault digests are the surviving
+record.
+
+**Rule**: open working sessions in the canonical checkout — branch in place,
+as the repo workflow already prescribes. Treat a /tmp clone as a
+build-isolation last resort, and when a session must run elsewhere, say
+where it ran in the PR body.
+
 ## GUI auto-sync danger + the 2026-11-03 incident restore path
 
 A GUI git integration (Obsidian's git plugin, VS Code's sync, any client
