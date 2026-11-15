@@ -8,7 +8,9 @@
 # delta, not working-tree noise (same discipline as derive-pins-clean.sh).
 # The regenerated snapshot is copied back into the real tree; review it
 # with `git diff tests/census_snapshot.json`. Cleans up the worktree on
-# exit.
+# exit. The /tmp symlink is left behind (harmless, /tmp is ephemeral —
+# same as derive-pins-clean.sh; a trap-time rm would race a concurrent
+# derive run still using the symlink).
 set -euo pipefail
 ref="${1:-HEAD}"
 repo="$(git rev-parse --show-toplevel)"

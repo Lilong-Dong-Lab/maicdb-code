@@ -10,6 +10,18 @@ command -v uv >/dev/null 2>&1 || {
     echo "hook: uv not found on PATH — install uv (astral.sh/uv) or bypass with --no-verify" >&2
     exit 1
 }
+# Mirror-URL guard (retro 2026-11-15, post-PR-89): this machine's PyPI
+# workaround (`uv sync --default-index https://pypi.tuna.tsinghua.edu.cn/…`)
+# rewrites every source URL in uv.lock, and `git add uv.lock` ships the
+# churn (1050/1050 lines, caught by inspection on PR #89, not by any
+# check). A staged uv.lock carrying a known CN-mirror hostname is blocked
+# before anything expensive runs. Genuine dependency changes re-add and
+# bypass with --no-verify.
+if git diff --cached --name-only 2>/dev/null | grep -qx 'uv.lock' \
+    && git show :uv.lock 2>/dev/null | grep -qE 'tuna\.tsinghua\.edu\.cn|mirrors\.aliyun\.com|mirrors\.ustc\.edu\.cn'; then
+    echo "hook: staged uv.lock carries a CN-mirror index URL (tsinghua/aliyun/ustc) — restore it ('git restore --staged uv.lock && git checkout main -- uv.lock') or, for an intentional dependency change, bypass with --no-verify" >&2
+    exit 1
+fi
 # Lint first (fast; M3-T5 retro item 1): same config and pinned version
 # as CI's ruff step (rule drift across ruff releases would desync the
 # two callers). uvx needs network on first run to fetch ruff — offline,
