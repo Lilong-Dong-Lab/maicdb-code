@@ -241,11 +241,11 @@ class DeltaP50Record:
     maicdb_id: str
     gene_symbol: str
     family: str
-    delta_p50: float  # as reported (all data-v1.0 rows are mmHg)
+    delta_p50: float  # as reported (all data-v1.2 rows are mmHg)
     unit: str  # as reported
-    variant_linked: bool  # the row cites a variant (at data-v1.0 the
+    variant_linked: bool  # the row cites a variant (at data-v1.2 the
     # linked rows carry NULL hgvs_protein — linkage without notation)
-    variant: str | None  # hgvs_protein (None on all data-v1.0 rows)
+    variant: str | None  # hgvs_protein (None on all data-v1.2 rows)
     functional_effect: str | None
     variant_position: int | None
     domains: tuple[str, ...]  # structures covering the variant position
