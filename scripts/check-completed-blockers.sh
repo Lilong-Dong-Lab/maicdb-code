@@ -13,8 +13,9 @@
 # any point in 2026-11-07..15 the summary read blocked_by=1 → this audit
 # fails on that state.)
 #
-# Usage:   scripts/check-completed-blockers.sh [limit]   (default: last 50
-#          closed, newest-updated first; limit capped at 100 by the REST API)
+# Usage:   scripts/check-completed-blockers.sh [limit]   (default: the 50
+#          most recently updated closed issues; limit capped at 100 by the
+#          REST API)
 # Note:    closed-not-planned issues (wontfix/duplicate) are exempt — an
 #          abandoned ticket may legitimately keep open blockers.
 #          Findings print the blocker count; name the blockers with:
@@ -22,6 +23,7 @@
 set -eu
 
 limit="${1:-50}"
+[ "$limit" -eq "$limit" ] 2>/dev/null || limit=50
 [ "$limit" -gt 100 ] && limit=100
 
 out=$(gh api "repos/Lilong-Dong-Lab/maicdb-code/issues?state=closed&per_page=$limit&sort=updated&direction=desc" --jq '
@@ -39,4 +41,4 @@ if [ -n "$out" ]; then
   echo "(docs/agents/issue-tracker.md)."
   exit 1
 fi
-echo "OK: no completed issue in the last $limit has an open blocker."
+echo "OK: no completed issue among the $limit most recently updated closed issues has an open blocker."
