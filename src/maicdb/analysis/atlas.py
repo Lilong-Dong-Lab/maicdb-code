@@ -93,7 +93,7 @@ class _CellAcc:
 def delta_p50_table(engine: Engine) -> list[EffectRow]:
     """The ΔP50 effect-size table, deterministic order; structural
     domains resolved where a variant position falls inside a covered
-    structure's range (vacuous at data-v1.0 — see module docstring).
+    structure's range (vacuous at data-v1.2 — see module docstring).
 
     Thin delegate over the harmonization corpus (``EffectRow`` is the
     corpus's ``DeltaP50Record``) — the read and the domain mapping live
@@ -107,7 +107,7 @@ def compound_channel_matrix(engine: Engine) -> list[MatrixCell]:
     only), deterministic order (compound, then gene).
 
     ``compound.molecular_weight`` is deliberately NOT passed to
-    ``p_activity``: the data-v1.0 μg/ml rows are silica nanoparticles
+    ``p_activity``: the data-v1.2 μg/ml rows are silica nanoparticles
     with NULL MW, so ``mass_from_mw`` is unreachable today. When
     curation adds MW values, passing them here activates mass→molar
     resolution for this surface. Reads the harmonization corpus; each
@@ -157,7 +157,7 @@ def selectivity_index(cells: Sequence[MatrixCell]) -> list[SelectivityRow]:
 
     Aggregation rule when a compound has several cells tied at the
     best value: the first in gene-symbol order wins both slots —
-    deterministic and disclosed; the tie never occurs in data-v1.0
+    deterministic and disclosed; the tie never occurs in data-v1.2
     (artifact-pinned) and the pure tests pin the rule on a synthetic
     tie.
     """

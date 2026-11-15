@@ -61,7 +61,7 @@ __all__ = [
 # The parameter vocabulary: biophysics_experiment value columns, in
 # schema order. Presence = column IS NOT NULL (spec §3's census counts;
 # text/enum columns count the same way — no empty strings exist at
-# data-v1.0, pinned by the artifact tests' NULLIF-vs-raw equality
+# data-v1.2, pinned by the artifact tests' NULLIF-vs-raw equality
 # census: COUNT(col) == COUNT(NULLIF(col,'')) per counted column).
 PARAMETERS: tuple[tuple[str, str], ...] = (
     ("p50_value", "p50"),
@@ -190,7 +190,7 @@ def pubs_per_year_total(
 ) -> list[PubYearTotal]:
     """Distinct publications per year overall (NOT the row sums of
     ``pubs_per_year_by_family`` — one publication covering two families
-    in one year would double-count; at data-v1.0 the two coincide,
+    in one year would double-count; at data-v1.2 the two coincide,
     census-pinned)."""
     cells: dict[int, set[int]] = {}
     for r in records:
@@ -255,7 +255,7 @@ class ModeYearRow:
     """Experiments in one recording_mode in one year (full cross-tab).
 
     ``recording_mode`` is None for records with no mode (39 at
-    data-v1.0) — the completeness trend is part of the drift story.
+    data-v1.2) — the completeness trend is part of the drift story.
     """
 
     year: int

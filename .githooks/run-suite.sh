@@ -1,8 +1,8 @@
 #!/bin/sh
 # Shared hook runner — invoked by .githooks/pre-commit and
-# .githooks/pre-merge-commit. Runs the full suite (~3 s) so a red suite
-# never commits or merges. Bypass: git commit --no-verify /
-# git merge --no-verify.
+# .githooks/pre-merge-commit. Runs the full suite (~80 s with vault +
+# artifact; ~50 s CI-novault) so a red suite never commits or merges.
+# Bypass: git commit --no-verify / git merge --no-verify.
 # Origin: on PR #10, a red test shipped because pytest and git commit were
 # chained without && (record: PR #14 body; the incident pair is
 # efbf17f → a8a572e on feat/query-library-m1).
@@ -30,10 +30,46 @@ uvx ruff@0.17.3 check . || {
     echo "hook: ruff lint failed — blocked (--no-verify overrides)" >&2
     exit 1
 }
+# Tag-literal freshness (retro 2026-11-15, post-#91): analysis-layer
+# comments claim the CURRENT artifact; a data-v1.N older than the census
+# snapshot's freeze_tag is stale (the #91 gate's NIT class — the check's
+# first run found 12 more, every one verified-true-but-mislabeled).
+bash "$(dirname "$0")/../scripts/check-tag-literals.sh" || {
+    echo "hook: stale tag literals in src/maicdb/analysis/ — blocked (--no-verify overrides)" >&2
+    exit 1
+}
 bash "$(dirname "$0")/../scripts/check-suite-matrix.sh" --pins || {
     echo "hook: declared suite pins drifted (see scripts/check-suite-matrix.sh) — blocked (--no-verify overrides)" >&2
     exit 1
 }
+# Signature set, computed once (retro 2026-11-15, post-#91: moved above the
+# suite run so the fast-fail below and the authoritative post-run check
+# share it). The local-with-vault reference is counted as its 0-skipped
+# form, as before.
+local_ref=$(sed -n 's/.*Local with-vault reference: \([0-9]*\) passed.*/\1/p' .github/workflows/ci.yml)
+allowed=$( {
+    [ -n "$local_ref" ] && printf '%s passed, 0 skipped\n' "$local_ref"
+    grep -oE '[0-9]+ passed, [0-9]+ skipped' .github/workflows/ci.yml
+} | sort -u)
+# Fast-fail (retro 2026-11-15, post-#91): when tests were ADDED, the
+# signature mismatch is knowable from collection alone (~1 s) — block
+# before the ~80 s suite run. Ceiling = the largest passed+skipped total
+# any declared signature permits; a collected count above it can match
+# no signature in any environment. (Review round 1 of this PR: the awk
+# read $3, an empty trailing field, computing max-passed instead of
+# max-total — coincidentally equal today, wrong the moment the
+# 0-skipped local reference comment disappears, exactly the
+# vanished-reference scenario the post-run check documents at line ~84.)
+# Skip-count drift (tag/vault/artifact availability) is NOT predictable
+# from collection and stays with the authoritative post-run comparison
+# below.
+ceiling=$(printf '%s\n' "$allowed" | awk -F'[^0-9]+' '$1 != "" { print $1 + $2 }' | sort -n | tail -1)
+collected=$(PYTHONPATH=src uv run pytest tests/ --collect-only -q 2>/dev/null | tail -1)
+n_col=$(printf '%s\n' "$collected" | grep -Eo '[0-9]+ tests? collected' | grep -Eo '^[0-9]+')
+if [ -n "$n_col" ] && [ -n "$ceiling" ] && [ "$n_col" -gt "$ceiling" ]; then
+    echo "hook: fast-fail — $n_col tests collected exceeds every declared signature's ceiling ($ceiling); tests were added without re-pinning. Derive via bash scripts/derive-pins-clean.sh and re-pin ci.yml + KNOWN-QUIRKS quirk 3 (--no-verify overrides)" >&2
+    exit 1
+fi
 pytest_out=$(PYTHONPATH=src uv run pytest tests/ -q 2>&1) || {
     printf '%s\n' "$pytest_out" | tail -20 >&2
     echo "hook: test suite failed — blocked (--no-verify overrides)" >&2
@@ -58,11 +94,6 @@ printf '%s\n' "$pytest_out" | tail -3
 # re-pinning"). When the sed yields nothing AND the count still matches
 # nothing, the real problem is the vanished reference, and the message
 # says so.
-local_ref=$(sed -n 's/.*Local with-vault reference: \([0-9]*\) passed.*/\1/p' .github/workflows/ci.yml)
-allowed=$( {
-    [ -n "$local_ref" ] && printf '%s passed, 0 skipped\n' "$local_ref"
-    grep -oE '[0-9]+ passed, [0-9]+ skipped' .github/workflows/ci.yml
-} | sort -u)
 # pytest omits zero segments ("363 passed, 1 warning", never
 # "363 passed, 0 skipped"), so the observed summary is normalized to
 # the full signature form before comparing.
