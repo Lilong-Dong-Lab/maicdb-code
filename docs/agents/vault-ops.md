@@ -9,7 +9,12 @@ without disturbing it, and the shell rules that prevent multi-repo mistakes.
 | Path | What it is |
 |---|---|
 | `~/Documents/AcademicWorkplace/02_RESEARCH_LABORATORY/Active_Projects/Project_DataBase_MAICDB` | The user's own checkout — may sit on main or a work branch (e.g. `student/xinfangowo-a2`). Never switch, rebase, or otherwise move its HEAD; run `git fetch --prune` freely |
-| `/tmp/Project_DataBase_MAICDB` | Optional **symlink** to the checkout above — the sibling path `tests/test_loader.py` resolves (`parents[2]/Project_DataBase_MAICDB`); needed only for worktree-based runs (clean-tree derives; see `scripts/derive-pins-clean.sh`, which creates it). The main checkout sits beside this repo, so in-place runs resolve the sibling naturally |
+| `/tmp/Project_DataBase_MAICDB` | Historical: worktree-based derives used to symlink the checkout here so the sibling path resolved; since the vault seam (2026-11-15, architecture candidate 3) the derive scripts export `$MAICDB_VAULT` instead and no symlink is created. A stale symlink from older runs is harmless (`/tmp` is ephemeral) |
+
+Code-side vault discovery (loader, tests, scripts) is the vault seam,
+`src/maicdb/vault.py::resolve_vault`: explicit path > `$MAICDB_VAULT` env
+var > the sibling checkout next to this repo. The absolute `VAULT=` export
+below is for shell git ops (digest PRs) and stays. |
 
 ## Digest PR recipe (workflow step 3's "small vault docs PR")
 

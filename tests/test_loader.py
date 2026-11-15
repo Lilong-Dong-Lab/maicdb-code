@@ -6,14 +6,14 @@ Two tiers:
   anchoring, role resolution, mutation parsing, lossless label folding).
 * **Full-load tests** (skip without the vault) — run the real loader against
   the sibling vault checkout and assert conservation, determinism (two runs
-  → byte-identical SQL dumps), and enum coverage. Vault discovery:
-  ``$MAICDB_VAULT`` env var, else the sibling
-  ``../Project_DataBase_MAICDB`` next to this repo. The presence probe is
-  READ-based (quirk 8, retro 2026-11-06): under macOS TCC denial the vault
-  path still ``stat``s fine but every read is EPERM, so a stat-based probe
-  turned "skip" into 7 red ``CalledProcessError`` failures (2026-11-06
-  incident). One real read makes an unreadable vault skip honestly, and the
-  skip-count pin (quirk 3) surfaces it.
+  → byte-identical SQL dumps), and enum coverage. Vault discovery lives in
+  the seam (``maicdb.vault.resolve_vault``: explicit path > ``$MAICDB_VAULT``
+  env var > the sibling ``../Project_DataBase_MAICDB`` next to this repo).
+  The presence probe is READ-based (quirk 8, retro 2026-11-06): under macOS
+  TCC denial the vault path still ``stat``s fine but every read is EPERM, so
+  a stat-based probe turned "skip" into 7 red ``CalledProcessError``
+  failures (2026-11-06 incident). One real read makes an unreadable vault
+  skip honestly, and the skip-count pin (quirk 3) surfaces it.
 """
 
 from __future__ import annotations
@@ -31,38 +31,16 @@ from maicdb.loader import (
     _f,
     _parse_short_mutation,
     load_vault,
-    verify_vault,
 )
+from maicdb.vault import CHANNEL_DIRS, FrozenVault, resolve_vault
 
-import os
-# env var wins (explicit override), else the sibling checkout
-VAULT = Path(os.environ.get("MAICDB_VAULT") or
-             Path(__file__).resolve().parents[2] / "Project_DataBase_MAICDB")
+# env var wins (explicit override), else the sibling checkout — resolved by
+# the vault seam (maicdb.vault.resolve_vault, candidate 3)
+VAULT = resolve_vault()
+_VAULT = FrozenVault(VAULT)
 
-
-def _vault_readable(path: Path) -> bool:
-    """Presence probe that READS (quirk 8): ``exists()`` and ``is_dir()``
-    survive macOS TCC denial (stat succeeds, reads EPERM), so a stat-only
-    probe reports a locked vault as present and the full-load tests fail
-    red instead of skipping. One real open() of a tracked file settles it.
-    """
-    try:
-        (path / "README.md").open("rb").close()
-        return True
-    except OSError:
-        return False
-
-
-VAULT_PRESENT = VAULT.exists() and _vault_readable(VAULT)
-#: The 12 channel directories the frozen corpus ships (census: spec §4 —
-#: ``SELECT gene_symbol FROM channel`` lowercased, data-v1.0 tree).
-VAULT_CHANNEL_DIRS = [
-    "asic", "mscl", "mscs", "osca", "piezo1", "piezo2", "tmc",
-    "traak", "trek-1", "trek-2", "tresk", "trpv4",
-]
-VAULT_INTACT = VAULT_PRESENT and all(
-    (VAULT / "data" / ch).is_dir() for ch in VAULT_CHANNEL_DIRS
-)
+VAULT_PRESENT = VAULT.exists() and _VAULT.readable()
+VAULT_INTACT = VAULT_PRESENT and _VAULT.has_channel_dirs()
 
 requires_vault = pytest.mark.skipif(
     not VAULT_PRESENT, reason=f"vault checkout not found at {VAULT}")
@@ -84,7 +62,7 @@ def test_vault_checkout_mangled_goes_red_not_silent_skip():
     """
     if not VAULT_PRESENT:
         pytest.skip(f"vault checkout not found at {VAULT} — CI novault/notag state")
-    missing = [ch for ch in VAULT_CHANNEL_DIRS if not (VAULT / "data" / ch).is_dir()]
+    missing = [ch for ch in CHANNEL_DIRS if not (VAULT / "data" / ch).is_dir()]
     assert not missing, (
         f"vault checkout at {VAULT} is PRESENT but MANGLED — data/ is missing "
         f"channel directories: {missing}. This is the GUI auto-checkout "
@@ -210,10 +188,10 @@ def test_freeze_enforcement(capfd):
     MINOR, empirically demonstrated). ``capfd`` guards at the fd level.
     """
     with pytest.raises(RuntimeError):
-        verify_vault(VAULT, "data-v9.9")
+        FrozenVault(VAULT, "data-v9.9").verify()
     captured = capfd.readouterr()
     assert captured.out == "" and captured.err == "", "bogus-tag path must not leak"
-    assert verify_vault(VAULT, FREEZE_TAG)  # happy path: returns HEAD sha
+    assert FrozenVault(VAULT, FREEZE_TAG).verify()  # happy path: returns HEAD sha
     captured = capfd.readouterr()
     assert captured.out == "" and captured.err == "", \
         "verify_vault must be fully silent (quirk 11 leak fixed)"

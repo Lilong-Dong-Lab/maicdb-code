@@ -17,6 +17,10 @@ Determinism: every row's ``created_at`` is pinned to :data:`FREEZE_EPOCH`
 (the data-freeze date, not wall-clock) and insert order follows sorted keys,
 so the SQL dump is byte-stable for a given vault state. The ``server_default``
 timestamps remain for interactive/ORM use; the loader overrides them.
+
+Vault location, layout, and the freeze contract live in the seam module
+:mod:`maicdb.vault` (architecture-review candidate 3, 2026-11-15); this
+module keeps the transforms only.
 """
 
 from __future__ import annotations
@@ -25,7 +29,6 @@ import argparse
 import csv
 import json
 import re
-import subprocess
 import sys
 from collections import Counter
 from datetime import date, datetime
@@ -58,6 +61,7 @@ from maicdb.models import (
     Variant,
 )
 from maicdb.database import make_engine, create_all
+from maicdb.vault import FrozenVault, LAYERS, resolve_vault
 
 __all__ = ["load_vault", "main"]
 
@@ -66,11 +70,6 @@ FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
 SCHEMA_VERSION = "0.2.0"
-
-LAYERS = ["piezo1", "piezo2", "trpv4", "asic", "mscs", "mscl", "osca",
-          "tmc", "tresk", "traak", "trek-1", "trek-2"]
-
-LAYER_TO_CONFIG = {layer: layer.replace("-", "") for layer in LAYERS}
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -281,103 +280,10 @@ def _experiment_label(r: dict) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# Vault access
+# Vault access (discovery, layout, freeze contract, corpus reads) lives in
+# :mod:`maicdb.vault` — the seam module (architecture-review candidate 3,
+# 2026-11-15). This module keeps the transforms only.
 # --------------------------------------------------------------------------- #
-def _git(vault: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(vault), *args], check=True,
-                          capture_output=True, text=True).stdout.strip()
-
-
-def verify_vault(vault: Path, require_tag: str | None) -> str:
-    """Vault must be a clean git checkout; with --require-tag the tag must
-    point at HEAD (freeze enforcement). Returns the HEAD sha."""
-    head = _git(vault, "rev-parse", "HEAD")
-    # untracked files (local scratch) don't affect tracked freeze content
-    status = _git(vault, "status", "--porcelain", "--untracked-files=no")
-    if status:
-        raise RuntimeError(f"vault tracked content modified:\n{status}")
-    if require_tag:
-        exists = subprocess.run(
-            ["git", "-C", str(vault), "rev-parse", "--verify", f"refs/tags/{require_tag}"],
-            capture_output=True, text=True,
-        ).returncode == 0
-        if not exists:
-            raise RuntimeError(f"tag {require_tag!r} not found in the vault")
-        tagged = _git(vault, "rev-list", "-n", "1", require_tag)
-        ancestor = subprocess.run(
-            ["git", "-C", str(vault), "merge-base", "--is-ancestor", tagged, head],
-            capture_output=True, text=True,
-        ).returncode == 0
-        if not ancestor:
-            raise RuntimeError(
-                f"tag {require_tag} ({tagged[:7]}) is not an ancestor of HEAD "
-                f"({head[:7]}) — history diverged from the freeze")
-        # The frozen content (12 layer datasets — data/<ch>/** incl. per-layer
-        # READMEs and data/db/ — + identity configs, configs/*.yaml) must be
-        # byte-unchanged since the tag. Root-level schema docs (data/*.md —
-        # extraction_schema.md's Rules/enum sections evolve with the validator;
-        # CLAUDE.md: "doc side lives in the vault's data/extraction_schema.md —
-        # change both together") and validator-state registries (configs/*.json
-        # — composite_quote_registry, quote_landing_allowlist) are legal
-        # post-freeze churn. (2026-09-03 narrowing: the previous blanket
-        # `data/ + configs/` pathspec over-captured docs, blocking vault
-        # skill-patch PR #66 cross-repo — user decision, Option A.)
-        # The exclude globs MUST be glob-anchored (`:(exclude,glob)`) — git's
-        # default pathspec mode lets `*` cross `/`, and the un-anchored form
-        # silently un-froze all 47 data/**.md files (per-layer READMEs, incident
-        # sidecars) instead of the 2 root docs (gate r1 MINOR, 2026-09-03;
-        # anchored form re-verified against README-changing commit 8cdb764;
-        # count erratum 48→47 per vault PR-#67-gate recount, same day).
-        diff = subprocess.run(
-            ["git", "-C", str(vault), "diff", "--stat", f"{tagged}..{head}", "--",
-             "data/", "tools/literature-mining/configs/",
-             ":(exclude,glob)data/*.md",
-             ":(exclude,glob)tools/literature-mining/configs/*.json"],
-            capture_output=True, text=True).stdout.strip()
-        if diff:
-            raise RuntimeError(
-                f"frozen content changed since {require_tag}:\n{diff}")
-    return head
-
-
-def read_rows(vault: Path) -> list[dict]:
-    rows = []
-    for layer in LAYERS:
-        path = vault / "data" / layer / "extraction" / "extracted_measurements.csv"
-        with path.open(newline="", encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                r["source_layer"] = layer
-                rows.append(r)
-    return rows
-
-
-def read_configs(vault: Path) -> dict[str, dict]:
-    import yaml  # justified dependency: vault configs are YAML
-    cfgs = {}
-    for layer in LAYERS:
-        p = vault / "tools/literature-mining/configs" / f"{LAYER_TO_CONFIG[layer]}.yaml"
-        cfgs[layer] = yaml.safe_load(p.read_text(encoding="utf-8"))
-    return cfgs
-
-
-def read_zotero_authors(vault: Path) -> dict[str, list[str]]:
-    """DOI → full author list from the vault's Zotero export (CSL-JSON).
-    'author' entries: [{'family': 'Shan', 'given': 'Yu'}, …] → ["Shan Y", …]."""
-    p = vault / ".pandoc/zotero-library-1.json"
-    out: dict[str, list[str]] = {}
-    for item in json.loads(p.read_text(encoding="utf-8")):
-        doi = (item.get("DOI") or "").strip().lower()
-        if not doi:
-            continue
-        authors = []
-        for c in item.get("author") or []:
-            fam, giv = c.get("family"), c.get("given")
-            if fam:
-                authors.append(f"{fam} {giv[0]}".strip() if giv else fam)
-        if authors:
-            out.setdefault(doi, authors)
-    return out
-
 
 # --------------------------------------------------------------------------- #
 # Load
@@ -385,10 +291,11 @@ def read_zotero_authors(vault: Path) -> dict[str, list[str]]:
 def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_TAG,
                manifest_path: Path | None = None) -> dict:
     """Load the vault corpus into the formal schema. Returns the manifest."""
-    head = verify_vault(vault, require_tag)
-    rows = read_rows(vault)
-    cfgs = read_configs(vault)
-    zotero = read_zotero_authors(vault)
+    frozen = FrozenVault(vault, require_tag)
+    head = frozen.verify()
+    rows = frozen.measurements()
+    cfgs = frozen.configs()
+    zotero = frozen.zotero_authors()
     manifest: dict = {
         "vault_head": head, "freeze_tag": require_tag or "(none)",
         "schema_version": SCHEMA_VERSION, "counts": {}, "disclosures": [],
@@ -431,7 +338,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         # ---- channel (12; one row per layer; osca = one family row) ----------
         channels: dict[str, Channel] = {}
         xref_rows: list[ExternalReference] = []
-        xref_json = vault / "data/piezo1/cross_references/piezo1_cross_references.json"
+        xref_json = frozen.piezo1_cross_references_json
         piezo1_xref = json.loads(xref_json.read_text(encoding="utf-8")) if xref_json.exists() else {}
         for layer in LAYERS:
             p = cfgs[layer]["protein"]
@@ -504,7 +411,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         for name in unroled_activity_names:
             roles.setdefault(name, Counter())
         joining = {n.lower() for n in roles}
-        descriptors = _read_piezo1_compound_descriptors(vault, joining)
+        descriptors = _read_piezo1_compound_descriptors(
+            frozen.piezo1_compound_properties_csv, joining)
         compounds: dict[str, Compound] = {}
         used_inchikeys: set[str] = set()
         for name in sorted(roles):
@@ -562,7 +470,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         manifest["counts"]["variant"] = len(variants)
 
         # ---- structure (12; piezo1 only) --------------------------------------
-        st_csv = vault / "data/piezo1/structures/piezo1_pdb_structures.csv"
+        st_csv = frozen.piezo1_structures_csv
         n_struct = 0
         if st_csv.exists():
             st_pubs: dict[str, Publication] = {}
@@ -570,7 +478,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             with st_csv.open(newline="", encoding="utf-8") as f:
                 for r in csv.DictReader(f):
                     pub_doi = None
-                    raw = vault / "data/piezo1/raw/piezo1_pdb_entries_detail" / f"{r['PDB_ID']}.json"
+                    raw = frozen.piezo1_structure_detail(r["PDB_ID"])
                     if raw.exists():
                         cit = (json.loads(raw.read_text(encoding="utf-8"))
                                .get("citation") or [{}])[0]
@@ -818,7 +726,7 @@ def _route_gap_migration(r: dict, bx: BiophysicsExperiment) -> None:
     bx.unit_as_reported = unit or None
 
 
-def _read_piezo1_compound_descriptors(vault: Path,
+def _read_piezo1_compound_descriptors(csv_path: Path,
                                       joining_names: set[str] | None = None) -> dict[str, dict]:
     """piezo1 compounds CSV → name-normalized descriptor dict (lower-case join).
 
@@ -827,7 +735,7 @@ def _read_piezo1_compound_descriptors(vault: Path,
     that JOINS a corpus modulator keeps it (r1-gate MINOR-3: first-row-wins
     starved Yoda1/Jedi1/Jedi2 of their keys)."""
     joining = joining_names or set()
-    p = vault / "data/piezo1/compounds/piezo1_compounds_properties.csv"
+    p = csv_path
     raw_rows: list[tuple[str, dict]] = []
     if p.exists():
         with p.open(newline="", encoding="utf-8") as f:
@@ -874,14 +782,16 @@ def _bool(cell: str | None) -> bool | None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Load the vault data-v1.0 corpus into the formal schema")
-    ap.add_argument("--vault", required=True, type=Path, help="vault repo checkout path")
+    ap = argparse.ArgumentParser(description="Load the vault's frozen curation corpus into the formal schema")
+    ap.add_argument("--vault", type=Path, default=None,
+                    help="vault repo checkout path (default: $MAICDB_VAULT, "
+                         "else the sibling checkout next to this repo)")
     ap.add_argument("--require-tag", default=FREEZE_TAG,
                     help=f"freeze tag HEAD must point at (default {FREEZE_TAG}; '' disables)")
     ap.add_argument("-o", "--output", type=Path, default=Path("maicdb.sqlite"))
     ap.add_argument("--manifest", type=Path, default=None, help="write load manifest JSON here")
     args = ap.parse_args()
-    manifest = load_vault(args.vault, args.output,
+    manifest = load_vault(resolve_vault(args.vault), args.output,
                           require_tag=args.require_tag or None,
                           manifest_path=args.manifest)
     print(json.dumps(manifest["counts"], ensure_ascii=False))
