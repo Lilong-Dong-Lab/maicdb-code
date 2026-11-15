@@ -12,6 +12,10 @@ always preserving the as-reported pair alongside the converted value.
 
 P1 modules:
 
+* :mod:`maicdb.analysis.harmonization` — the deep module owning every
+  value-row read + conversion (one ``harmonize(engine) → HarmonizedCorpus``
+  pass; the 2026-11-15 architecture review's candidate 2). Consumer
+  tracks keep aggregation/statistics only.
 * :mod:`maicdb.analysis.units` — canonical-unit conversions (mmHg / mN/m /
   µm pivots) with as-reported preservation.
 * :mod:`maicdb.analysis.replicates` — coalesce of ``n_cells`` and the
@@ -25,6 +29,11 @@ P1 modules:
 """
 
 from maicdb.analysis.activity import PActivity, p_activity, to_molar
+from maicdb.analysis.harmonization import (
+    HarmonizedCorpus,
+    P50Record,
+    harmonize,
+)
 from maicdb.analysis.joins import (
     MarkerHit,
     SameFitCandidate,
@@ -53,14 +62,17 @@ __all__ = [
     "CATEGORIES",
     "Converted",
     "FieldStatus",
+    "HarmonizedCorpus",
     "MIMIC_FIELDS",
     "MIMICScore",
     "MarkerHit",
+    "P50Record",
     "PActivity",
     "Replicates",
     "SameFitCandidate",
     "applicable_fields",
     "coalesce_replicates",
+    "harmonize",
     "length_to_um",
     "narrow_by_condition_key",
     "p_activity",

@@ -69,10 +69,9 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy import stats as sps
-from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Engine
 
-from maicdb.analysis.units import pressure_to_mmhg
+from maicdb.analysis.harmonization import P50Record, harmonize
 
 __all__ = [
     "KPA_PER_MMHG",
@@ -92,77 +91,14 @@ __all__ = [
 # Exact mmHg -> kPa (through P1's Pa pivot: 1 mmHg = 133.322387415 Pa).
 KPA_PER_MMHG = 0.133322387415
 
-_P50_SQL = sql_text(
-    "SELECT e.maicdb_id AS maicdb_id, e.p50_value AS p50_value,"
-    " e.p50_unit AS p50_unit, e.stimulus_type AS stimulus_type,"
-    " e.publication_id AS publication_id, e.condition_key AS condition_key,"
-    " e.n AS n, e.n_cells AS n_cells,"
-    " c.id AS channel_id, c.gene_symbol AS gene_symbol, c.family AS family"
-    " FROM biophysics_experiment e"
-    " JOIN channel c ON e.channel_id = c.id"
-    " WHERE e.p50_value IS NOT NULL"
-    " ORDER BY e.maicdb_id"
-)
-
-_TAU_SQL = sql_text(
-    "SELECT e.maicdb_id AS maicdb_id, e.publication_id AS publication_id,"
-    " c.gene_symbol AS gene_symbol, c.family AS family,"
-    " e.tau_act_ms AS tau_act_ms, e.tau_inact_ms AS tau_inact_ms,"
-    " e.tau_deact_ms AS tau_deact_ms"
-    " FROM biophysics_experiment e"
-    " JOIN channel c ON e.channel_id = c.id"
-    " WHERE e.tau_act_ms IS NOT NULL OR e.tau_inact_ms IS NOT NULL"
-    " OR e.tau_deact_ms IS NOT NULL"
-    " ORDER BY e.maicdb_id"
-)
-
-
-@dataclass(frozen=True)
-class P50Record:
-    """One P50-bearing record, harmonized to canonical mmHg."""
-
-    maicdb_id: str
-    channel_id: int
-    gene_symbol: str
-    family: str
-    stimulus_type: str | None
-    publication_id: int
-    condition_key: str | None
-    p50_mmhg: float
-    p50_unit: str  # as reported (ADR-0005 keeps the reported pair)
-    p50_value: float  # as reported
-    n: int  # coalesced replicate count of the record (n_cells wins over
-    # the legacy text n); the meta-analysis clusters at PUBLICATION
-    # level and counts records — see cluster_key/cluster_log_means
-
 
 def load_p50_records(engine: Engine) -> list[P50Record]:
-    """Load every P50-bearing record, harmonized; deterministic order."""
-    from maicdb.analysis.replicates import coalesce_replicates
+    """Load every P50-bearing record, harmonized; deterministic order.
 
-    out: list[P50Record] = []
-    with engine.connect() as conn:
-        for row in conn.execute(_P50_SQL).mappings():
-            unit = row["p50_unit"] or ""
-            converted = pressure_to_mmhg(float(row["p50_value"]), unit)
-            rep = coalesce_replicates(row["n_cells"], row["n"])
-            n_i = rep.value if rep.value is not None else 1
-            out.append(
-                P50Record(
-                    maicdb_id=str(row["maicdb_id"]),
-                    channel_id=int(row["channel_id"]),
-                    gene_symbol=str(row["gene_symbol"]),
-                    family=str(row["family"]),
-                    stimulus_type=row["stimulus_type"],
-                    publication_id=int(row["publication_id"]),
-                    condition_key=row["condition_key"],
-                    p50_mmhg=converted.value,
-                    p50_unit=unit,
-                    p50_value=float(row["p50_value"]),
-                    n=int(n_i or 1),
-                )
-            )
-    return out
+    Thin delegate over the harmonization corpus — the read and the
+    unit/replicate conversions live in :mod:`maicdb.analysis.harmonization`.
+    """
+    return list(harmonize(engine).p50)
 
 
 def cluster_key(record: P50Record) -> int:
@@ -424,23 +360,24 @@ def kinetics_atlas(engine: Engine) -> list[KineticsCell]:
     """Per (gene, tau kind) log-scale descriptive distributions.
 
     No pooling statistic across families (spec); quartiles in the ms
-    domain (back-transformed from log10). Deterministic order.
+    domain (back-transformed from log10). Deterministic order. Reads
+    the harmonization corpus (kinetics are column-native ms — no
+    conversion, ADR-0005).
     """
     groups: dict[tuple[str, str], list[tuple[float, int]]] = {}
-    with engine.connect() as conn:
-        for row in conn.execute(_TAU_SQL).mappings():
-            for col, kind in _TAU_COLUMNS:
-                value = row[col]
-                if value is None:
-                    continue
-                if value <= 0:
-                    raise ValueError(
-                        f"{row['maicdb_id']}: non-positive {col} {value} "
-                        "cannot enter the log domain"
-                    )
-                groups.setdefault((str(row["gene_symbol"]), kind), []).append(
-                    (float(value), int(row["publication_id"]))
+    for row in harmonize(engine).tau:
+        for col, kind in _TAU_COLUMNS:
+            value = getattr(row, col)
+            if value is None:
+                continue
+            if value <= 0:
+                raise ValueError(
+                    f"{row.maicdb_id}: non-positive {col} {value} "
+                    "cannot enter the log domain"
                 )
+            groups.setdefault((row.gene_symbol, kind), []).append(
+                (float(value), int(row.publication_id))
+            )
     out: list[KineticsCell] = []
     for (gene, kind), pairs in sorted(groups.items()):
         values = np.array([v for v, _ in pairs], dtype=float)
@@ -536,42 +473,29 @@ def boltzmann_demo(
     artifact disclosed module-wide). METHODS DEMO — the output exists
     to show the join works; n forbids any claim.
     """
-    from maicdb.analysis.joins import narrow_by_condition_key, same_fit_candidates
+    from maicdb.analysis.joins import narrow_by_condition_key
 
-    with engine.connect() as conn:
-        p50_of = {
-            str(r["maicdb_id"]): (float(r["p50_value"]), r["p50_unit"])
-            for r in conn.execute(
-                sql_text("SELECT maicdb_id, p50_value, p50_unit FROM "
-                         "biophysics_experiment WHERE p50_value IS NOT NULL")
-            ).mappings()
-        }
-        slope_of = {
-            str(r["maicdb_id"]): float(r["slope"])
-            for r in conn.execute(
-                sql_text("SELECT maicdb_id, slope FROM biophysics_experiment "
-                         "WHERE slope IS NOT NULL")
-            ).mappings()
-        }
-    joined = narrow_by_condition_key(same_fit_candidates(engine), condition_key_of)
+    corpus = harmonize(engine)
+    p50_of = {r.maicdb_id: r.p50_mmhg for r in corpus.p50}
+    slope_of = {r.maicdb_id: r.slope for r in corpus.slope_rows}
+    joined = narrow_by_condition_key(corpus.same_fit, condition_key_of)
     demo: list[dict[str, object]] = []
     for cand in joined:
         if cand.kind != "p50":
             continue
-        threshold = p50_of.get(cand.threshold_maicdb_id)
+        p50_mmhg = p50_of.get(cand.threshold_maicdb_id)
         slope = slope_of.get(cand.slope_maicdb_id)
-        if threshold is None or slope is None or slope == 0:
+        if p50_mmhg is None or slope is None or slope == 0:
             continue
-        converted = pressure_to_mmhg(*threshold)
         demo.append(
             {
                 "slope_maicdb_id": cand.slope_maicdb_id,
                 "threshold_maicdb_id": cand.threshold_maicdb_id,
                 "marker": cand.marker,
                 "token_overlap": cand.token_overlap,
-                "p50_mmhg": converted.value,
+                "p50_mmhg": p50_mmhg,
                 "slope": slope,
-                "delta_g_kbt": converted.value / slope,
+                "delta_g_kbt": p50_mmhg / slope,
             }
         )
     demo.sort(key=lambda d: (str(d["slope_maicdb_id"]), str(d["threshold_maicdb_id"])))

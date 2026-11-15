@@ -126,6 +126,19 @@ Module home: `src/maicdb/analysis/`. Outputs land in `dist/analysis/<data-tag>/`
 (release-local, like other `dist/` artifacts); the site build copies the JSON
 payloads it needs. Exact output layout is finalized in the P1 PR.
 
+The P1 box is one deep module, `src/maicdb/analysis/harmonization.py`
+(`harmonize(engine) → HarmonizedCorpus`, added by the 2026-11-15
+architecture review, candidate 2): it owns every value-row read and
+conversion (units, replicates, pActivity, ΔP50, the same-fit join's
+discovery); the leaf modules stay the pinned vocabulary, and tracks
+P4/P5 keep only their aggregation/statistics — no P4/P5 track opens
+the artifact for a value row or applies a conversion inline (mimic's
+per-record seam and trends' publication counts keep their own reads —
+spec §5). Log-domain transforms are not corpus-level: the corpus
+stores canonical-domain values, and each track picks its log
+transform at the point of statistics (P4's meta-analysis on
+log10 |P50|, the kinetics quartiles on log10 ms).
+
 **Design rules**
 
 - Reads the frozen artifact only; never the live vault.
