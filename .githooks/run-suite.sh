@@ -55,10 +55,15 @@ allowed=$( {
 # signature mismatch is knowable from collection alone (~1 s) — block
 # before the ~80 s suite run. Ceiling = the largest passed+skipped total
 # any declared signature permits; a collected count above it can match
-# no signature in any environment. Skip-count drift (tag/vault/artifact
-# availability) is NOT predictable from collection and stays with the
-# authoritative post-run comparison below.
-ceiling=$(printf '%s\n' "$allowed" | awk -F'[^0-9]+' '$1 != "" { print $1 + $3 }' | sort -n | tail -1)
+# no signature in any environment. (Review round 1 of this PR: the awk
+# read $3, an empty trailing field, computing max-passed instead of
+# max-total — coincidentally equal today, wrong the moment the
+# 0-skipped local reference comment disappears, exactly the
+# vanished-reference scenario the post-run check documents at line ~84.)
+# Skip-count drift (tag/vault/artifact availability) is NOT predictable
+# from collection and stays with the authoritative post-run comparison
+# below.
+ceiling=$(printf '%s\n' "$allowed" | awk -F'[^0-9]+' '$1 != "" { print $1 + $2 }' | sort -n | tail -1)
 collected=$(PYTHONPATH=src uv run pytest tests/ --collect-only -q 2>/dev/null | tail -1)
 n_col=$(printf '%s\n' "$collected" | grep -Eo '[0-9]+ tests? collected' | grep -Eo '^[0-9]+')
 if [ -n "$n_col" ] && [ -n "$ceiling" ] && [ "$n_col" -gt "$ceiling" ]; then
