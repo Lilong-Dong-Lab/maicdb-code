@@ -9,22 +9,27 @@ sparsity — cells show "no data" rather than zeros). Values reuse P1's
 ``p_activity`` (−log10 molar; ADR-0005 unit policy) — no new
 dependencies (spec: P5 needs none).
 
-data-v1.0 reality, disclosed (artifact-census-pinned):
+Frozen-corpus reality, disclosed (census keys per test):
 
-* ``structure.residues_covered`` / ``coverage_pct`` are NULL on all 12
-  structure rows, so the ΔP50 → structural-domain mapping is VACUOUS
-  at this tag — the mapping code is implemented generally (a variant
+* ``structure.residues_covered`` / ``coverage_pct`` are NULL on every
+  structure row, so the ΔP50 → structural-domain mapping is VACUOUS
+  at this tag (census-pinned as ``atlas.domain_covered_total``) — the
+  mapping code is implemented generally (a variant
   position inside a covered range maps to that structure) and the
   artifact test pins today's zero mappings; future curation activates
   it. This is the same "defines the curation demand" pattern as the
   spec's own tension-conversion note (§5.2).
-* Only 2 of the 3 variant-linked ΔP50 rows carry a variant position.
-* ``bioactivity.pchembl`` is NULL on all 136 rows — ``p_activity`` on
-  (activity_value, activity_units) is the only value axis.
-* The matrix is sparse by construction: 73 populated compound ×
-  channel cells of 69 × 9 = 621 possible (~12%); a pair with several
-  measurements aggregates to the MEAN of its pActivities (n carried
-  per cell).
+* Only some of the variant-linked ΔP50 rows carry a variant position
+  (census-pinned as ``atlas.variant_linked_rows`` /
+  ``atlas.variant_positions``).
+* ``bioactivity.pchembl`` is NULL on every bioactivity row
+  (census-pinned as ``corpus.bioactivity_pchembl_null``) —
+  ``p_activity`` on (activity_value, activity_units) is the only value
+  axis.
+* The matrix is sparse by construction (census-pinned as
+  ``atlas.matrix_cells`` / ``atlas.matrix_basis_totals``); a pair with
+  several measurements aggregates to the MEAN of its pActivities (n
+  carried per cell).
 
 Selectivity index (disclosed definition): per compound with populated
 pActivity values on ≥2 distinct channels, best-channel pActivity minus

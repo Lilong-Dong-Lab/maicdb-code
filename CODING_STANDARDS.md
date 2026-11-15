@@ -127,13 +127,27 @@ finding; Chinese inside strings fixtures or their assertions is not.
 ## 6. Census pins carry a derivation trail
 
 Every expected value in an artifact-gated test (a `requires_db` pin against
-`db/maicdb.sqlite` or a future release artifact) traces to a derivation:
-the census SQL quoted in the test docstring, or pasted command output in
-the PR. Landmark arithmetic in docstrings is computed, never eyeballed
-(observed 2026-11-05: trigger counts drafted as 15/4/703 before derivation
-— truth 129/95/778/39, caught by the suite's first run; an "≈760.0004"
-comment whose true quotient is 759.9999).
+`db/maicdb.sqlite` or a future release artifact) traces to a derivation,
+one of two kinds:
 
-*Reviewer drill:* re-derive each expected value with your own SQL and
-recompute one-line arithmetic in docstrings — a value that re-derives is
-verified; a value that doesn't is a finding, even when the suite passes.
+* **Generated pins** — census values come from `tests/census_snapshot.json`
+  via `maicdb.analysis.census` and assert
+  `computed == snapshot[track][key]`. The derivation trail is the
+  generator: a freeze retarget regenerates the snapshot
+  (`scripts/derive-census-clean.sh`), and the PR diff is the reviewed
+  derivation. Hand-transcribing a corpus number into a test is a finding.
+* **Transcribed pins** — scalar float analysis outputs, accession ids, and
+  structural checks keep the docstring trail: the census SQL quoted in the
+  test docstring, or pasted command output in the PR.
+
+Landmark arithmetic in docstrings is computed, never eyeballed (observed
+2026-11-05: trigger counts drafted as 15/4/703 before derivation — truth
+129/95/778/39, caught by the suite's first run; an "≈760.0004" comment
+whose true quotient is 759.9999).
+
+*Reviewer drill:* generated pins — regenerate the snapshot in a clean
+worktree (`scripts/derive-census-clean.sh`) and diff it against the PR's
+version; any difference is a finding. Transcribed pins — re-derive each
+expected value with your own SQL and recompute one-line arithmetic in
+docstrings; a value that re-derives is verified; a value that doesn't is a
+finding, even when the suite passes.

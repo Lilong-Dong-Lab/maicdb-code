@@ -4,8 +4,9 @@ Authority: spec §5.2 on top of P1's harmonization (``units``,
 ``replicates``) and the same-fit row join (``joins``). Guardrails
 (spec §6): log scale throughout, geometric means with n and k, no
 pooling across stimulus modalities, k/n on every output, and the
-Boltzmann demo stays a methods demo (0 of 948 rows carry P50 and slope
-together — census-pinned; n forbids claims).
+Boltzmann demo stays a methods demo (no row carries P50 and slope
+together — census-pinned as ``joins.slope_only_rows``; n forbids
+claims).
 
 First consumer of numpy/scipy — spec §4 names THIS phase as the
 dependency entry point (user decision 2026-11-06: numpy + scipy, with
@@ -15,8 +16,9 @@ Statistical core — DerSimonian–Laird (D–L) random effects on log10
 threshold magnitudes, clustered at the PUBLICATION level:
 
 * Spec §5.2 names ``publication × condition_key`` as the study unit;
-  at data-v1.0 that unit degenerates (condition_key is unique per P50
-  row — 152 rows / 152 distinct keys, artifact-census-pinned), so the
+  at the frozen corpus that unit degenerates (condition_key is unique
+  per P50 row — census-pinned as ``biophysics.p50_records`` /
+  ``biophysics.p50_condition_key_degeneracy``), so the
   cluster falls back to the publication, the spec's
   dependence-respecting intent. The fallback and census are pinned in
   the artifact tests.
@@ -37,23 +39,27 @@ threshold magnitudes, clustered at the PUBLICATION level:
   (``scipy.stats.t.ppf``); defined for identifiable cells with k ≥ 2.
 
 Threshold cells split by stimulus modality (spec: pressure never pools
-with indentation or stretch — at data-v1.0 every P50 row is a pressure
-stimulus, census-pinned). Dual reporting per ADR-0005: pooled
+with indentation or stretch — at the frozen corpus every P50 row is a
+pressure stimulus, census-pinned in the artifact tests). Dual
+reporting per ADR-0005: pooled
 geometric means in mmHg AND kPa (kPa = mmHg × 0.133322387415, the
 exact mmHg→kPa identity through the Pa pivot of P1's ``units``).
 
 Sign conventions are a corpus finding, disclosed not silently
-normalized: 88 of 152 P50 values are NEGATIVE, and signs are mixed
+normalized: a majority of P50 values are NEGATIVE (census-pinned as
+``biophysics.p50_sign_split``), and signs are mixed
 INSIDE single family × stimulus cells (e.g. PIEZO pressure-clamp spans
-−63.0 to 76.9 mmHg) — papers report suction/pressure-clamp activation
-thresholds under inconsistent sign conventions. The pooled statistic is
+— see ``biophysics.lab_spread_piezo1_pc``) — papers report
+suction/pressure-clamp activation thresholds under inconsistent sign
+conventions. The pooled statistic is
 |P50| on log10; every cell carries the negative/positive split, and
 ``lab_spread`` keeps the as-reported signed range per gene (the
 inconsistency is itself a MIMIC-relevant reporting-standard
 observation).
 
-Temperature (9% populated) is a listed covariate with a missing-data
-flag — no Q10 at v1 (spec).
+Temperature (sparsely populated — census-pinned as
+``audit.field_total_temperature_c``) is a listed covariate with a
+missing-data flag — no Q10 at v1 (spec).
 """
 
 from __future__ import annotations
@@ -162,10 +168,12 @@ def load_p50_records(engine: Engine) -> list[P50Record]:
 def cluster_key(record: P50Record) -> int:
     """The meta-analysis study unit: the publication.
 
-    Spec §5.2 names ``publication × condition_key``; at data-v1.0 that
-    unit DEGENERATES — condition_key is unique per row (152 P50 rows /
-    152 distinct keys, artifact-census-pinned), so pub×condition equals
-    record level and no within-cluster variance is ever identifiable
+    Spec §5.2 names ``publication × condition_key``; at the frozen
+    corpus that unit DEGENERATES — condition_key is unique per row
+    (census-pinned as ``biophysics.p50_records`` /
+    ``biophysics.p50_condition_key_degeneracy``), so pub×condition
+    equals record level and no within-cluster variance is ever
+    identifiable
     (every cluster would be a single record and the D–L variances would
     be arbitrary placeholders). This module therefore clusters at the
     publication level — the spec's dependence-respecting INTENT — and
@@ -183,11 +191,12 @@ def cluster_log_means(
     """Per-cluster (publication_id, log10 |P50| mean, within-cluster
     variance, n).
 
-    The log domain is the threshold MAGNITUDE: 88 of 152 data-v1.0 P50
-    values are negative (suction/pressure-clamp papers report the
-    activation threshold under sign conventions that vary BY PAPER —
-    mixed signs occur inside single family × stimulus cells), so the
-    pooled statistic is |P50| on log10, and every consuming view
+    The log domain is the threshold MAGNITUDE: a majority of the
+    corpus's P50 values are negative (census-pinned as
+    ``biophysics.p50_sign_split``; suction/pressure-clamp papers report
+    the activation threshold under sign conventions that vary BY
+    PAPER — mixed signs occur inside single family × stimulus cells),
+    so the pooled statistic is |P50| on log10, and every consuming view
     discloses the per-cell sign split. Zero cannot enter the log
     domain — raises loudly (no zeros in the corpus, census-pinned).
 
@@ -516,12 +525,12 @@ def boltzmann_demo(
 ) -> list[dict[str, object]]:
     """The same-fit Boltzmann demo, consuming P1's join.
 
-    Census caveat (spec §5.2, verified at data-v1.0): P50 and slope
-    never co-occur on one row (0 of 948); same-fit pairs are split
-    across rows, linked only by ``condition_key`` prose, and narrowed
-    by P1's token-overlap heuristic (a disclosed number, not truth).
-    ΔG/kBT = P50_mmhg / slope per joined pair (pressure-Boltzmann
-    reading; slope dimensionless). Note 3 of the 4 data-v1.0 rows have
+    Census caveat (spec §5.2, census-pinned): P50 and slope never
+    co-occur on one row (``joins.slope_only_rows``); same-fit pairs are
+    split across rows, linked only by ``condition_key`` prose, and
+    narrowed by P1's token-overlap heuristic (a disclosed number, not
+    truth). ΔG/kBT = P50_mmhg / slope per joined pair (pressure-Boltzmann
+    reading; slope dimensionless). Most joined pairs have
     NEGATIVE ΔG — the negative-P50 pairs carry the paper's sign
     convention into the quotient (the same corpus-wide sign-convention
     artifact disclosed module-wide). METHODS DEMO — the output exists

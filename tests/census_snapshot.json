@@ -1,0 +1,581 @@
+{
+  "activity": {
+    "pactivity_bases": {
+      "already_plog": 1,
+      "mass_no_mw": 4,
+      "missing_value": 3,
+      "molar": 129
+    }
+  },
+  "atlas": {
+    "cells_with_pactivity": 70,
+    "delta_p50_gene_split": {
+      "MscL": 1,
+      "MscS": 9,
+      "OSCA": 1,
+      "PIEZO1": 6
+    },
+    "delta_p50_rows": 17,
+    "delta_p50_units": {
+      "mmHg": 17
+    },
+    "domain_covered_total": 0,
+    "matrix_activity_rows": 137,
+    "matrix_basis_totals": {
+      "already_plog": 1,
+      "mass_no_mw": 4,
+      "missing_value": 3,
+      "molar": 129
+    },
+    "matrix_cells": 73,
+    "matrix_family_split": {
+      "DEG_ENaC_ASIC": 8,
+      "K2P": 36,
+      "MSCL_MSCS": 1,
+      "OSCA_TMEM63": 2,
+      "PIEZO": 6,
+      "TMC": 7,
+      "TRP": 13
+    },
+    "matrix_multi_channel_excess": 64,
+    "selectivity_gapped_rows": 4,
+    "selectivity_rows": 66,
+    "variant_effect_nonnull": 0,
+    "variant_hgvs_nonnull": 0,
+    "variant_linked_rows": 4,
+    "variant_positions": [
+      2456,
+      2456
+    ]
+  },
+  "audit": {
+    "adr_clean_records": 49,
+    "adr_missing": {
+      "experimental_context": [
+        960,
+        894
+      ],
+      "probe_geometry": [
+        95,
+        95
+      ],
+      "recording_mode": [
+        960,
+        39
+      ],
+      "stimulus_velocity": [
+        129,
+        129
+      ]
+    },
+    "as_written_missing": {
+      "experimental_context": 894,
+      "probe_geometry": 960,
+      "recording_mode": 39,
+      "stimulus_velocity": 960
+    },
+    "breakdown_cell_attached_k": 223,
+    "breakdown_family_crossfoot_k": 960,
+    "breakdown_family_rows": 7,
+    "breakdown_journal_crossfoot_k": 960,
+    "breakdown_journal_rows": 60,
+    "breakdown_mode_crossfoot_k": 921,
+    "breakdown_mscl_k": 200,
+    "channel_count": 12,
+    "era_split": {
+      "post": 721,
+      "pre": 239,
+      "unassigned": 0
+    },
+    "era_year_k": [
+      [
+        1986,
+        3
+      ],
+      [
+        1993,
+        1
+      ],
+      [
+        1995,
+        3
+      ],
+      [
+        1996,
+        1
+      ],
+      [
+        1997,
+        20
+      ],
+      [
+        1998,
+        8
+      ],
+      [
+        1999,
+        10
+      ],
+      [
+        2000,
+        4
+      ],
+      [
+        2001,
+        23
+      ],
+      [
+        2002,
+        24
+      ],
+      [
+        2003,
+        22
+      ],
+      [
+        2004,
+        21
+      ],
+      [
+        2005,
+        39
+      ],
+      [
+        2006,
+        25
+      ],
+      [
+        2007,
+        20
+      ],
+      [
+        2008,
+        15
+      ],
+      [
+        2010,
+        40
+      ],
+      [
+        2011,
+        48
+      ],
+      [
+        2012,
+        14
+      ],
+      [
+        2013,
+        52
+      ],
+      [
+        2014,
+        47
+      ],
+      [
+        2015,
+        75
+      ],
+      [
+        2016,
+        28
+      ],
+      [
+        2017,
+        47
+      ],
+      [
+        2018,
+        76
+      ],
+      [
+        2019,
+        38
+      ],
+      [
+        2020,
+        55
+      ],
+      [
+        2021,
+        52
+      ],
+      [
+        2022,
+        28
+      ],
+      [
+        2023,
+        32
+      ],
+      [
+        2024,
+        63
+      ],
+      [
+        2025,
+        6
+      ],
+      [
+        2026,
+        20
+      ]
+    ],
+    "failing_any_adr": [
+      911,
+      960
+    ],
+    "failing_any_as_written": [
+      960,
+      960
+    ],
+    "family_slice_counts": {
+      "DEG_ENaC_ASIC": 109,
+      "K2P": 145,
+      "MSCL_MSCS": 200,
+      "OSCA_TMEM63": 95,
+      "PIEZO": 188,
+      "TMC": 153,
+      "TRP": 70
+    },
+    "field_total_cell_type": [
+      785,
+      175,
+      960
+    ],
+    "field_total_ph": [
+      551,
+      960
+    ],
+    "field_total_recording_mode": [
+      921,
+      39,
+      960
+    ],
+    "field_total_stimulus_velocity": [
+      0,
+      129
+    ],
+    "field_total_temperature_c": [
+      85,
+      875,
+      960
+    ],
+    "heatmap_family_keys": 7,
+    "heatmap_temperature_reported": {
+      "DEG_ENaC_ASIC": 10,
+      "K2P": 34,
+      "MSCL_MSCS": 0,
+      "OSCA_TMEM63": 10,
+      "PIEZO": 4,
+      "TMC": 0,
+      "TRP": 27
+    },
+    "meta_join_vacuity": {
+      "family": 0,
+      "journal": 0,
+      "year": 0
+    }
+  },
+  "biophysics": {
+    "boltzmann_pairs": 4,
+    "boltzmann_top_token_overlap": 13,
+    "cell_identifiability": {
+      "K2P/PRESSURE_CLAMP": true,
+      "TMC/PRESSURE_CLAMP": true,
+      "TRP/PRESSURE_CLAMP": false
+    },
+    "cell_negative_n": {
+      "K2P/PRESSURE_CLAMP": 3,
+      "K2P/SUCTION": 12,
+      "MSCL_MSCS/PRESSURE_CLAMP": 14,
+      "MSCL_MSCS/SUCTION": 4,
+      "OSCA_TMEM63/PRESSURE_CLAMP": 29,
+      "PIEZO/POSITIVE_PRESSURE": 0,
+      "PIEZO/PRESSURE_CLAMP": 23,
+      "PIEZO/SUCTION": 3,
+      "TMC/PRESSURE_CLAMP": 2,
+      "TRP/PRESSURE_CLAMP": 0
+    },
+    "kinetics_asic_tau_inact": {
+      "k": 14,
+      "n_pubs": 5
+    },
+    "kinetics_cells": 23,
+    "kinetics_genes": [
+      "ASIC",
+      "MscL",
+      "MscS",
+      "OSCA",
+      "PIEZO1",
+      "PIEZO2",
+      "TMC",
+      "TRAAK",
+      "TREK-1",
+      "TRPV4"
+    ],
+    "kinetics_totals": {
+      "tau_act": 45,
+      "tau_deact": 40,
+      "tau_inact": 93
+    },
+    "lab_spread_cells": 9,
+    "lab_spread_mscl_suction": {
+      "k": 5,
+      "n": 24
+    },
+    "lab_spread_piezo1_pc": {
+      "k": 9,
+      "n": 45
+    },
+    "meta_piezo_pc": {
+      "k": 9,
+      "n": 45
+    },
+    "p50_cell_census": {
+      "K2P/PRESSURE_CLAMP": [
+        3,
+        1
+      ],
+      "K2P/SUCTION": [
+        12,
+        4
+      ],
+      "MSCL_MSCS/PRESSURE_CLAMP": [
+        19,
+        7
+      ],
+      "MSCL_MSCS/SUCTION": [
+        30,
+        7
+      ],
+      "OSCA_TMEM63/PRESSURE_CLAMP": [
+        36,
+        7
+      ],
+      "PIEZO/POSITIVE_PRESSURE": [
+        5,
+        2
+      ],
+      "PIEZO/PRESSURE_CLAMP": [
+        45,
+        9
+      ],
+      "PIEZO/SUCTION": [
+        6,
+        2
+      ],
+      "TMC/PRESSURE_CLAMP": [
+        2,
+        1
+      ],
+      "TRP/PRESSURE_CLAMP": [
+        1,
+        1
+      ]
+    },
+    "p50_condition_key_degeneracy": [
+      159,
+      159
+    ],
+    "p50_records": 159,
+    "p50_sign_split": [
+      90,
+      69,
+      0
+    ],
+    "p50_unit_split": {
+      "mmHg": 155,
+      "psi": 4
+    },
+    "threshold_meta_cells": 10
+  },
+  "corpus": {
+    "bioactivity_pchembl_null": 137,
+    "experiment_count": 960,
+    "p50_psi_rows": 4,
+    "t50_dyncm_rows": 15,
+    "x50_nm_rows": 37
+  },
+  "freeze_tag": "data-v1.2@dd49d8e65ac1",
+  "joins": {
+    "candidate_count": 18,
+    "marker_hit_count": 7,
+    "slope_only_rows": 13
+  },
+  "mimic": {
+    "applicability_trigger_counts": [
+      129,
+      95,
+      781,
+      39
+    ],
+    "applicable_distribution": {
+      "12": 51,
+      "14": 117,
+      "15": 11,
+      "16": 663,
+      "17": 23,
+      "19": 95
+    },
+    "category_crossfoot": {
+      "applicable": 15219,
+      "reported": 6441
+    },
+    "category_totals": {
+      "analysis": [
+        505,
+        2880
+      ],
+      "cell_context": [
+        1704,
+        1920
+      ],
+      "environment": [
+        1946,
+        3661
+      ],
+      "recording": [
+        1450,
+        3559
+      ],
+      "stimulus": [
+        836,
+        3199
+      ]
+    },
+    "field_reported_counts": {
+      "n_cells": 505,
+      "recording_mode": 921,
+      "stimulus_type": 836,
+      "temperature_c": 85
+    },
+    "score_count": 960,
+    "score_threshold_counts": {
+      "eq_1": 0,
+      "ge_05": 385,
+      "lt_03": 120,
+      "lt_05": 575
+    }
+  },
+  "replicates": {
+    "coalesce_buckets": {
+      "n_int": 490,
+      "n_range": 15,
+      "n_unparsed": 4,
+      "none": 451
+    }
+  },
+  "site_payloads": {
+    "assay_drift_rows": 330,
+    "atlas_header_counts": [
+      73,
+      69,
+      9
+    ],
+    "atlas_list_lengths": {
+      "delta_p50": 17,
+      "matrix": 73,
+      "selectivity": 66
+    },
+    "audit_n_records": 960,
+    "badge_channels": 12,
+    "badge_piezo1": {
+      "applicable": 2649,
+      "n_records": 160,
+      "n_stim_raw": 160,
+      "reported": 1259,
+      "stimulus_type_applicable": 160,
+      "stimulus_type_reported": 160
+    },
+    "badge_record_total": 960,
+    "biophysics_list_lengths": {
+      "boltzmann_demo": 4,
+      "kinetics_atlas": 23,
+      "lab_spread": 9,
+      "threshold_meta": 10
+    },
+    "data_freeze_tag": "data-v1.2@dd49d8e65ac1",
+    "model_drift_rows": 258,
+    "parameter_adoption_rows": 561,
+    "parameter_label_count": 17,
+    "trends_first_year": [
+      1986,
+      1
+    ],
+    "trends_last_year": [
+      2026,
+      6
+    ],
+    "trends_total_k": 188,
+    "trends_total_rows": 33
+  },
+  "trends": {
+    "adoption_cell_anchors": {
+      "conductance@1986": 2,
+      "p50@1998": 1,
+      "thermal_threshold@2002": 4
+    },
+    "adoption_corpus_totals": {
+      "conductance": 265,
+      "p50": 159
+    },
+    "assay_2010_split": {
+      "CELL_ATTACHED": 5,
+      "INSIDE_OUT": 20,
+      "OTHER": 1,
+      "TEVC": 8,
+      "WHOLE_CELL": 6
+    },
+    "assay_drift_rows": 330,
+    "assay_mode_count": 10,
+    "assay_none_bucket_k": 39,
+    "expression_none_2011": 23,
+    "expression_none_bucket_k": 41,
+    "expression_system_count": 230,
+    "join_vacuity": {
+      "family": 0,
+      "year": 0
+    },
+    "model_drift_rows": 258,
+    "of_year_2010": 40,
+    "parameter_adoption_rows": 561,
+    "parameter_adoption_year_span": [
+      1986,
+      2026,
+      33
+    ],
+    "parameter_census": {
+      "conductance": 265,
+      "p50": 159,
+      "tau_inact": 93,
+      "x50": 46
+    },
+    "parameter_label_count": 17,
+    "pub_2010_family_split": [
+      [
+        "MSCL_MSCS",
+        2
+      ],
+      [
+        "PIEZO",
+        1
+      ],
+      [
+        "TRP",
+        2
+      ]
+    ],
+    "pub_year_anchors": {
+      "2010": 5,
+      "2015": 12,
+      "2020": 9,
+      "2023": 4
+    },
+    "pub_years": 33,
+    "pubs_by_family_k_total": 188,
+    "pubs_by_family_rows": 107,
+    "pubs_total_k": 188,
+    "record_count": 960
+  }
+}

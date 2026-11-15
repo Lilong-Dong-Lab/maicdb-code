@@ -16,18 +16,20 @@ fortiori here):
 * publications per year — per (year, family) distinct-publication
   counts via the experiment join, plus the overall per-year distinct
   count. The two are NOT additive in general (one publication can cover
-  two families in one year); at data-v1.0 they coincide (both 184 rows
-  — census-pinned), which is itself a fact about the corpus, not a
-  license to sum later.
+  two families in one year); at the frozen corpus they coincide
+  (census-pinned as ``trends.pubs_by_family_k_total`` /
+  ``trends.pubs_total_k``), which is itself a fact about the corpus,
+  not a license to sum later.
 * parameter adoption — full year × parameter cross-tab of
   ``biophysics_experiment`` value columns (k may be 0); "which
   parameters the field measured over time".
 * assay-format drift — year × recording_mode counts (NULL modes as a
   None-keyed row: completeness is part of the trend);
   model-system drift — year × expression_system, SPARSE (only observed
-  combinations; the column is free text with 224 distinct values at
-  data-v1.0 — a full cross-tab would be ~7k mostly-zero rows and the
-  rendering truncation belongs to P7).
+  combinations; the column is free text with a high-cardinality
+  distinct-value count (census-pinned as
+  ``trends.expression_system_count``) — a full cross-tab would be
+  mostly-zero rows and the rendering truncation belongs to P7).
 
 Outputs are deterministic: sorted keys everywhere, ``PARAMETERS`` fixed
 order, records consumed in loader order (``ORDER BY maicdb_id``).
@@ -159,7 +161,8 @@ def pubs_per_year_by_family(
     """Distinct publications per (year, family), sorted.
 
     Records without a family or year are excluded from this view (the
-    coverage censuses pin both to 948/948 at data-v1.0, so nothing is
+    coverage census pins both joins to zero nulls —
+    ``trends.join_vacuity`` — so nothing is
     dropped in practice); a record with a NULL publication_id cannot
     contribute (nothing to count).
     """
@@ -283,7 +286,8 @@ class ExprYearRow:
     """Experiments in one expression_system in one year (SPARSE).
 
     Only observed (year, system) combinations appear — the column is
-    free text (224 distinct values at data-v1.0) and a full cross-tab
+    free text (distinct-value count census-pinned as
+    ``trends.expression_system_count``) and a full cross-tab
     would be mostly zeros. Sorted by year then system name (None first).
     """
 
