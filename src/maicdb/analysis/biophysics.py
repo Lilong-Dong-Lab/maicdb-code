@@ -273,7 +273,7 @@ class MetaCell:
     Pooled statistics are |P50| on log10 — the sign split
     (``negative_n``/``positive_n``) discloses the papers' sign
     conventions, which are NOT uniform (mixed signs occur within single
-    cells at data-v1.0; the module docstring carries the full story).
+    cells at data-v1.2; the module docstring carries the full story).
     """
 
     family: str

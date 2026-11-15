@@ -225,7 +225,7 @@ def score_record(
 def score_all(engine: Engine) -> list[MIMICScore]:
     """Score every biophysics_experiment row, deterministic order.
 
-    data-v1.0 caveat: no ``mimic_gaps`` column exists in the artifact, so
+    data-v1.2 caveat: no ``mimic_gaps`` column exists in the artifact, so
     empty fields score ``not_extracted`` (ADR-0005 hybrid — the column
     activates with future curation batches).
     """

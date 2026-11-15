@@ -30,6 +30,14 @@ uvx ruff@0.17.3 check . || {
     echo "hook: ruff lint failed — blocked (--no-verify overrides)" >&2
     exit 1
 }
+# Tag-literal freshness (retro 2026-11-15, post-#91): analysis-layer
+# comments claim the CURRENT artifact; a data-v1.N older than the census
+# snapshot's freeze_tag is stale (the #91 gate's NIT class — the check's
+# first run found 12 more, every one verified-true-but-mislabeled).
+bash "$(dirname "$0")/../scripts/check-tag-literals.sh" || {
+    echo "hook: stale tag literals in src/maicdb/analysis/ — blocked (--no-verify overrides)" >&2
+    exit 1
+}
 bash "$(dirname "$0")/../scripts/check-suite-matrix.sh" --pins || {
     echo "hook: declared suite pins drifted (see scripts/check-suite-matrix.sh) — blocked (--no-verify overrides)" >&2
     exit 1
