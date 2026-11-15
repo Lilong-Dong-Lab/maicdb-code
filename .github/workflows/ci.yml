@@ -33,8 +33,12 @@ jobs:
         # Retro 2026-11-15 post-#91: the gate's only finding was a stale
         # "data-v1.0" label moved verbatim from atlas.py; the check's first
         # run found 12 more across the analysis layer. Authority for
-        # "current": tests/census_snapshot.json freeze_tag.
-        run: bash scripts/check-tag-literals.sh
+        # "current": tests/census_snapshot.json freeze_tag. Self-test pins
+        # the guard's own escape forms (case variant, vanished target,
+        # vanished snapshot) — rule 4, guards self-vector.
+        run: |
+          bash scripts/check-tag-literals.sh --selftest
+          bash scripts/check-tag-literals.sh
       - name: Site build, both locales (byte-stable)
         # M3-T7 (issue #42): CI builds the site exactly as a human/deploy
         # does — default --out into gitignored site/_data + site/_site —

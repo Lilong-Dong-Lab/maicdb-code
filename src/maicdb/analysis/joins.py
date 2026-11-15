@@ -21,7 +21,7 @@ defines the join in two honest steps:
    ground truth; the Boltzmann ΔG demo (P4) consumes confirmed pairs
    only.
 
-Data-v1.0 census (marker-bearing slope rows and candidate counts) is
+Data-v1.2 census (marker-bearing slope rows and candidate counts) is
 pinned in ``tests/test_analysis_artifact.py`` with the census SQL that
 re-derives it; the harmonization corpus test re-pins both.
 """
