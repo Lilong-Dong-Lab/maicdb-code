@@ -42,10 +42,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field as dataclass_field
 
-from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Engine
 
-from maicdb.analysis.activity import p_activity
+from maicdb.analysis.harmonization import (
+    DeltaP50Record as EffectRow,
+)
+from maicdb.analysis.harmonization import (
+    in_covered_range as _in_covered_range,  # noqa: F401  (re-exported: unit tests pin it here)
+)
+from maicdb.analysis.harmonization import harmonize
 
 __all__ = [
     "EffectRow",
@@ -55,115 +60,6 @@ __all__ = [
     "compound_channel_matrix",
     "selectivity_index",
 ]
-
-_DP50_SQL = sql_text(
-    "SELECT e.maicdb_id AS maicdb_id, e.channel_id AS channel_id,"
-    " c.gene_symbol AS gene_symbol,"
-    " c.family AS family, e.delta_p50_value AS delta_p50_value,"
-    " e.delta_p50_unit AS delta_p50_unit, e.publication_id AS publication_id,"
-    " e.variant_id AS variant_id, v.hgvs_protein AS hgvs_protein,"
-    " v.position AS position, v.functional_effect AS functional_effect"
-    " FROM biophysics_experiment e"
-    " JOIN channel c ON e.channel_id = c.id"
-    " LEFT JOIN variant v ON e.variant_id = v.id"
-    " WHERE e.delta_p50_value IS NOT NULL"
-    " ORDER BY e.maicdb_id"
-)
-
-_COVERED_SQL = sql_text(
-    "SELECT s.id AS structure_id, s.pdb_id AS pdb_id,"
-    " s.channel_id AS channel_id, s.residues_covered AS residues_covered"
-    " FROM structure s WHERE s.residues_covered IS NOT NULL"
-)
-
-_MATRIX_SQL = sql_text(
-    "SELECT b.maicdb_id AS maicdb_id, cp.name AS compound_name,"
-    " c.gene_symbol AS gene_symbol, c.family AS family,"
-    " b.activity_value AS activity_value, b.activity_units AS activity_units"
-    " FROM bioactivity b"
-    " JOIN compound cp ON b.compound_id = cp.id"
-    " JOIN channel c ON b.channel_id = c.id"
-    " ORDER BY cp.name, c.gene_symbol, b.maicdb_id"
-)
-
-
-def _in_covered_range(position: int, residues_covered: str) -> bool:
-    """True when ``position`` falls inside a coverage spec like
-    ``"1-2547"`` or ``"1-200, 300-500"`` (ranges inclusive; bare
-    numbers treated as single residues). Malformed segments are
-    skipped — coverage text is curated free text."""
-    for segment in residues_covered.split(","):
-        part = segment.strip()
-        if not part:
-            continue
-        if "-" in part:
-            bounds = part.split("-", 1)
-            try:
-                lo, hi = int(bounds[0]), int(bounds[1])
-            except ValueError:
-                continue
-            if lo <= position <= hi:
-                return True
-        else:
-            try:
-                if int(part) == position:
-                    return True
-            except ValueError:
-                continue
-    return False
-
-
-@dataclass(frozen=True)
-class EffectRow:
-    """One ΔP50 effect-size row (spec: no inferential statistics)."""
-
-    maicdb_id: str
-    gene_symbol: str
-    family: str
-    delta_p50: float  # as reported (all data-v1.0 rows are mmHg)
-    unit: str  # as reported
-    variant_linked: bool  # the row cites a variant (e.at data-v1.0 the
-    # 3 linked rows carry NULL hgvs_protein — linkage without notation)
-    variant: str | None  # hgvs_protein (None on all data-v1.0 rows)
-    functional_effect: str | None
-    variant_position: int | None
-    domains: tuple[str, ...]  # structures covering the variant position
-    # (empty at data-v1.0 — residues_covered is NULL on all 12
-    # structure rows; the mapping activates with future curation)
-
-
-def delta_p50_table(engine: Engine) -> list[EffectRow]:
-    """The ΔP50 effect-size table, deterministic order; structural
-    domains resolved where a variant position falls inside a covered
-    structure's range (vacuous at data-v1.0 — see module docstring)."""
-    covered = {}
-    with engine.connect() as conn:
-        for row in conn.execute(_COVERED_SQL).mappings():
-            covered.setdefault(int(row["channel_id"]), []).append(row)
-        out: list[EffectRow] = []
-        for row in conn.execute(_DP50_SQL).mappings():
-            position = row["position"]
-            domains: list[str] = []
-            if position is not None:
-                channel_id = row["channel_id"]
-                for s in covered.get(int(channel_id) if channel_id is not None else -1, []):
-                    if _in_covered_range(int(position), s["residues_covered"] or ""):
-                        domains.append(str(s["pdb_id"] or s["structure_id"]))
-            out.append(
-                EffectRow(
-                    maicdb_id=str(row["maicdb_id"]),
-                    gene_symbol=str(row["gene_symbol"]),
-                    family=str(row["family"]),
-                    delta_p50=float(row["delta_p50_value"]),
-                    unit=row["delta_p50_unit"] or "",
-                    variant_linked=row["variant_id"] is not None,
-                    variant=row["hgvs_protein"],
-                    functional_effect=row["functional_effect"],
-                    variant_position=position,
-                    domains=tuple(domains),
-                )
-            )
-    return out
 
 
 @dataclass(frozen=True)
@@ -194,6 +90,18 @@ class _CellAcc:
     basis: dict[str, int] = dataclass_field(default_factory=dict)
 
 
+def delta_p50_table(engine: Engine) -> list[EffectRow]:
+    """The ΔP50 effect-size table, deterministic order; structural
+    domains resolved where a variant position falls inside a covered
+    structure's range (vacuous at data-v1.0 — see module docstring).
+
+    Thin delegate over the harmonization corpus (``EffectRow`` is the
+    corpus's ``DeltaP50Record``) — the read and the domain mapping live
+    in :mod:`maicdb.analysis.harmonization`.
+    """
+    return list(harmonize(engine).delta_p50)
+
+
 def compound_channel_matrix(engine: Engine) -> list[MatrixCell]:
     """The compound × channel activity matrix, sparse (populated cells
     only), deterministic order (compound, then gene).
@@ -202,22 +110,19 @@ def compound_channel_matrix(engine: Engine) -> list[MatrixCell]:
     ``p_activity``: the data-v1.0 μg/ml rows are silica nanoparticles
     with NULL MW, so ``mass_from_mw`` is unreachable today. When
     curation adds MW values, passing them here activates mass→molar
-    resolution for this surface.
+    resolution for this surface. Reads the harmonization corpus; each
+    row's ``p_activity`` resolution is reused, not recomputed.
     """
     groups: dict[tuple[str, str], _CellAcc] = {}
-    with engine.connect() as conn:
-        for row in conn.execute(_MATRIX_SQL).mappings():
-            key = (str(row["compound_name"]), str(row["gene_symbol"]))
-            cell = groups.setdefault(key, _CellAcc(family=str(row["family"])))
-            cell.n += 1
-            # pass the unit through as-is: NULL must reach p_activity as
-            # None (basis missing_value, matching P1's own census of these
-            # same rows) — coercing to "" would mislabel them unknown_unit
-            act = p_activity(row["activity_value"], row["activity_units"])
-            cell.basis[act.basis] = cell.basis.get(act.basis, 0) + 1
-            if act.value is not None:
-                cell.p_sum += act.value
-                cell.p_n += 1
+    for row in harmonize(engine).bioactivity:
+        key = (row.compound_name, row.gene_symbol)
+        cell = groups.setdefault(key, _CellAcc(family=row.family))
+        cell.n += 1
+        act = row.pa  # resolved at harmonization (NULL unit → missing_value)
+        cell.basis[act.basis] = cell.basis.get(act.basis, 0) + 1
+        if act.value is not None:
+            cell.p_sum += act.value
+            cell.p_n += 1
     out: list[MatrixCell] = []
     for (compound, gene), cell in sorted(groups.items()):
         out.append(
