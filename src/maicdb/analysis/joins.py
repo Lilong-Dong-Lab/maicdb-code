@@ -1,9 +1,10 @@
 """Same-fit row join for the analysis layer (P1).
 
 Spec §5.2 (``docs/analytics-pipeline-spec.md``): P50 and slope never
-co-occur on one row of data-v1.0 (0 of 948); same-fit pairs are split
-across rows, linked only by ``condition_key`` prose. P1 defines the join
-in two honest steps:
+co-occur on one row of the published artifact (census-pinned as
+``joins.slope_only_rows`` / ``joins.marker_hit_count``); same-fit pairs
+are split across rows, linked only by ``condition_key`` prose. P1
+defines the join in two honest steps:
 
 1. :func:`same_fit_candidates` — discovery. Slope-only rows (``slope``
    populated, every threshold NULL) whose ``condition_key`` or

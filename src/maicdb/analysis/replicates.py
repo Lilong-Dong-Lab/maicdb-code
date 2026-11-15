@@ -1,8 +1,9 @@
 """Replicate-count coalescing for the analysis layer (P1).
 
 The published artifact carries replicate counts in two places:
-``biophysics_experiment.n_cells`` (INTEGER, 0% populated at data-v1.0) and
-the legacy text column ``n`` (53% populated — spec §3, census SQL there).
+``biophysics_experiment.n_cells`` (INTEGER, unpopulated in the frozen
+corpus) and the legacy text column ``n`` (roughly half populated —
+census-pinned as ``replicates.coalesce_buckets``).
 The legacy column is free text whose observed forms are clean integers
 ("12") and integer ranges ("5-9"); anything else is kept as
 ``source="n_unparsed"`` with the raw text preserved — never guessed

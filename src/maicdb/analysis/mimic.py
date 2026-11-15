@@ -12,10 +12,9 @@ Semantics per field, per record (ADR-0005 tri-state):
   absent in the paper);
 * empty and not listed → ``not_extracted`` (ambiguous — must shrink).
 
-The artifact at data-v1.0 carries no ``mimic_gaps`` column (its loader
-home lands with data-v1.1), so every empty field scores
-``not_extracted``; pass ``mimic_gaps`` per record once curation provides
-it.
+The published artifact carries no ``mimic_gaps`` column, so every
+empty field scores ``not_extracted``; pass ``mimic_gaps`` per record
+once curation provides it.
 
 Score = reported ÷ applicable, unweighted (ADR-0005). Applicability is
 strictly the ADR-0005 rule set — fields the ADR does not make conditional

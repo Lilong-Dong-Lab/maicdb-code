@@ -16,8 +16,10 @@ Views implemented (spec §5.1):
   pair recording_mode × stimulus_type);
 * the vault §9 four-field enforcement headline, under BOTH readings:
   as-written (applicability ignored — the vault list's own reading,
-  which fails ~100% of data-v1.0) and ADR-aware (applicability-filtered).
-  Stating the pair is the paper's motivation figure (spec §5.1).
+  which fails the whole corpus — census-pinned as
+  ``audit.failing_any_as_written``) and ADR-aware
+  (applicability-filtered, ``audit.failing_any_adr``). Stating the
+  pair is the paper's motivation figure (spec §5.1).
 
 Mean conventions, disclosed: heatmap cells are count ratios
 (reported ÷ applicable in the cell); the year/era and breakdown views
@@ -27,11 +29,13 @@ MIMIC categories within each record (unweighted stays the headline).
 
 The ``OTHER`` recording-mode decision (ADR-0005 assigns P3 the
 per-record call, with disclosure): the aggregate views here DISCLOSE
-rather than invent — they inherit P2's default (for the 12 of 948
-``OTHER``-mode records the conditional fields are not applicable).
-Excluding those 12 records shifts the unweighted corpus mean by
-−0.0002 (0.421838 → 0.421637, module output 2026-11-06), immaterial at
-v1.0; a per-record adjudication is a curation-semantics decision
+rather than invent — they inherit P2's default (for the ``OTHER``-mode
+records — a small minority, census-pinned via
+``audit.breakdown_mode_crossfoot_k`` — the conditional fields are not
+applicable). Excluding those records shifts the unweighted corpus mean
+by an immaterial amount (the shift was verified at derivation time;
+the weighted/unweighted means are pinned in the artifact tests); a
+per-record adjudication is a curation-semantics decision
 reserved for the project lead and vault curation, not an analysis
 default.
 
@@ -415,9 +419,10 @@ def four_field_audit(
 
     * *as written* — the vault list's own reading, applicability
       ignored: a record fails a mandated field when its value is
-      absent. This is the ~100% motivation number: velocity and probe
+      absent. This is the near-total motivation number (census-pinned
+      as ``audit.failing_any_as_written``): velocity and probe
       geometry are 0% populated corpus-wide, so as-written every
-      data-v1.0 record fails the list.
+      published record fails the list.
     * *ADR-aware* — a record fails only when the field is applicable
       (ADR-0005 rules) AND absent; a NULL stimulus_type excludes the
       dependent fields within this list's scope (one cannot demand
