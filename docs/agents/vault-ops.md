@@ -32,6 +32,16 @@ git -C "$VAULT" fetch origin --prune
 git -C "$VAULT" fetch . origin/main:main
 ```
 
+If the checkout sits **on main** (it may equally sit on a work branch),
+the second step refuses — `fetch into branch 'refs/heads/main' checked
+out at …`, exit 128 — and that refusal is benign when step 1 already
+synced. Do NOT recover by pulling or otherwise moving the checkout's
+HEAD. Verify instead: `git -C "$VAULT" status --porcelain` empty AND
+`git -C "$VAULT" rev-list --count main..origin/main` plus the reverse
+both 0. Then local main is already current — branch the worktree from
+`origin/main` and continue with the recipe (observed 2026-11-15, digest
+PR #149 round).
+
 ```bash
 git -C "$VAULT" worktree add -b docs/reviewdigest-maicdb-<topic> /tmp/vault-wt-<topic> main
 # write report/ReviewDigest_maicdb-code-<topic>_<date>_agent.md
