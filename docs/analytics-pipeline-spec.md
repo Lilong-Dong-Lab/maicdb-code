@@ -131,8 +131,10 @@ The P1 box is one deep module, `src/maicdb/analysis/harmonization.py`
 architecture review, candidate 2): it owns every value-row read and
 conversion (units, replicates, pActivity, ΔP50, the same-fit join's
 discovery); the leaf modules stay the pinned vocabulary, and tracks
-P4/P5 keep only their aggregation/statistics — no track opens the
-artifact for a value row or applies a conversion inline.
+P4/P5 keep only their aggregation/statistics — no P4/P5 track opens
+the artifact for a value row or applies a conversion inline (mimic's
+per-record seam and trends' publication counts keep their own reads —
+spec §5).
 
 **Design rules**
 

@@ -1,11 +1,14 @@
-"""The P1 harmonization deep module — one read of the frozen artifact.
+"""The P1 harmonization deep module — one read of the frozen artifact
+per :func:`harmonize` call.
 
 This module is the single owner of value-row reads + conversions for
 the analysis layer (spec §4's P1 list: units, coalesce(n, n_cells),
-pActivity, ΔP50 values, same-fit row join). Downstream tracks (P2
-mimic, P4 biophysics, P5 atlas) consume :func:`harmonize` and keep
-only their aggregation/statistics — no consumer opens the artifact for
-a value row or applies a conversion inline.
+pActivity, ΔP50 values, same-fit row join). The P4 biophysics and P5
+atlas tracks consume :func:`harmonize` and keep only their
+aggregation/statistics — neither opens the artifact for a value row or
+applies a conversion inline. (P2 mimic and P6 trends keep their own
+reads by design — spec §4/§5: mimic is the per-record seam; trends
+counts publications, not values.)
 
 Authority chain: ``docs/analytics-pipeline-spec.md`` (scope) →
 ``docs/adr/0005-mimic-tri-state-hybrid.md`` (unit policy) → the leaf
@@ -292,8 +295,9 @@ class HarmonizedCorpus:
     """Every value-bearing row of the frozen artifact, harmonized.
 
     Built only by :func:`harmonize`; deterministic order per collection
-    (``ORDER BY maicdb_id`` unless a consumer's census pins a different
-    order — disclosed per field).
+    (``ORDER BY maicdb_id``), with one disclosed exception: ``same_fit``
+    sorts by ``(slope_maicdb_id, threshold_maicdb_id)`` — the pairing
+    order the ΔG demo and its census pin read.
     """
 
     p50: tuple[P50Record, ...]
