@@ -88,9 +88,13 @@ install -e .` alone is NOT reliable — the flag comes back.)
   and strict where the spec says strict (unit enums, conservation asserts).
 - Never fabricate test fixture values: fixtures claiming real-data provenance
   must cite the vault source in the docstring — CSV path / raw JSON for
-  extracted cells, or (for pins against the published artifact) the
-  data-notes section plus the census SQL that re-derives the number — the
-  retro gate on PR #1 exists because of exactly this.
+  extracted cells. Census pins against the published artifact are
+  **generated, not transcribed**: they come from `tests/census_snapshot.json`
+  via `maicdb.analysis.census` and are regenerated at each freeze retarget
+  (`scripts/derive-census-clean.sh`); scalar float outputs and accession ids
+  keep the transcribed docstring trail (data-notes section plus the census
+  SQL that re-derives the number) — the retro gate on PR #1 exists because
+  of exactly this.
 - README transcripts are regenerated from live command output, never
   hand-edited; reviewers diff them against the actual command output.
 

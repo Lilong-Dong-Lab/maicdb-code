@@ -56,3 +56,18 @@ counted channels, not families)
 The human-readable name of a channel (e.g. PIEZO1, TREK-1) — an identifying
 attribute of a channel, not a standalone entity.
 _Avoid_: gene (when it implies a separate table, page, or count axis)
+
+**Census**:
+A counted property of the frozen corpus, derived deterministically from a
+data artifact — raw SQL over `maicdb.sqlite`, or a composition of the
+analysis loaders. Census values live in one generated snapshot
+(`tests/census_snapshot.json`, keyed by freeze tag); tests recompute and
+compare against it.
+_Avoid_: stat, expected value
+
+**Pin**:
+A frozen expected value a test asserts — the test-side record of a census
+value at a freeze. Generated pins cite the snapshot and the generator
+(`maicdb-census`); transcribed pins (scalar floats, accession ids) carry a
+docstring derivation trail per `CODING_STANDARDS.md` §6.
+_Avoid_: fixture number, snapshot (that is the file, not the value)
