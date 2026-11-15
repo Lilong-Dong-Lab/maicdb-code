@@ -2,7 +2,8 @@
 # derive-census-clean.sh [git-ref] — regenerate tests/census_snapshot.json
 # via `maicdb-census --write` in a clean detached worktree of <ref>
 # (default HEAD), with $MAICDB_VAULT exported to the sibling checkout
-# (resolved by the vault seam, maicdb.vault.resolve_vault).
+# (kept for symmetry with derive-pins-clean.sh — the census step itself
+# reads db/ only, never the vault).
 #
 # Born 2026-11-15 (derived-census-pins): the snapshot must be regenerated
 # from a clean tree so the diff a reviewer sees is exactly the freeze

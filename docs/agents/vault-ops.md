@@ -14,7 +14,7 @@ without disturbing it, and the shell rules that prevent multi-repo mistakes.
 Code-side vault discovery (loader, tests, scripts) is the vault seam,
 `src/maicdb/vault.py::resolve_vault`: explicit path > `$MAICDB_VAULT` env
 var > the sibling checkout next to this repo. The absolute `VAULT=` export
-below is for shell git ops (digest PRs) and stays. |
+below is for shell git ops (digest PRs) and stays.
 
 ## Digest PR recipe (workflow step 3's "small vault docs PR")
 

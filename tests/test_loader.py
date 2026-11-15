@@ -194,7 +194,7 @@ def test_freeze_enforcement(capfd):
     assert FrozenVault(VAULT, FREEZE_TAG).verify()  # happy path: returns HEAD sha
     captured = capfd.readouterr()
     assert captured.out == "" and captured.err == "", \
-        "verify_vault must be fully silent (quirk 11 leak fixed)"
+        "FrozenVault.verify must be fully silent (quirk 11 leak fixed)"
 
 
 @requires_vault
