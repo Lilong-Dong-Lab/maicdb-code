@@ -33,9 +33,12 @@ def _commit(repo) -> None:
 def synth_vault(tmp_path):
     """A clean synthetic vault at annotated tag ``data-vT``.
 
-    ``data/notes.md`` and a stray ``configs/*.json`` are deliberately
-    tracked: the frozen-surface inventory must exclude them (the
-    47-file-incident exclusion semantics, PR #66 + 8cdb764 erratum).
+    ``data/notes.md`` (root doc) and a stray ``configs/*.json`` are
+    deliberately tracked: the frozen-surface inventory must exclude them —
+    the ANCHORED ``(glob)`` semantics (``*`` does not cross ``/``). The
+    per-layer ``data/asic/README.md`` is equally deliberately tracked and
+    must stay PINNED: only root docs are legal post-freeze churn (the
+    47-file-incident pair: PR #66 + 8cdb764 erratum).
     """
     vault = tmp_path / "vault"
     for layer in LAYERS:
@@ -47,6 +50,10 @@ def synth_vault(tmp_path):
             f"SYN-{slug}-00001,VERBATIM\n"
             f"SYN-{slug}-00002,NEAR_VERBATIM\n",
             encoding="utf-8")
+    (vault / "data" / "notes.md").write_text("prose, not frozen\n",
+                                             encoding="utf-8")
+    (vault / "data" / "asic" / "README.md").write_text(
+        "per-layer prose — frozen\n", encoding="utf-8")
     (vault / "data" / "notes.md").write_text("prose, not frozen\n",
                                              encoding="utf-8")
     cfg = vault / "tools" / "literature-mining" / "configs"
@@ -85,16 +92,21 @@ def test_build_pins_identity_inventory_rows(synth_vault):
 
 
 def test_build_inventory_excludes_prose_and_config_json(synth_vault):
-    """Tracked ``data/*.md`` and ``tools/literature-mining/configs/*.json``
-    stay OUT of the frozen surface (47-file incident: 2026-10-09 — the
-    pathspec picked up per-layer READMEs and db staging dumps; PR #66,
-    8cdb764 erratum 48→47)."""
+    """Anchored ``(glob)`` semantics: root docs (``data/*.md``) and
+    configs-root registries (``configs/*.json``) stay OUT of the frozen
+    surface; per-layer ``.md`` (``data/asic/README.md``) stays IN. The
+    47-file incident was the UN-anchored pathspec form (it un-froze all 47
+    ``data/**.md``); the anchored form fixed it (PR #66, 8cdb764 erratum
+    48→47) — these filters re-derive the anchored set."""
     fm = _build(synth_vault)
     assert "data/notes.md" not in fm["files"]
     assert "tools/literature-mining/configs/piezo1_notes.json" not in fm["files"]
-    assert sorted(fm["files"]) == sorted(
+    assert fm["files"]["data/asic/README.md"]  # per-layer prose stays frozen
+    expected = [
         f"data/{layer}/extraction/extracted_measurements.csv" for layer in LAYERS
-    ) + ["tools/literature-mining/configs/piezo1.yaml"]
+    ]
+    expected += ["data/asic/README.md", "tools/literature-mining/configs/piezo1.yaml"]
+    assert sorted(fm["files"]) == sorted(expected)
 
 
 # --------------------------------------------------------------------------- #
@@ -146,10 +158,16 @@ def test_tamper_rows_per_layer_keys(synth_vault, tmp_path):
 
 
 def test_tamper_digest_not_hex64(synth_vault, tmp_path):
+    """Both escape forms raise: wrong-length ('deadbeef') and the
+    length-64-but-non-hex vector (a bare ``len`` check would pass it)."""
     p = tmp_path / "fm.json"
     fm = _build(synth_vault)
     f = next(iter(fm["files"]))
     fm["files"][f] = "deadbeef"
+    _write_manifest(p, fm)
+    with pytest.raises(RuntimeError, match="not a sha256 hex digest"):
+        load_freeze_manifest(p)
+    fm["files"][f] = "z" * 64
     _write_manifest(p, fm)
     with pytest.raises(RuntimeError, match="not a sha256 hex digest"):
         load_freeze_manifest(p)
@@ -230,7 +248,11 @@ def test_verify_tracked_extra_in_frozen_surface(synth_vault, fm_file):
 def test_verify_post_tag_content_drift(synth_vault, fm_file):
     """The load-bearing new protection: a commit AFTER the tag that edits
     frozen content (clean tree, tag resolves, HEAD descends) now fails the
-    hash check — the retired pathspec diff allowed exactly this."""
+    hash check with the drifted file named. The retired pathspec diff did
+    catch same-shape edits like this one; its real gaps were shallow/no-tag
+    clones (the diff cannot run at all), moved tags (the old check anchored
+    on the re-tagged target), and the absence of a pinned, chainable
+    artifact — all three close here."""
     csv = synth_vault / "data" / "traak" / "extraction" / \
         "extracted_measurements.csv"
     csv.write_text(csv.read_text(encoding="utf-8") + "SYN-TRAAK-00003,NOT_FOUND\n",

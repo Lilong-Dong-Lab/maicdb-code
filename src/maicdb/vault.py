@@ -41,6 +41,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -125,21 +126,33 @@ def _frozen_surface_files(vault: Path) -> list[str]:
     churn. (2026-09-03 narrowing: the previous blanket ``data/ + configs/``
     pathspec over-captured docs, blocking vault skill-patch PR #66
     cross-repo — user decision, Option A.)
-    The exclude semantics are git's ``(glob)`` flavor: ``*`` crosses ``/`` —
-    the un-anchored pathspec form once silently un-froze all 47
+    The exclude semantics mirror git's ANCHORED ``(glob)`` pathspec exactly:
+    in glob magic ``*`` does NOT cross ``/``, so ``:(glob)data/*.md`` matches
+    only the 2 root docs — 45 further ``.md`` files under ``data/`` stay
+    frozen. The un-anchored pathspec form once silently un-froze all 47
     ``data/**.md`` files instead of the 2 root docs (gate r1 MINOR,
     2026-09-03; anchored form re-verified against README-changing commit
     8cdb764; count erratum 48→47 per vault PR-#67-gate recount, same day).
-    Hence ``endswith``/``startswith`` rules here, not single-``*`` fnmatch.
+    fnmatch's ``*`` crosses ``/``, so these are slash-count rules, not
+    single-``*`` fnmatch — they re-derive the anchored set (747 files at
+    data-v1.2).
     """
     out = _git(vault, "ls-files", "-z", "--", *FROZEN_SURFACE_PATHS)
     files = []
     for f in out.split("\0"):
         if not f:
             continue
-        if f.startswith("data/") and f.endswith(".md"):
+        if (
+            f.startswith("data/")
+            and f.endswith(".md")
+            and f.count("/") == 1  # root-only: the anchored (glob) semantics
+        ):
             continue
-        if f.startswith("tools/literature-mining/configs/") and f.endswith(".json"):
+        if (
+            f.startswith("tools/literature-mining/configs/")
+            and f.endswith(".json")
+            and f.count("/") == 3  # configs/-root-only, same anchored rule
+        ):
             continue
         files.append(f)
     return sorted(files)
@@ -230,7 +243,7 @@ def load_freeze_manifest(path: Path | None = None) -> tuple[dict, str]:
             f"freeze manifest {p}: rows_total {fm['rows_total']} != "
             f"sum(rows_per_layer) {sum(fm['rows_per_layer'].values())}")
     for f, digest in fm["files"].items():
-        if len(digest) != 64:
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise RuntimeError(
                 f"freeze manifest {p}: {f}: digest is not a sha256 hex digest")
     counts = fm.get("counts")
