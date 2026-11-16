@@ -54,8 +54,6 @@ def synth_vault(tmp_path):
                                              encoding="utf-8")
     (vault / "data" / "asic" / "README.md").write_text(
         "per-layer prose — frozen\n", encoding="utf-8")
-    (vault / "data" / "notes.md").write_text("prose, not frozen\n",
-                                             encoding="utf-8")
     cfg = vault / "tools" / "literature-mining" / "configs"
     cfg.mkdir(parents=True)
     (cfg / "piezo1.yaml").write_text("benchmark: synthetic\n", encoding="utf-8")
