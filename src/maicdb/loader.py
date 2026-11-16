@@ -13,7 +13,7 @@ conversions, the three-way row routing (960 biophysics / 137 bioactivity /
 28 unmapped, incl. the 131 gap-adjudicated migrations), and the
 modulator-role dedup with majority-frequency resolution.
 
-Determinism: every row's ``created_at`` is pinned to :data:`FREEZE_EPOCH`
+Determinism: every row's ``created_at`` is pinned to :data:`freeze_epoch`
 (the data-freeze date, not wall-clock) and insert order follows sorted keys,
 so the SQL dump is byte-stable for a given vault state. The ``server_default``
 timestamps remain for interactive/ORM use; the loader overrides them.
@@ -61,15 +61,10 @@ from maicdb.models import (
     Variant,
 )
 from maicdb.database import make_engine, create_all
-from maicdb.vault import FrozenVault, LAYERS, resolve_vault
+from maicdb.vault import (DEFAULT_TAG, FrozenVault, LAYERS,
+                          load_freeze_manifest, resolve_vault)
 
 __all__ = ["load_vault", "main"]
-
-#: The data-freeze epoch pinned into every row's created_at for determinism.
-FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
-FREEZE_DATE = date(2026, 11, 8)
-FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.2.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -288,17 +283,40 @@ def _experiment_label(r: dict) -> str | None:
 # --------------------------------------------------------------------------- #
 # Load
 # --------------------------------------------------------------------------- #
-def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_TAG,
-               manifest_path: Path | None = None) -> dict:
-    """Load the vault corpus into the formal schema. Returns the manifest."""
-    frozen = FrozenVault(vault, require_tag)
-    head = frozen.verify()
+def load_vault(vault: Path, out_sqlite: Path,
+               require_tag: str | None = DEFAULT_TAG,
+               manifest_path: Path | None = None,
+               freeze_manifest_path: Path | None = None) -> dict:
+    """Load the vault corpus into the formal schema. Returns the manifest.
+
+    The freeze identity comes from the code-side freeze manifest
+    (``db/freeze-manifest.json``, ADR-0007): the freeze date, schema
+    version, tag, and conservation counts the load is asserted against.
+    ``require_tag`` defaults to the manifest's tag (the ``DEFAULT_TAG``
+    sentinel); ``None`` skips freeze enforcement; a string overrides.
+    """
+    fm, fm_sha = load_freeze_manifest(freeze_manifest_path)
+    if require_tag is DEFAULT_TAG:
+        require_tag = fm["freeze_tag"]
+    frozen = FrozenVault(vault, require_tag,
+                         freeze_manifest=fm if require_tag else None)
+    frozen.verify()
+    # The freeze point is fm["vault_head"] (the tag's commit), never the
+    # loading checkout's HEAD: checkouts of the same tag may sit on
+    # report-only descendant commits, and recording HEAD here would make
+    # the artifacts drift per checkout while the freeze is unchanged.
+    freeze_head = fm["vault_head"]
+    freeze_epoch = datetime.combine(date.fromisoformat(fm["freeze_date"]),
+                                    datetime.min.time())
+    freeze_date = freeze_epoch.date()
+    schema_version = fm["schema_version"]
     rows = frozen.measurements()
     cfgs = frozen.configs()
     zotero = frozen.zotero_authors()
     manifest: dict = {
-        "vault_head": head, "freeze_tag": require_tag or "(none)",
-        "schema_version": SCHEMA_VERSION, "counts": {}, "disclosures": [],
+        "vault_head": freeze_head, "freeze_tag": require_tag or "(none)",
+        "schema_version": schema_version, "counts": {}, "disclosures": [],
+        "freeze_manifest_sha256": fm_sha,
     }
     acc = AccessionGenerator()
 
@@ -325,7 +343,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 doi=doi, pmid=int(r["pmid"]) if str(r.get("pmid") or "").isdigit() else None,
                 title=_s(r.get("title")), journal=_s(r.get("journal")),
                 year=int(r["publication_year"]) if str(r.get("publication_year") or "").isdigit() else None,
-                authors=authors, created_at=FREEZE_EPOCH)
+                authors=authors, created_at=freeze_epoch)
             s.add(pubs[doi])
         manifest["counts"]["publication"] = len(pubs)
         manifest["disclosures"].append(
@@ -364,7 +382,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                     xref_rows.append(ExternalReference(
                         entity_type=EntityType.CHANNEL, entity_id=None,  # patched post-flush
                         source_db=SourceDb.UNIPROT, external_id=a,
-                        created_at=FREEZE_EPOCH))
+                        created_at=freeze_epoch))
                 uni = None
             ch = Channel(
                 maicdb_id=acc.next(AccessionPrefix.CHANNEL),
@@ -374,8 +392,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 family=family,
                 activation_mechanism=ACTIVATION_MECHANISM.get(p["family"]),
                 ortholog_group=p["gene_symbol"].upper(),
-                source_db=SourceDb.UNIPROT, collected_date=FREEZE_DATE,
-                publication_id=None, created_at=FREEZE_EPOCH, **extra)
+                source_db=SourceDb.UNIPROT, collected_date=freeze_date,
+                publication_id=None, created_at=freeze_epoch, **extra)
             s.add(ch)
             channels[layer] = ch
             if layer == "piezo1" and piezo1_xref:
@@ -385,7 +403,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         xref_rows.append(ExternalReference(
                             entity_type=EntityType.CHANNEL, entity_id=None,
                             source_db=sdb, external_id=piezo1_xref[key],
-                            created_at=FREEZE_EPOCH))
+                            created_at=freeze_epoch))
         s.flush()
         for x in xref_rows:  # patch entity_id now that channels have ids
             ch = channels["piezo1"] if x.source_db == SourceDb.CHEMBL_TARGET else channels["osca"]
@@ -440,8 +458,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 heavy_atoms=d.get("heavy"), source=d.get("source"),
                 lipinski_pass=d.get("lipinski"), veber_pass=d.get("veber"),
                 is_duplicate=d.get("duplicate"),
-                source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
-                created_at=FREEZE_EPOCH)
+                source_db=SourceDb.LITERATURE, collected_date=freeze_date,
+                created_at=freeze_epoch)
             s.add(compounds[name])
         s.flush()
         manifest["counts"]["compound"] = len(compounds)
@@ -463,8 +481,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                     maicdb_id=acc.next(AccessionPrefix.VARIANT),
                     channel_id=channels[r["source_layer"]].id,
                     mutation_short=hg, position=pos, ref_aa=ref, alt_aa=alt,
-                    source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
-                    created_at=FREEZE_EPOCH)
+                    source_db=SourceDb.LITERATURE, collected_date=freeze_date,
+                    created_at=freeze_epoch)
                 s.add(variants[hg])
         s.flush()
         manifest["counts"]["variant"] = len(variants)
@@ -498,7 +516,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                                              .strip() if "," in a else a
                                              for a in (cit.get("rcsb_authors") or [])] or None,
                                     pmid=int(pmid) if str(pmid or "").isdigit() else None,
-                                    created_at=FREEZE_EPOCH)
+                                    created_at=freeze_epoch)
                                 s.add(st_pubs[doi])
                     st = Structure(
                         maicdb_id=acc.next(AccessionPrefix.STRUCTURE),
@@ -509,8 +527,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         organism=_s(r.get("Organism")),
                         num_chains=int(r["Num_Chains"]) if str(r.get("Num_Chains") or "").isdigit() else None,
                         has_inhibitor=r.get("Has_Inhibitor", "").strip().lower() == "true",
-                        source_db=SourceDb.PDB, collected_date=FREEZE_DATE,
-                        created_at=FREEZE_EPOCH)
+                        source_db=SourceDb.PDB, collected_date=freeze_date,
+                        created_at=freeze_epoch)
                     s.add(st)
                     pending_links.append((st, pub_doi))
                     n_struct += 1
@@ -569,8 +587,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                     channel_id=ch.id, variant_id=variant_id(r),
                     parameter_set=_s(r.get("db_parameter_set")),
                     experiment_label=_experiment_label(r),
-                    source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
-                    publication_id=pubs[r["doi"]].id, created_at=FREEZE_EPOCH)
+                    source_db=SourceDb.LITERATURE, collected_date=freeze_date,
+                    publication_id=pubs[r["doi"]].id, created_at=freeze_epoch)
                 common(r, bx)
                 mimic(r, bx)
                 _route_biophysics(r, bx)
@@ -590,8 +608,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                     activity_value=value, activity_units=_s(r.get("unit")),
                     relation=_s(r.get("value_relation")),
                     assay_description=" | ".join(filter(None, [_s(r.get("parameter_label")), _s(r.get("stimulus_detail"))])),
-                    source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
-                    publication_id=pubs[r["doi"]].id, created_at=FREEZE_EPOCH)
+                    source_db=SourceDb.LITERATURE, collected_date=freeze_date,
+                    publication_id=pubs[r["doi"]].id, created_at=freeze_epoch)
                 common(r, ba)
                 s.add(ba)
             elif table == "schema_gap":
@@ -604,8 +622,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         channel_id=ch.id, parameter_kind=kind,
                         value=_f(r["value"]), unit=unit or None,
                         adjudication=GAP_KEEPS[(kind, unit)],
-                        source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
-                        publication_id=pubs[r["doi"]].id, created_at=FREEZE_EPOCH,
+                        source_db=SourceDb.LITERATURE, collected_date=freeze_date,
+                        publication_id=pubs[r["doi"]].id, created_at=freeze_epoch,
                         **{"measurement_id": r["measurement_id"],
                            "evidence_quote": r["evidence_quote"],
                            "evidence_location": _s(r.get("evidence_location")),
@@ -620,8 +638,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         channel_id=ch.id, variant_id=variant_id(r),
                         parameter_set=_s(r.get("db_parameter_set")),
                         experiment_label=_experiment_label(r),
-                        source_db=SourceDb.LITERATURE, collected_date=FREEZE_DATE,
-                        publication_id=pubs[r["doi"]].id, created_at=FREEZE_EPOCH)
+                        source_db=SourceDb.LITERATURE, collected_date=freeze_date,
+                        publication_id=pubs[r["doi"]].id, created_at=freeze_epoch)
                     common(r, bx)
                     mimic(r, bx)
                     _route_gap_migration(r, bx)
@@ -642,28 +660,31 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             1 for r in rows if _REPORTED_UNIT_RE.search(r.get("extractor_note") or ""))
 
         # ---- db_meta ------------------------------------------------------------
-        for k, v in (("schema_version", SCHEMA_VERSION), ("license", "CC-BY-4.0"),
-                     ("release_date", FREEZE_DATE.isoformat()),
+        for k, v in (("schema_version", schema_version), ("license", "CC-BY-4.0"),
+                     ("release_date", freeze_date.isoformat()),
                      ("mimic_standard_version", "v0.1-draft (MAICDB_Schema_Design §4.3)"),
-                     ("data_freeze_tag", f"{FREEZE_TAG}@{head[:12]}"),
+                     ("data_freeze_tag", f"{fm['freeze_tag']}@{freeze_head[:12]}"),
                      ("vault_repository", "Lilong-Dong-Lab/Project_DataBase_MAICDB")):
             s.add(DbMeta(key=k, value=v))
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------
+    # The corpus identity is DECLARED by the freeze manifest (ADR-0007) and
+    # the loader verifies the load against the declaration. Current
     # data-v1.1 calibers: 1125 rows = 960 biophysics (829 normal-route + 131
-    # gap-adjudicated migrations) + 137 bioactivity + 28 unmapped (KEEP rows;
-    # v1.0 was 1100 = 948 + 136 + 16).
-    expected = {"publication": None, "channel": 12, "structure": 12,
-                "biophysics": 960, "bioactivity": 137, "unmapped": 28}
-    for table, want in expected.items():
+    # gap-adjudicated migrations) + 137 bioactivity + 28 unmapped (KEEP
+    # rows; v1.0 was 1100 = 948 + 136 + 16).
+    # counts may be absent in the preliminary manifest the generation
+    # script dry-loads against (write-freeze-manifest.py phase 2)
+    for table, want in (fm.get("counts") or {}).items():
         got = manifest["counts"][table]
-        if want is not None and got != want:
+        if got != want:
             raise AssertionError(f"conservation: {table} = {got}, expected {want}")
     total = sum(manifest["counts"][t] for t in ("biophysics", "bioactivity", "unmapped"))
-    if total != 1125 or len(rows) != 1125:
+    if total != fm["rows_total"] or len(rows) != fm["rows_total"]:
         raise AssertionError(
-            f"conservation: facts {total} (want 1125); rows read {len(rows)} (want 1125)")
+            f"conservation: facts {total} (want {fm['rows_total']}); "
+            f"rows read {len(rows)} (want {fm['rows_total']})")
 
     # ---- deterministic SQL dump ---------------------------------------------
     out_sql = out_sqlite.with_suffix(".sql")
@@ -786,13 +807,14 @@ def main() -> int:
     ap.add_argument("--vault", type=Path, default=None,
                     help="vault repo checkout path (default: $MAICDB_VAULT, "
                          "else the sibling checkout next to this repo)")
-    ap.add_argument("--require-tag", default=FREEZE_TAG,
-                    help=f"freeze tag HEAD must point at (default {FREEZE_TAG}; '' disables)")
+    ap.add_argument("--require-tag", default=DEFAULT_TAG,
+                    help="freeze tag HEAD must point at "
+                         "(default: the freeze manifest's freeze_tag; '' disables)")
     ap.add_argument("-o", "--output", type=Path, default=Path("maicdb.sqlite"))
     ap.add_argument("--manifest", type=Path, default=None, help="write load manifest JSON here")
     args = ap.parse_args()
     manifest = load_vault(resolve_vault(args.vault), args.output,
-                          require_tag=args.require_tag or None,
+                          require_tag=None if args.require_tag == "" else args.require_tag,
                           manifest_path=args.manifest)
     print(json.dumps(manifest["counts"], ensure_ascii=False))
     print(f"dump: {manifest['dump']}")

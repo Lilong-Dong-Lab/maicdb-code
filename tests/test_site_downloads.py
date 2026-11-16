@@ -85,11 +85,15 @@ def test_downloads_sizes_displayed_in_si_units(tmp_path):
     kB/MB — the ``ls --si`` convention, NOT the 1024-based ``ls -h``);
     pinned to the published artifacts' byte sizes (see the stat
     provenance above), so a formatting change or a stale manifest fails
-    the row, not just the string."""
+    the row, not just the string. Derivation note (freeze-manifest PR B,
+    ADR-0007): load-manifest.json grew 1171 → 1267 bytes when it gained
+    the ``freeze_manifest_sha256`` chain key, moving its row from 1.2 kB
+    to 1.3 kB — the same displayed size as CITATION.cff (1338 bytes), so
+    one asserted value now covers two rows."""
     out = render_fixture(tmp_path)
     for locale in ("en", "zh"):
         html = _page(out, locale)
-        for size in ("3.2 MB", "2.2 MB", "1.2 kB", "1.3 kB"):
+        for size in ("3.2 MB", "2.2 MB", "1.3 kB"):
             assert size in html, size
 
 
