@@ -1,11 +1,16 @@
-# MAIC-DB Loader Mapping Spec v0.2 — data-v1.0 Corpus → Formal Schema
+# MAIC-DB Loader Mapping Spec — Frozen Vault Corpus → Formal Schema
 
-Status: schema v0.2 IMPLEMENTED (A2a, models.py @ 0.2.0); loader pending
-(A2b). Decisions marked **[DECIDED 2026-09-01]** were approved by the lab
-lead (§2 + §6 — all decided; nothing open). Rev v0.2 (same day): the independent
-gate review of v0.1 (1 MAJOR + 7 MINOR + 4 NIT, all fixed — see PR #2
-conversation); every corpus-facing figure below was recomputed by the
-reviewer against the vault @ `data-v1.0` unless marked otherwise.
+Status: schema v0.2 IMPLEMENTED (A2a, models.py @ 0.2.0); loader
+IMPLEMENTED (A2b, 2026-09-01) and retargeted in lockstep with the corpus
+(data-v1.1 and data-v1.2, 2026-11-08). Decisions marked **[DECIDED
+2026-09-01]** were approved by the lab lead (§2 + §6 — all decided;
+nothing open). Rev v0.2: the independent gate review of v0.1 (1 MAJOR +
+7 MINOR + 4 NIT, all fixed — see PR #2 conversation); every corpus-facing
+figure in §2–§5 was recomputed by the reviewer against the vault @
+`data-v1.0` unless marked otherwise — those §2–§5 figures are historical
+(data-v1.0 era). Live counts live in `db/load-manifest.json` (the
+official-counts authority per MAICDB_data_notes.md §7) and
+`tests/census_snapshot.json`.
 
 ## 1. Purpose, inputs, outputs
 
@@ -15,12 +20,18 @@ transforms (`tools/db-load/build_staging_db.py` in the vault) and discharging
 the §9 loader duties (MIMIC enforcement, `external_reference` integrity,
 `ortholog_group` normalization).
 
-**Input contract** — vault repo `Lilong-Dong-Lab/Project_DataBase_MAICDB` @
-tag **`data-v1.0`** (merge commit `a12c5c0`, 2026-09-01):
+**Input contract** — vault repo `Lilong-Dong-Lab/Project_DataBase_MAICDB`
+at the freeze tag (currently **`data-v1.2`**; the tag moves per retarget —
+v1.0 `a12c5c0` 2026-09-01, v1.1 and v1.2 2026-11-08). The tag is a loader
+parameter (`--require-tag`, default = the loader's `FREEZE_TAG`); vault
+discovery (explicit path > `$MAICDB_VAULT` > the sibling checkout) and the
+freeze contract (clean tree, tag ancestry, frozen-surface diff) live in the
+vault seam `src/maicdb/vault.py` (`FrozenVault`, `resolve_vault` —
+architecture candidate 3, 2026-11-15):
 
 | Source | Content |
 |---|---|
-| `data/<ch>/extraction/extracted_measurements.csv` ×12 | 1100 rows (piezo1 174, piezo2 29, trpv4 115, asic 137, mscs 104, mscl 89, osca 94, tmc 172, traak 40, trek-1 52, trek-2 42, tresk 52) |
+| `data/<ch>/extraction/extracted_measurements.csv` ×12 | 1125 rows (piezo1 174, piezo2 29, trpv4 115, asic 139, mscs 104, mscl 104, osca 97, tmc 177, traak 40, trek-1 52, trek-2 42, tresk 52; v1.1 added 25 — asic +2, mscl +15, osca +3, tmc +5) |
 | `tools/literature-mining/configs/<ch>.yaml` ×12 | channel identity (gene_symbol, uniprot, family, aliases) |
 | `data/piezo1/structures/piezo1_pdb_structures.csv` (+ raw `data/piezo1/raw/piezo1_pdb_entries_detail/*.json`) | 12 PDB structures + primary citations (structure data exists ONLY for piezo1) |
 | `data/piezo1/compounds/`, `data/piezo1/cross_references/` | compound descriptors (21/21 with InChIKey), channel xrefs (piezo1 only) |
