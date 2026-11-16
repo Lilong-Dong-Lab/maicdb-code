@@ -23,7 +23,6 @@ from pathlib import Path
 import pytest
 
 from maicdb.loader import (
-    FREEZE_TAG,
     GAP_KEEPS,
     UNIT_ENUMS,
     _convert,
@@ -32,7 +31,8 @@ from maicdb.loader import (
     _parse_short_mutation,
     load_vault,
 )
-from maicdb.vault import CHANNEL_DIRS, FrozenVault, resolve_vault
+from maicdb.vault import (CHANNEL_DIRS, FrozenVault, load_freeze_manifest,
+                          resolve_vault)
 
 # env var wins (explicit override), else the sibling checkout — resolved by
 # the vault seam (maicdb.vault.resolve_vault, candidate 3)
@@ -44,6 +44,12 @@ VAULT_INTACT = VAULT_PRESENT and _VAULT.has_channel_dirs()
 
 requires_vault = pytest.mark.skipif(
     not VAULT_PRESENT, reason=f"vault checkout not found at {VAULT}")
+
+# The freeze manifest is the code-side input contract (ADR-0007): tag,
+# freeze date, and conservation counts follow it instead of literals, so
+# retargets stop touching this file. Validated at load (fail-closed).
+FREEZE_MANIFEST, _FM_SHA = load_freeze_manifest()
+FREEZE_TAG = FREEZE_MANIFEST["freeze_tag"]
 
 
 def test_vault_checkout_mangled_goes_red_not_silent_skip():
@@ -191,16 +197,23 @@ def test_freeze_enforcement(capfd):
         FrozenVault(VAULT, "data-v9.9").verify()
     captured = capfd.readouterr()
     assert captured.out == "" and captured.err == "", "bogus-tag path must not leak"
-    assert FrozenVault(VAULT, FREEZE_TAG).verify()  # happy path: returns HEAD sha
+    head = FrozenVault(VAULT, FREEZE_TAG).verify()  # happy path: returns HEAD sha
     captured = capfd.readouterr()
     assert captured.out == "" and captured.err == "", \
         "FrozenVault.verify must be fully silent (quirk 11 leak fixed)"
+    # Hash-checked path (PR B): manifest contents verified against the
+    # checkout's blobs — same silence contract, same HEAD-sha return.
+    assert FrozenVault(VAULT, FREEZE_TAG,
+                       freeze_manifest=FREEZE_MANIFEST).verify() == head
+    captured = capfd.readouterr()
+    assert captured.out == "" and captured.err == "", \
+        "hash-checked verify must stay fully silent (quirk 11)"
 
 
 @requires_vault
 def test_full_load_conservation(tmp_path):
     out = tmp_path / "conserv.sqlite"
-    manifest = load_vault(VAULT, out, require_tag="data-v1.2",
+    manifest = load_vault(VAULT, out, require_tag=FREEZE_TAG,
                           manifest_path=tmp_path / "m.json")
     c = manifest["counts"]
     # Spec §4 conservation (compound 86 = 85 roled + unroled silica family —

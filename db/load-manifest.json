@@ -23,5 +23,6 @@
     "compound descriptors: 4 / 86 carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)",
     "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)"
   ],
+  "freeze_manifest_sha256": "6eb2b13b96b5da57be489ca16c972a01215d6163b8390110ea02fb4d19e7a418",
   "dump": "db/maicdb.sql"
 }

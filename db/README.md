@@ -13,7 +13,8 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 |---|---|---|
 | `maicdb.sqlite` | The database (schema v0.2, 10 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
 | `maicdb.sql` | Byte-stable SQL dump (the determinism contract — two loads of the same vault state are byte-identical) | Same command (written alongside) |
-| `load-manifest.json` | Row counts, disclosures, vault HEAD | Written by the loader |
+| `load-manifest.json` | Row counts, disclosures, freeze point, `freeze_manifest_sha256` chain link | Written by the loader |
+| `freeze-manifest.json` | The pinned input contract (ADR-0007): freeze identity + closed-set sha256 inventory of the vault's frozen surface + conservation counts | `PYTHONPATH=src uv run python scripts/write-freeze-manifest.py --tag data-v1.2 --freeze-date 2026-11-08 --schema-version 0.2.0` (run BEFORE the load — the loader hash-checks it) |
 
 ## Provenance
 
@@ -23,11 +24,28 @@ The formal-schema database loaded from the vault's frozen curation corpus.
   (see the manifest's `vault_head` / `data_freeze_tag` — the dump embeds the
   exact vault commit it was loaded from; determinism is per-vault-state).
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
-  vault HEAD and that `data/` + configs are unchanged since the tag
-  (docs churn on the rolling repo is legal).
+  vault HEAD, then hash-checks every frozen-surface file against
+  `db/freeze-manifest.json` (git blob bytes — stable across LFS smudge
+  states; missing/extra/changed files are load-time errors). Docs churn on
+  the rolling repo stays legal (the frozen surface is `data/` +
+  literature-mining configs only). The census cross-anchors the chain
+  (load manifest's `freeze_manifest_sha256` vs the freeze manifest's
+  actual bytes).
 - **Schema**: v0.2 (evidence chain on both fact tables, six gap-adjudicated
   migration columns, `unmapped_measurement` archive, `db_meta`; see
   `docs/loader-mapping.md` for every mapping decision and its approval trail).
+
+## Retarget recipe (order is load-bearing)
+
+1. Vault PR merges, then the vault freeze tag is cut (`data-vN.N`).
+2. Regenerate the freeze manifest against the new tag (command above —
+   `--freeze-date` is the declared freeze epoch, `--schema-version` the
+   formal-schema version).
+3. Commit the manifest, then regenerate the artifact trio with the load
+   command above; `tests/census_snapshot.json` regenerates with
+   `scripts/derive-census-clean.sh`.
+4. Loader constants live in the freeze manifest — a retarget stops
+   editing `src/maicdb/loader.py`.
 
 ## Contents (from the load manifest)
 

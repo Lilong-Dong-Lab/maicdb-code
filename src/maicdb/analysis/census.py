@@ -15,8 +15,11 @@ The pin mechanism (CODING_STANDARDS.md §6, "generated pins"):
   the PR diff of the snapshot IS the reviewed derivation of the new pins.
   Before writing, the module cross-anchors the engine against
   ``db/load-manifest.json``: the ``db_meta`` freeze tag must carry the
-  manifest's ``freeze_tag`` prefix, and every direct-table count in the
-  manifest must equal a fresh ``COUNT(*)`` over the same table
+  manifest's ``freeze_tag`` prefix, every direct-table count in the
+  manifest must equal a fresh ``COUNT(*)`` over the same table, and the
+  manifest's ``freeze_manifest_sha256`` must match the actual bytes of
+  ``db/freeze-manifest.json`` (the chain db → load manifest → freeze
+  manifest → vault bytes, ADR-0007)
   (loader-derived manifest counts — ``structure_publication_links``,
   ``unit_conversions`` — are not checked here because no single SQL
   statement re-derives them).
@@ -38,6 +41,7 @@ installed ``src/`` tree), so the CLI targets ``db/maicdb.sqlite`` and
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import Counter, defaultdict
@@ -141,6 +145,16 @@ def manifest_anchor_problems(engine: Engine, repo_root: Path = _REPO_ROOT) -> li
         n = _scalar(engine, f"SELECT COUNT(*) FROM {table}")
         if counts.get(key) != n:
             problems.append(f"count mismatch for {key}: manifest {counts.get(key)} != db {n}")
+    freeze_manifest_path = repo_root / "db" / "freeze-manifest.json"
+    freeze_manifest_sha = hashlib.sha256(
+        freeze_manifest_path.read_bytes()).hexdigest()
+    declared = manifest.get("freeze_manifest_sha256")
+    if declared != freeze_manifest_sha:
+        problems.append(
+            "freeze-manifest chain broken: load manifest declares "
+            f"{str(declared)[:12]!r} but db/freeze-manifest.json hashes to "
+            f"{freeze_manifest_sha[:12]!r}"
+        )
     return problems
 
 

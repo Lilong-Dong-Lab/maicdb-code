@@ -22,12 +22,19 @@ the §9 loader duties (MIMIC enforcement, `external_reference` integrity,
 
 **Input contract** — vault repo `Lilong-Dong-Lab/Project_DataBase_MAICDB`
 at the freeze tag (currently **`data-v1.2`**; the tag moves per retarget —
-v1.0 `a12c5c0` 2026-09-01, v1.1 and v1.2 2026-11-08). The tag is a loader
-parameter (`--require-tag`, default = the loader's `FREEZE_TAG`); vault
-discovery (explicit path > `$MAICDB_VAULT` > the sibling checkout) and the
-freeze contract (clean tree, tag ancestry, frozen-surface diff) live in the
-vault seam `src/maicdb/vault.py` (`FrozenVault`, `resolve_vault` —
-architecture candidate 3, 2026-11-15):
+v1.0 `a12c5c0` 2026-09-01, v1.1 and v1.2 2026-11-08) plus the freeze
+manifest `db/freeze-manifest.json` (ADR-0007, 2026-11-16): the pinned
+identity + closed-set sha256 inventory of the frozen surface (git blob
+bytes — stable across LFS smudge states) + conservation counts. The tag is
+a loader parameter (`--require-tag`, default = the manifest's `freeze_tag`,
+"" disables); the freeze constants that used to live in loader.py
+(`FREEZE_TAG`/`FREEZE_EPOCH`/`FREEZE_DATE`/`SCHEMA_VERSION`, conservation
+counts) moved into the manifest — a retarget regenerates the manifest, it
+no longer edits loader code. Vault discovery (explicit path >
+`$MAICDB_VAULT` > the sibling checkout) and the freeze contract (clean
+tree, tag ancestry, closed-set hash check) live in the vault seam
+`src/maicdb/vault.py` (`FrozenVault`, `resolve_vault`,
+`load_freeze_manifest` — architecture candidate 3, 2026-11-15):
 
 | Source | Content |
 |---|---|
