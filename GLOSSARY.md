@@ -65,6 +65,18 @@ analysis loaders. Census values live in one generated snapshot
 compare against it.
 _Avoid_: stat, expected value
 
+**Evidence item**:
+A separately published statement about a database subject, together with
+its source, quoted passage, location, evidence type, confidence, and
+curator note. It is the reusable unit of provenance and review.
+_Avoid_: evidence object, provenance row
+
+**Evidence subject**:
+The database entity supported by an Evidence item. The link is many-to-many,
+so one item can support multiple subjects and one subject can cite multiple
+items.
+_Avoid_: evidence owner, parent row
+
 **Pin**:
 A frozen expected value a test asserts — the test-side record of a census
 value at a freeze. Generated pins cite the snapshot and the generator

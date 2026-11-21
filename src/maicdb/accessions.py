@@ -37,6 +37,7 @@ class AccessionPrefix(str, Enum):
     BIOACTIVITY = "BA"
     VARIANT = "VR"
     UNMAPPED_MEASUREMENT = "UM"   # schema v0.2: adjudicated-kept gap archive rows
+    EVIDENCE_ITEM = "EV"          # schema v0.3: normalized evidence provenance
 
 
 #: Zero-padding width of the numeric segment. 5 digits → 99,999 per entity,

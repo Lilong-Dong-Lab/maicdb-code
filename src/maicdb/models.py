@@ -46,7 +46,7 @@ Design notes (see ``report/MAICDB_Schema_Design.md`` for full rationale):
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
@@ -73,6 +73,10 @@ from maicdb.enums import (
     EntityType,
     Family,
     FunctionalEffect,
+    EvidenceConfidence,
+    EvidenceReviewState,
+    EvidenceSubjectType,
+    EvidenceType,
     IVRelation,
     IndentationUnit,
     ParameterSet,
@@ -87,6 +91,8 @@ from maicdb.enums import (
     value_stored_enum,
 )
 
+FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
+
 __all__ = [
     "Channel",
     "Structure",
@@ -97,6 +103,8 @@ __all__ = [
     "ExternalReference",
     "Publication",
     "UnmappedMeasurement",
+    "EvidenceItem",
+    "EvidenceSubject",
     "DbMeta",
 ]
 
@@ -137,6 +145,84 @@ class Publication(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<Publication id={self.id} doi={self.doi!r}>"
+
+
+class EvidenceItem(Base):
+    """A reusable evidence statement supporting one or more subjects.
+
+    Detailed editorial history remains in the private vault; the public model
+    records only the published claim, citation trail, and lightweight review
+    state.
+    """
+
+    __tablename__ = "evidence_item"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    claim: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(Text)
+    publication_id: Mapped[int | None] = mapped_column(
+        ForeignKey("publication.id", ondelete="SET NULL")
+    )
+    quote: Mapped[str | None] = mapped_column(Text)
+    location: Mapped[str | None] = mapped_column(Text)
+    evidence_type: Mapped[EvidenceType] = mapped_column(
+        name_stored_enum(EvidenceType), nullable=False, index=True
+    )
+    confidence: Mapped[EvidenceConfidence | None] = mapped_column(
+        name_stored_enum(EvidenceConfidence), index=True
+    )
+    curator_note: Mapped[str | None] = mapped_column(Text)
+    review_state: Mapped[EvidenceReviewState] = mapped_column(
+        name_stored_enum(EvidenceReviewState),
+        nullable=False,
+        default=EvidenceReviewState.UNREVIEWED,
+        index=True,
+    )
+    review_timestamp: Mapped[date | None] = mapped_column(Date)
+
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    subjects: Mapped[list[EvidenceSubject]] = relationship(
+        back_populates="evidence_item", cascade="all, delete-orphan"
+    )
+    publication: Mapped[Publication | None] = relationship()
+
+    __table_args__ = {"keep_existing": True}
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"<EvidenceItem {self.maicdb_id!r}>"
+
+
+class EvidenceSubject(Base):
+    """The many-to-many link between an Evidence item and a subject."""
+
+    __tablename__ = "evidence_subject"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    evidence_item_id: Mapped[int] = mapped_column(
+        ForeignKey("evidence_item.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    subject_type: Mapped[EvidenceSubjectType] = mapped_column(
+        name_stored_enum(EvidenceSubjectType), nullable=False, index=True
+    )
+    subject_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+    evidence_item: Mapped[EvidenceItem] = relationship(back_populates="subjects")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "evidence_item_id",
+            "subject_type",
+            "subject_id",
+            name="uq_evidence_subject",
+        ),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -808,5 +894,7 @@ ALL_TABLES = (
     UnmappedMeasurement,
     ExternalReference,
     Publication,
+    EvidenceItem,
+    EvidenceSubject,
     DbMeta,
 )

@@ -1,7 +1,7 @@
 {
-  "vault_head": "dd49d8e65ac1d45d7c30f93e450ceac50595572c",
+  "vault_head": "14762a72d6ea35e670a194f854244dbc8b2247fb",
   "freeze_tag": "data-v1.2",
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "counts": {
     "publication": 216,
     "channel": 12,
@@ -13,7 +13,9 @@
     "biophysics": 960,
     "bioactivity": 137,
     "unmapped": 28,
-    "unit_conversions": 105
+    "unit_conversions": 105,
+    "evidence_item": 960,
+    "evidence_subject": 960
   },
   "disclosures": [
     "authors: 0 publications Zotero-enriched; first_author-only fallback for the rest",
@@ -21,7 +23,8 @@
     "compound 'ruthenium red': InChIKey already used by an earlier case-variant name — descriptor key withheld",
     "unroled bioactivity modulators typed UNCLASSIFIED: ['Silica nanoparticles (Ludox SM30, ~10 nm)']",
     "compound descriptors: 4 / 86 carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)",
-    "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)"
+    "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)",
+    "Bioactivity and unmapped measurements retain legacy evidence fields until all-fact-family parity and authority cutover (ticket #98)."
   ],
   "dump": "db/maicdb.sql"
 }

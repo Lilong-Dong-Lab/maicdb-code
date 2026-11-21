@@ -45,14 +45,20 @@ from urllib.parse import quote
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy import inspect
 
 from maicdb.models import (
     BiophysicsExperiment,
     Bioactivity,
     Channel,
     Compound,
+    EvidenceItem,
+    EvidenceSubject,
+    Publication,
     UnmappedMeasurement,
 )
+from maicdb.enums import EvidenceSubjectType
+from maicdb.evidence import UNMIGRATED_EVIDENCE_DISCLOSURE
 
 __all__ = [
     "open_readonly",
@@ -70,6 +76,7 @@ __all__ = [
     "bioactivity_card",
     "parameter_comparison",
     "provenance",
+    "biophysics_evidence",
     "export",
     "main",
 ]
@@ -106,6 +113,8 @@ RATIO_MEDIAN_NOTE = (
     "cross-direction medians are meaningless (A1 panel p4 semantics — "
     "direction-unstated groups report count/min/max only)"
 )
+
+UNMIGRATED_FACT_FAMILY_DISCLOSURE = UNMIGRATED_EVIDENCE_DISCLOSURE
 
 
 class UnknownGeneError(ValueError):
@@ -263,7 +272,78 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
     return identity
 
 
-def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None) -> dict:
+def biophysics_evidence(
+    engine: Engine, experiment_ids: list[int]
+) -> dict[int, list[dict]]:
+    """Resolve normalized Evidence items for biophysics experiments.
+
+    The mapping is keyed by experiment id and preserves all Evidence items,
+    supporting the many-to-many shape required by ticket #97.
+    """
+    resolved: dict[int, list[dict]] = {
+        experiment_id: [] for experiment_id in experiment_ids
+    }
+    if not experiment_ids:
+        return resolved
+    with engine.connect() as conn:
+        table_names = set(inspect(conn).get_table_names())
+        if not {"evidence_item", "evidence_subject"}.issubset(table_names):
+            return resolved
+        rows = conn.execute(
+            select(
+                EvidenceSubject.subject_id,
+                EvidenceItem.maicdb_id,
+                EvidenceItem.claim,
+                EvidenceItem.source,
+                Publication.id.label("publication_id"),
+                Publication.doi,
+                Publication.title,
+                Publication.journal,
+                Publication.year,
+                Publication.authors,
+                Publication.pmid,
+                Publication.citation_text,
+                EvidenceItem.quote,
+                EvidenceItem.location,
+                EvidenceItem.evidence_type,
+                EvidenceItem.confidence,
+                EvidenceItem.curator_note,
+                EvidenceItem.review_state,
+                EvidenceItem.review_timestamp,
+            )
+            .join(EvidenceItem, EvidenceSubject.evidence_item_id == EvidenceItem.id)
+            .join(
+                Publication,
+                EvidenceItem.publication_id == Publication.id,
+                isouter=True,
+            )
+            .where(
+                EvidenceSubject.subject_type
+                == EvidenceSubjectType.BIOPHYSICS_EXPERIMENT,
+                EvidenceSubject.subject_id.in_(experiment_ids),
+            )
+            .order_by(EvidenceSubject.subject_id, EvidenceItem.maicdb_id)
+        ).mappings()
+        for row in rows:
+            item = dict(row)
+            publication = {
+                "id": item.pop("publication_id"),
+                "doi": item.pop("doi"),
+                "title": item.pop("title"),
+                "journal": item.pop("journal"),
+                "year": item.pop("year"),
+                "authors": item.pop("authors"),
+                "pmid": item.pop("pmid"),
+                "citation_text": item.pop("citation_text"),
+            }
+            item["publication"] = publication if publication["id"] is not None else None
+            resolved[item.pop("subject_id")].append(item)
+    return resolved
+
+
+def channel_card(
+    engine: Engine, gene: str, parameters: list[str] | None = None
+) -> dict:
     """Identity block + parameter blocks with per-row evidence for *gene*.
 
     ``parameters=None`` renders **every** registry parameter — blocks with
@@ -284,7 +364,7 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
             # maicdb_id leads every row: the stable per-row reference key
             # (issue #12, additive slice) — attribution via measurement_id
             # can stay NULL at the schema level without losing the key.
-            cols = [BiophysicsExperiment.maicdb_id, value_col]
+            cols = [BiophysicsExperiment.id, BiophysicsExperiment.maicdb_id, value_col]
             if spec.unit_column is not None:
                 cols.append(getattr(BiophysicsExperiment, spec.unit_column))
             # value/unit_as_reported ride along for every parameter — the
@@ -304,6 +384,9 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                     )
                 ).mappings()
             ]
+            experiment_ids = [row.pop("id") for row in rows]
+            evidence = biophysics_evidence(engine, experiment_ids)
+            normalized_available = any(evidence.values())
             for r in rows:
                 # Normalize column names to the card vocabulary: the value
                 # column is always "value", the unit column always "unit"
@@ -313,6 +396,12 @@ def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None)
                     r["unit"] = _enum_value(r.pop(spec.unit_column))
                 else:
                     r["unit"] = spec.fixed_unit
+                experiment_id = experiment_ids[rows.index(r)]
+                r["evidence"] = evidence[experiment_id]
+                if not normalized_available:
+                    r["unmigrated_evidence_disclosure"] = (
+                        UNMIGRATED_FACT_FAMILY_DISCLOSURE
+                    )
             card["parameters"][name] = {
                 "label": spec.label,
                 "n_rows": len(rows),
@@ -374,6 +463,10 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
                 .order_by(Bioactivity.measurement_id, Bioactivity.maicdb_id)
             ).mappings()
         ]
+        for row in rows:
+            row["unmigrated_evidence_disclosure"] = (
+                UNMIGRATED_FACT_FAMILY_DISCLOSURE
+            )
         for r in rows:
             r["activity_type"] = _enum_name(r["activity_type"])
             r["source_db"] = _enum_name(r["source_db"])
@@ -451,18 +544,30 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 # NOT NULL + unique: the total-order tie-break for rows
                 # whose measurement_id ties or is NULL.
                 BiophysicsExperiment.maicdb_id,
+                BiophysicsExperiment.id,
                 *([unit_col] if unit_col is not None else []),
             )
             .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
             .where(value_col.is_not(None))
         ).all()
 
-    grouped: dict[tuple[str, str | None], list[tuple[float, str | None, str]]] = {}
+    evidence_ids_by_experiment = {
+        experiment_id: [item["maicdb_id"] for item in items]
+        for experiment_id, items in biophysics_evidence(
+            engine, [row[4] for row in rows]
+        ).items()
+    }
+    grouped: dict[
+        tuple[str, str | None], list[tuple[float, str | None, str, list[str]]]
+    ] = {}
     for row in rows:
-        gene, value, mid, mdb = row[0], row[1], row[2], row[3]
-        unit = row[4] if unit_col is not None else spec.fixed_unit
+        gene, value, mid, mdb, experiment_id = row[:5]
+        unit = row[-1] if unit_col is not None else spec.fixed_unit
         unit = _enum_value(unit)  # plain str ("mmHg", not member)
-        grouped.setdefault((gene, unit), []).append((value, mid, mdb))
+        evidence_ids = evidence_ids_by_experiment[experiment_id]
+        grouped.setdefault((gene, unit), []).append(
+            (value, mid, mdb, evidence_ids)
+        )
 
     out: list[dict] = []
     for gene, family in genes:
@@ -484,7 +589,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     grouped[(gene, unit)],
                     key=lambda p: (p[0], p[1] or "", p[2]),
                 )
-                values = [v for v, _, _ in pairs]
+                values = [v for v, _, _, _ in pairs]
                 # round(..., 6) mirrors the loader's converted-value precision
                 # and keeps exports byte-stable across float repr changes.
                 row = {
@@ -496,7 +601,10 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     "min": round(values[0], 6),
                     "median": round(statistics.median(values), 6),
                     "max": round(values[-1], 6),
-                    "measurement_ids": [mid for _, mid, _ in pairs],
+                    "measurement_ids": [mid for _, mid, _, _ in pairs],
+                    "evidence_ids": sum(
+                        (evidence_ids for _, _, _, evidence_ids in pairs), []
+                    ),
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)
@@ -511,6 +619,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "median": None,
                 "max": None,
                 "measurement_ids": [],
+                "evidence_ids": [],
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -559,6 +668,14 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
             if row is not None:
                 out = {k: v for k, v in dict(row).items() if k != "channel_id"}
                 out["table"] = model.__tablename__
+                if model is BiophysicsExperiment:
+                    out["evidence"] = biophysics_evidence(engine, [row["id"]])[
+                        row["id"]
+                    ]
+                else:
+                    out["unmigrated_evidence_disclosure"] = (
+                        UNMIGRATED_FACT_FAMILY_DISCLOSURE
+                    )
                 gene = conn.execute(
                     select(Channel.gene_symbol).where(Channel.id == row["channel_id"])
                 ).scalar_one_or_none()
@@ -583,6 +700,7 @@ _EXPORT_COLUMNS = (
     "median",
     "max",
     "measurement_ids",
+    "evidence_ids",
     "note",
 )
 
@@ -605,7 +723,7 @@ def export(
     * ``csv`` — pure data on stdout; when the result touches a frozen
       channel, the §6.7 boilerplate goes to **stderr** so the data stream
       stays clean while the wording rule still holds everywhere.
-      ``measurement_ids`` cells are ``;``-joined.
+      ``measurement_ids`` and ``evidence_ids`` cells are ``;``-joined.
     * ``json`` — ``{"parameter": …, "rows": […], "frozen_layer_disclosure": …}``
       (the disclosure field appears whenever a frozen gene is listed, zero-
       count rows included; threshold parameters add a ``sign_convention``
@@ -635,7 +753,11 @@ def export(
                         for mid in r["measurement_ids"]
                     )
                     if col == "measurement_ids"
-                    else r.get(col, "")
+                    else (
+                        ";".join(eid for eid in r["evidence_ids"])
+                        if col == "evidence_ids"
+                        else r.get(col, "")
+                    )
                     for col in _EXPORT_COLUMNS
                 ]
             )
@@ -730,6 +852,41 @@ def _render_card(card: dict) -> str:
             lines.append(
                 f"    condition_key: {_or_not_recorded(r.get('condition_key'))}"
             )
+            if r.get("unmigrated_evidence_disclosure") is not None:
+                lines.append(
+                    f"    evidence_migration: "
+                    f"{r['unmigrated_evidence_disclosure']}"
+                )
+            for item in r.get("evidence", []):
+                evidence_id = item.get("maicdb_id")
+                publication = item.get("publication")
+                publication_trace = "not recorded"
+                if publication is not None:
+                    publication_trace = "; ".join(
+                        str(value)
+                        for value in (
+                            publication.get("id"),
+                            publication.get("doi"),
+                            publication.get("title"),
+                        )
+                        if value is not None
+                    )
+                lines.extend(
+                    [
+                        f"    evidence: {evidence_id}",
+                        f"      claim: {_or_not_recorded(item.get('claim'))}",
+                        f"      source: {_or_not_recorded(item.get('source'))}",
+                        f"      publication: {publication_trace}",
+                        f"      quote: {_or_not_recorded(item.get('quote'))}",
+                        f"      location: {_or_not_recorded(item.get('location'))}",
+                        f"      evidence_type: {_enum_value(item.get('evidence_type'))}",
+                        f"      confidence: "
+                        f"{_or_not_recorded(_enum_value(item.get('confidence')))}",
+                        f"      curator_note: {_or_not_recorded(item.get('curator_note'))}",
+                        f"      review_state: {_enum_value(item.get('review_state'))}",
+                        f"      review_timestamp: {_or_not_recorded(item.get('review_timestamp'))}",
+                    ]
+                )
     return "\n".join(lines) + "\n"
 
 
@@ -743,6 +900,37 @@ def _render_provenance(ev: dict) -> str:
     for key in ("maicdb_id", "evidence_quote", "evidence_location",
                 "confidence", "extractor_note", "condition_key", "n"):
         lines.append(f"{key}: {_or_not_recorded(ev.get(key))}")
+    if ev.get("unmigrated_evidence_disclosure") is not None:
+        lines.append(f"evidence_migration: {ev['unmigrated_evidence_disclosure']}")
+    for item in ev.get("evidence", []):
+        publication = item.get("publication")
+        publication_trace = "not recorded"
+        if publication is not None:
+            publication_trace = "; ".join(
+                str(value)
+                for value in (
+                    publication.get("id"),
+                    publication.get("doi"),
+                    publication.get("title"),
+                )
+                if value is not None
+            )
+        lines.extend(
+            [
+                f"evidence_item: {item.get('maicdb_id')}",
+                f"  claim: {_or_not_recorded(item.get('claim'))}",
+                f"  source: {_or_not_recorded(item.get('source'))}",
+                f"  publication: {publication_trace}",
+                f"  quote: {_or_not_recorded(item.get('quote'))}",
+                f"  location: {_or_not_recorded(item.get('location'))}",
+                f"  evidence_type: {_enum_value(item.get('evidence_type'))}",
+                f"  confidence: "
+                f"{_or_not_recorded(_enum_value(item.get('confidence')))}",
+                f"  curator_note: {_or_not_recorded(item.get('curator_note'))}",
+                f"  review_state: {_enum_value(item.get('review_state'))}",
+                f"  review_timestamp: {_or_not_recorded(item.get('review_timestamp'))}",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 

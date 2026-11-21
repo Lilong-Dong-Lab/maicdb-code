@@ -141,6 +141,35 @@ CREATE INDEX ix_compound_pubchem_cid ON compound (pubchem_cid)
 
 CREATE INDEX ix_compound_source_db ON compound (source_db)
 
+CREATE TABLE evidence_item (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(32) NOT NULL, 
+	claim TEXT NOT NULL, 
+	source TEXT, 
+	publication_id INTEGER, 
+	quote TEXT, 
+	location TEXT, 
+	evidence_type VARCHAR(12) NOT NULL, 
+	confidence VARCHAR(8), 
+	curator_note TEXT, 
+	review_state VARCHAR(11) NOT NULL, 
+	review_timestamp DATE, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(publication_id) REFERENCES publication (id) ON DELETE SET NULL, 
+	CONSTRAINT evidencetype CHECK (evidence_type IN ('MEASUREMENT', 'ANNOTATION', 'STRUCTURE', 'RELATIONSHIP', 'OTHER')), 
+	CONSTRAINT evidenceconfidence CHECK (confidence IN ('HIGH', 'MEDIUM', 'LOW', 'UNSTATED')), 
+	CONSTRAINT evidencereviewstate CHECK (review_state IN ('UNREVIEWED', 'REVIEWED', 'ACCEPTED', 'PROVISIONAL', 'CONFLICTED'))
+)
+
+CREATE INDEX ix_evidence_item_confidence ON evidence_item (confidence)
+
+CREATE INDEX ix_evidence_item_evidence_type ON evidence_item (evidence_type)
+
+CREATE INDEX ix_evidence_item_review_state ON evidence_item (review_state)
+
 CREATE TABLE bioactivity (
 	id INTEGER NOT NULL, 
 	maicdb_id VARCHAR(24) NOT NULL, 
@@ -192,6 +221,23 @@ CREATE INDEX ix_bioactivity_condition_key ON bioactivity (condition_key)
 CREATE UNIQUE INDEX ix_bioactivity_measurement_id ON bioactivity (measurement_id)
 
 CREATE INDEX ix_bioactivity_source_db ON bioactivity (source_db)
+
+CREATE TABLE evidence_subject (
+	id INTEGER NOT NULL, 
+	evidence_item_id INTEGER NOT NULL, 
+	subject_type VARCHAR(21) NOT NULL, 
+	subject_id INTEGER NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_evidence_subject UNIQUE (evidence_item_id, subject_type, subject_id), 
+	FOREIGN KEY(evidence_item_id) REFERENCES evidence_item (id) ON DELETE CASCADE, 
+	CONSTRAINT evidencesubjecttype CHECK (subject_type IN ('CHANNEL', 'STRUCTURE', 'COMPOUND', 'VARIANT', 'BIOPHYSICS_EXPERIMENT'))
+)
+
+CREATE INDEX ix_evidence_subject_evidence_item_id ON evidence_subject (evidence_item_id)
+
+CREATE INDEX ix_evidence_subject_subject_id ON evidence_subject (subject_id)
+
+CREATE INDEX ix_evidence_subject_subject_type ON evidence_subject (subject_type)
 
 CREATE TABLE structure (
 	id INTEGER NOT NULL, 

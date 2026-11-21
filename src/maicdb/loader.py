@@ -48,6 +48,7 @@ from maicdb.enums import (
     StructureSource,
     TensionUnit,
 )
+from maicdb.evidence import migrate_biophysics_evidence
 from maicdb.models import (
     Bioactivity,
     BiophysicsExperiment,
@@ -69,7 +70,7 @@ __all__ = ["load_vault", "main"]
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.3.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -648,6 +649,13 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                      ("data_freeze_tag", f"{FREEZE_TAG}@{head[:12]}"),
                      ("vault_repository", "Lilong-Dong-Lab/Project_DataBase_MAICDB")):
             s.add(DbMeta(key=k, value=v))
+        migration_counts = migrate_biophysics_evidence(s)
+        manifest["counts"]["evidence_item"] = migration_counts["evidence_created"]
+        manifest["counts"]["evidence_subject"] = migration_counts["subject_links_created"]
+        manifest["disclosures"].append(
+            "Bioactivity and unmapped measurements retain legacy evidence fields "
+            "until all-fact-family parity and authority cutover (ticket #98)."
+        )
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------

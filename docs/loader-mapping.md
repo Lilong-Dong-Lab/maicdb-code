@@ -1,6 +1,6 @@
 # MAIC-DB Loader Mapping Spec — Frozen Vault Corpus → Formal Schema
 
-Status: schema v0.2 IMPLEMENTED (A2a, models.py @ 0.2.0); loader
+Status: schema v0.3 IMPLEMENTED (A2a, models.py @ 0.3.0); loader
 IMPLEMENTED (A2b, 2026-09-01) and retargeted in lockstep with the corpus
 (data-v1.1 and data-v1.2, 2026-11-08). Decisions marked **[DECIDED
 2026-09-01]** were approved by the lab lead (§2 + §6 — all decided;
@@ -12,9 +12,15 @@ figure in §2–§5 was recomputed by the reviewer against the vault @
 official-counts authority per MAICDB_data_notes.md §7) and
 `tests/census_snapshot.json`.
 
+Ticket #97 adds the biophysics Evidence spine on top of the v0.2 mapping:
+legacy biophysics evidence fields are copied verbatim into normalized,
+reusable `evidence_item` records and `evidence_subject` links. #97 does not
+migrate bioactivity or unmapped evidence; #98 performs that parity and
+authority cutover.
+
 ## 1. Purpose, inputs, outputs
 
-**Purpose**: map the vault's frozen curation corpus onto the formal 8-table ORM
+**Purpose**: map the vault's frozen curation corpus onto the formal 12-table ORM
 schema (this repo, `src/maicdb/`), porting the staging loader's proven
 transforms (`tools/db-load/build_staging_db.py` in the vault) and discharging
 the §9 loader duties (MIMIC enforcement, `external_reference` integrity,
