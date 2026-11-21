@@ -11,7 +11,7 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 
 | File | Content | Regenerate |
 |---|---|---|
-| `maicdb.sqlite` | The database (schema v0.2, 10 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
+| `maicdb.sqlite` | The database (schema v0.3, 12 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
 | `maicdb.sql` | Byte-stable SQL dump (the determinism contract — two loads of the same vault state are byte-identical) | Same command (written alongside) |
 | `load-manifest.json` | Row counts, disclosures, vault HEAD | Written by the loader |
 
@@ -25,8 +25,9 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
   vault HEAD and that `data/` + configs are unchanged since the tag
   (docs churn on the rolling repo is legal).
-- **Schema**: v0.2 (evidence chain on both fact tables, six gap-adjudicated
-  migration columns, `unmapped_measurement` archive, `db_meta`; see
+- **Schema**: v0.3 (v0.2 evidence chain on both fact tables, six gap-adjudicated
+  migration columns, `unmapped_measurement` archive, `db_meta`; plus normalized
+  `evidence_item` / `evidence_subject` tables for the biophysics evidence spine; see
   `docs/loader-mapping.md` for every mapping decision and its approval trail).
 
 ## Contents (from the load manifest)
@@ -46,6 +47,17 @@ Every fact row carries the full evidence chain (`measurement_id`,
 `evidence_quote`, `evidence_location`, `confidence`, `extractor_note` — the
 F-004 disclosure tokens verbatim, `condition_key`, `n`). License:
 **CC-BY-4.0** (recorded in `db_meta`).
+
+## Evidence authority (tickets #97/#98)
+
+The artifact contains **1125 `evidence_item` records** and **1125
+`evidence_subject` links**—one authoritative Evidence object for every
+biophysics experiment (960), bioactivity row (137), and unmapped measurement
+(28). Evidence items are reusable, stable `MAIC:EV:*` objects carrying a
+claim, source, publication, quote, location, controlled evidence
+type/confidence, curator note, lightweight review state, and review timestamp.
+Queries, site payloads, CLI, and exports resolve this normalized model first;
+legacy evidence columns remain readable only as a compatibility bridge.
 
 > [!note] Date semantics
 > `db_meta.release_date` records the **data-freeze epoch** (2026-11-08 for

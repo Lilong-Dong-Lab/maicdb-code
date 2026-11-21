@@ -47,9 +47,62 @@ __all__ = [
     "FunctionalEffect",
     "SourceDb",
     "EntityType",
+    "EvidenceType",
+    "EvidenceConfidence",
+    "EvidenceSubjectType",
+    "EvidenceReviewState",
+    "EvidenceMigrationState",
     "StructureSource",
     "ParameterSet",
 ]
+
+
+class EvidenceType(str, Enum):
+    """The scientific kind of a reusable evidence statement."""
+
+    MEASUREMENT = "measurement"
+    ANNOTATION = "annotation"
+    STRUCTURE = "structure"
+    RELATIONSHIP = "relationship"
+    OTHER = "other"
+
+
+class EvidenceConfidence(str, Enum):
+    """Curator confidence in an evidence statement."""
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    UNSTATED = "unrecorded"
+
+
+class EvidenceSubjectType(str, Enum):
+    """Subject types that can be supported by an Evidence item."""
+
+    CHANNEL = "CHANNEL"
+    STRUCTURE = "STRUCTURE"
+    COMPOUND = "COMPOUND"
+    VARIANT = "VARIANT"
+    BIOPHYSICS_EXPERIMENT = "BIOPHYSICS_EXPERIMENT"
+    BIOACTIVITY = "BIOACTIVITY"
+    UNMAPPED_MEASUREMENT = "UNMAPPED_MEASUREMENT"
+
+
+class EvidenceReviewState(str, Enum):
+    """Lightweight public review state for an Evidence item."""
+
+    UNREVIEWED = "unreviewed"
+    REVIEWED = "reviewed"
+    ACCEPTED = "accepted"
+    PROVISIONAL = "provisional"
+    CONFLICTED = "conflicted"
+
+
+class EvidenceMigrationState(str, Enum):
+    """Whether a fact family currently resolves normalized Evidence items."""
+
+    MIGRATED = "MIGRATED"
+    UNMIGRATED = "UNMIGRATED"
 
 
 def name_stored_enum(enum_cls: type[Enum]) -> SQLEnum:

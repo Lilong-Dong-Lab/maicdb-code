@@ -64,10 +64,9 @@ def test_downloads_files_copied_into_both_trees_and_linked(tmp_path):
     page links every one of them with the page-depth relative prefix
     (the downloads page sits one level down → ``../``).
 
-    Source bytes: the in-repo published artifacts (data-v1.2; sizes
-    unchanged from data-v1.1 — the retargeted tag strings are
-    same-length), sizes ``stat``-ed 2026-11-08 — sqlite 3223552,
-    sql 2249927, manifest 1171, CITATION.cff 1338.
+    Source bytes: the in-repo published artifacts (data-v1.2 + Evidence
+    items), sizes ``stat``-ed 2026-11-21 — sqlite 5492736,
+    sql 3901682, manifest 2036, CITATION.cff 1338.
     """
     out = render_fixture(tmp_path)
     for tree in (out, out / "zh"):
@@ -89,7 +88,7 @@ def test_downloads_sizes_displayed_in_si_units(tmp_path):
     out = render_fixture(tmp_path)
     for locale in ("en", "zh"):
         html = _page(out, locale)
-        for size in ("3.2 MB", "2.2 MB", "1.2 kB", "1.3 kB"):
+        for size in ("5.5 MB", "3.9 MB", "2.0 kB", "1.3 kB"):
             assert size in html, size
 
 

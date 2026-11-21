@@ -247,14 +247,39 @@ def test_channel_json_carries_bioactivity_block(tmp_path):
     assert piezo1["bioactivity"]["frozen_layer_disclosure"] == (
         piezo1["frozen_layer_disclosure"]
     )
-    # rows carry the compound join + evidence chain (query library contract)
+    # rows carry the compound join + authoritative Evidence chain
     row = piezo1["bioactivity"]["rows"][0]
     assert {"compound_name", "activity_type", "activity_value", "evidence_quote"} <= set(
         row
     )
+    assert row["evidence"]
+    assert row["evidence"][0]["maicdb_id"].startswith("MAIC:EV:")
+    assert "unmigrated_evidence_disclosure" not in row
 
     trek2 = json.loads((out / "_data" / "channels" / "trek-2.json").read_text())
     assert "bioactivity" not in trek2
+
+
+@requires_db
+def test_channel_html_renders_normalized_evidence_and_migration_disclosure(tmp_path):
+    out = tmp_path / "out"
+    run_build(out)
+    piezo1_html = (
+        out / "_site" / "channels" / "piezo1" / "index.html"
+    ).read_text()
+    assert "MAIC:EV:00409" in piezo1_html
+    assert "Evidence item" in piezo1_html
+    assert "Claim" in piezo1_html
+    assert "Publication" in piezo1_html
+    assert "Review state" in piezo1_html
+    assert "Evidence type" in piezo1_html
+
+    tray_2_html = (
+        out / "_site" / "zh" / "channels" / "piezo1" / "index.html"
+    ).read_text()
+    assert "MAIC:EV:00409" in tray_2_html
+    assert "证据对象" in tray_2_html
+    assert "证据类型" in tray_2_html
 
 
 @requires_db

@@ -48,6 +48,17 @@ from maicdb.enums import (
     StructureSource,
     TensionUnit,
 )
+from maicdb.evidence import (
+    AUTHORITATIVE_EVIDENCE_DISCLOSURE,
+    fact_family_coverage,
+    migrate_bioactivity_evidence,
+    migrate_biophysics_evidence,
+    migrate_unmapped_evidence,
+)
+from maicdb.constructs import (
+    SCHEMA_TRANSITION_DISCLOSURE,
+    migrate_construct_links,
+)
 from maicdb.models import (
     Bioactivity,
     BiophysicsExperiment,
@@ -69,7 +80,7 @@ __all__ = ["load_vault", "main"]
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.4.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -648,6 +659,31 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                      ("data_freeze_tag", f"{FREEZE_TAG}@{head[:12]}"),
                      ("vault_repository", "Lilong-Dong-Lab/Project_DataBase_MAICDB")):
             s.add(DbMeta(key=k, value=v))
+        migration_counts = {
+            "biophysics": migrate_biophysics_evidence(s),
+            "bioactivity": migrate_bioactivity_evidence(s),
+            "unmapped": migrate_unmapped_evidence(s),
+        }
+        construct_counts = migrate_construct_links(s)
+        manifest["counts"]["evidence_item"] = sum(
+            counts["evidence_created"] for counts in migration_counts.values()
+        )
+        manifest["counts"]["evidence_subject"] = sum(
+            counts["subject_links_created"] for counts in migration_counts.values()
+        )
+        unresolved = fact_family_coverage(s)
+        manifest["counts"]["evidence_unresolved"] = sum(unresolved.values())
+        manifest["counts"]["evidence_coverage_by_family"] = unresolved
+        manifest["counts"]["construct"] = construct_counts["constructs_created"]
+        manifest["counts"]["construct_variant_link"] = construct_counts[
+            "variant_links_created"
+        ]
+        manifest["counts"]["experiment_construct_link"] = construct_counts[
+            "experiment_links_created"
+        ]
+        manifest["counts"]["construct_migration"] = construct_counts
+        manifest["disclosures"].append(AUTHORITATIVE_EVIDENCE_DISCLOSURE)
+        manifest["disclosures"].append(SCHEMA_TRANSITION_DISCLOSURE)
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------

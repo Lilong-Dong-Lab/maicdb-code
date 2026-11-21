@@ -1,9 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ card.gene.gene_symbol }} · {{ strings.site_name }}{% endblock %}
 
-{# The per-row evidence chain: six fields rendered identically for every
-   row kind; bioactivity rows lead with the verbatim assay description.
-   Hidden until expanded — this dl lives inside the row's <details>. #}
+{# The per-row evidence chain renders exact legacy compatibility fields plus
+   the authoritative normalized Evidence item for every fact family. #}
 {% macro evidence_dl(r, assay=false) %}
 <dl class="evidence">
   {% if assay %}
@@ -15,6 +14,29 @@
   <dt>{{ strings.card_ev_note }}</dt><dd>{{ r.extractor_note or strings.card_not_recorded }}</dd>
   <dt>{{ strings.card_ev_condition }}</dt><dd>{{ r.condition_key or strings.card_not_recorded }}</dd>
   <dt>{{ strings.card_ev_n }}</dt><dd>{{ r.n or strings.card_not_recorded }}</dd>
+  {% if r.unresolved_evidence_disclosure is defined %}
+  <dt>{{ strings.card_ev_migration }}</dt><dd>{{ r.unresolved_evidence_disclosure }}</dd>
+  {% endif %}
+  {% if r.evidence is defined %}
+  {% for item in r.evidence %}
+  <dt>{{ strings.card_ev_item }}</dt><dd>{{ item.maicdb_id }}</dd>
+  <dt>{{ strings.card_ev_claim }}</dt><dd>{{ item.claim or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_source }}</dt><dd>{{ item.source or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_publication }}</dt>
+  <dd>
+    {% if item.publication %}
+      {% if item.publication.doi %}{{ item.publication.doi }}{% elif item.publication.id %}#{{ item.publication.id }}{% else %}{{ strings.card_not_recorded }}{% endif %}
+    {% else %}{{ strings.card_not_recorded }}{% endif %}
+  </dd>
+  <dt>{{ strings.card_ev_type }}</dt><dd>{{ item.evidence_type }}</dd>
+  <dt>{{ strings.card_ev_review_state }}</dt><dd>{{ item.review_state }}</dd>
+  <dt>{{ strings.card_ev_review_timestamp }}</dt><dd>{{ item.review_timestamp or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_claim }}</dt><dd>{{ item.quote or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_location }}</dt><dd>{{ item.location or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_confidence }}</dt><dd>{{ item.confidence or strings.card_not_recorded }}</dd>
+  <dt>{{ strings.card_ev_note }}</dt><dd>{{ item.curator_note or strings.card_not_recorded }}</dd>
+  {% endfor %}
+  {% endif %}
 </dl>
 {% endmacro %}
 
@@ -73,6 +95,22 @@
               <span class="asrep">({{ strings.card_as_reported_prefix }} {{ r.value_as_reported }}{% if r.unit_as_reported %} {{ r.unit_as_reported }}{% endif %})</span>
               {% endif %}
             </summary>
+            {% if r.constructs %}
+            <dl class="constructs">
+              {% for construct in r.constructs %}
+              <dt>{{ strings.construct_id_label }}</dt>
+              <dd><a href="{{ root }}/constructs/{{ construct.construct.maicdb_id | lower }}/">{{ construct.construct.maicdb_id }}</a></dd>
+              {% if construct.variants %}
+              {% for variant in construct.variants %}
+              <dt>{{ strings.construct_variant_label }}</dt>
+              <dd><a href="{{ root }}/variants/{{ variant.maicdb_id | lower }}/">{{ variant.maicdb_id }}</a></dd>
+              {% endfor %}
+              {% else %}
+              <dt>{{ strings.construct_variant_label }}</dt><dd>{{ strings.card_not_recorded }}</dd>
+              {% endif %}
+              {% endfor %}
+            </dl>
+            {% endif %}
             {{ evidence_dl(r) }}
           </details>
         </li>

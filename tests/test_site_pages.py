@@ -66,6 +66,7 @@ FROZEN1_CARD = {
                     "extractor_note": "合成提取注记：原样中文显示",
                     "condition_key": "synthetic_condition",
                     "n": "4",
+                    "constructs": [],
                 }
             ],
         },
@@ -87,6 +88,7 @@ FROZEN1_CARD = {
                     "extractor_note": None,
                     "condition_key": "synthetic_condition_2",
                     "n": None,
+                    "constructs": [],
                 }
             ],
         },
@@ -112,6 +114,7 @@ FROZEN1_CARD = {
                 "extractor_note": "合成生物活性注记",
                 "condition_key": "synthetic_bio_condition",
                 "n": "8",
+                "constructs": [],
             }
         ],
     },
