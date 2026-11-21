@@ -95,6 +95,22 @@
               <span class="asrep">({{ strings.card_as_reported_prefix }} {{ r.value_as_reported }}{% if r.unit_as_reported %} {{ r.unit_as_reported }}{% endif %})</span>
               {% endif %}
             </summary>
+            {% if r.constructs %}
+            <dl class="constructs">
+              {% for construct in r.constructs %}
+              <dt>{{ strings.construct_id_label }}</dt>
+              <dd><a href="{{ root }}/constructs/{{ construct.construct.maicdb_id | lower }}/">{{ construct.construct.maicdb_id }}</a></dd>
+              {% if construct.variants %}
+              {% for variant in construct.variants %}
+              <dt>{{ strings.construct_variant_label }}</dt>
+              <dd><a href="{{ root }}/variants/{{ variant.maicdb_id | lower }}/">{{ variant.maicdb_id }}</a></dd>
+              {% endfor %}
+              {% else %}
+              <dt>{{ strings.construct_variant_label }}</dt><dd>{{ strings.card_not_recorded }}</dd>
+              {% endif %}
+              {% endfor %}
+            </dl>
+            {% endif %}
             {{ evidence_dl(r) }}
           </details>
         </li>

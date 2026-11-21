@@ -1,7 +1,7 @@
 {
   "vault_head": "dd49d8e65ac1d45d7c30f93e450ceac50595572c",
   "freeze_tag": "data-v1.2",
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "counts": {
     "publication": 216,
     "channel": 12,
@@ -21,6 +21,17 @@
       "BIOPHYSICS_EXPERIMENT": 0,
       "BIOACTIVITY": 0,
       "UNMAPPED_MEASUREMENT": 0
+    },
+    "construct": 52,
+    "construct_variant_link": 142,
+    "experiment_construct_link": 200,
+    "construct_migration": {
+      "schema_version_before": "0.3.0",
+      "schema_version_after": "0.4.0",
+      "constructs_created": 52,
+      "variant_links_created": 142,
+      "experiment_links_created": 200,
+      "rows_examined": 200
     }
   },
   "disclosures": [
@@ -30,7 +41,8 @@
     "unroled bioactivity modulators typed UNCLASSIFIED: ['Silica nanoparticles (Ludox SM30, ~10 nm)']",
     "compound descriptors: 4 / 86 carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)",
     "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)",
-    "All fact families resolve normalized Evidence items as the authoritative provenance source; legacy evidence columns remain as a compatibility bridge."
+    "All fact families resolve normalized Evidence items as the authoritative provenance source; legacy evidence columns remain as a compatibility bridge.",
+    "Construct links are authoritative traversal relationships; direct experiment variant and structure columns remain compatibility bridges."
   ],
   "dump": "db/maicdb.sql"
 }

@@ -59,6 +59,12 @@ from maicdb.models import (
 )
 from maicdb.enums import EvidenceSubjectType
 from maicdb.evidence import AUTHORITATIVE_EVIDENCE_DISCLOSURE
+from maicdb.constructs import (
+    construct_page,
+    construct_payloads_for_experiments,
+    construct_traversals_for_experiments,
+    variant_construct_page,
+)
 
 __all__ = [
     "open_readonly",
@@ -73,11 +79,13 @@ __all__ = [
     "AmbiguousGeneError",
     "UnknownParameterError",
     "channel_card",
+    "construct_page",
     "bioactivity_card",
     "parameter_comparison",
     "provenance",
     "biophysics_evidence",
     "export",
+    "variant_construct_page",
     "main",
 ]
 
@@ -454,6 +462,10 @@ def channel_card(
                 EvidenceSubjectType.BIOPHYSICS_EXPERIMENT,
                 experiment_ids,
             )
+            constructs = construct_traversals_for_experiments(
+                engine,
+                experiment_ids,
+            )
             for index, r in enumerate(rows):
                 # Normalize column names to the card vocabulary: the value
                 # column is always "value", the unit column always "unit"
@@ -465,6 +477,7 @@ def channel_card(
                     r["unit"] = spec.fixed_unit
                 experiment_id = experiment_ids[index]
                 r["evidence"] = evidence[experiment_id]
+                r["constructs"] = constructs[experiment_id]
                 if not r["evidence"]:
                     r["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
             card["parameters"][name] = {
@@ -621,6 +634,25 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
             .where(value_col.is_not(None))
         ).all()
 
+    construct_ids_by_experiment = {
+        experiment_id: [
+            construct["construct"]["maicdb_id"]
+            for construct in construct_traversals_for_experiments(
+                engine, [experiment_id]
+            )[experiment_id]
+        ]
+        for experiment_id in (row[4] for row in rows)
+    }
+    construct_ids_by_experiment = {
+        experiment_id: [
+            construct["maicdb_id"]
+            for construct in construct_payloads_for_experiments(
+                engine, [experiment_id]
+            )[experiment_id]
+        ]
+        for experiment_id in (row[4] for row in rows)
+    }
+
     evidence_ids_by_experiment = {
         experiment_id: [item["maicdb_id"] for item in items]
         for experiment_id, items in biophysics_evidence(
@@ -628,7 +660,8 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
         ).items()
     }
     grouped: dict[
-        tuple[str, str | None], list[tuple[float, str | None, str, list[str]]]
+        tuple[str, str | None],
+        list[tuple[float, str | None, str, list[str], int]],
     ] = {}
     for row in rows:
         gene, value, mid, mdb, experiment_id = row[:5]
@@ -636,7 +669,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
         unit = _enum_value(unit)  # plain str ("mmHg", not member)
         evidence_ids = evidence_ids_by_experiment[experiment_id]
         grouped.setdefault((gene, unit), []).append(
-            (value, mid, mdb, evidence_ids)
+            (value, mid, mdb, evidence_ids, experiment_id)
         )
 
     out: list[dict] = []
@@ -659,7 +692,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     grouped[(gene, unit)],
                     key=lambda p: (p[0], p[1] or "", p[2]),
                 )
-                values = [v for v, _, _, _ in pairs]
+                values = [v for v, *_ in pairs]
                 # round(..., 6) mirrors the loader's converted-value precision
                 # and keeps exports byte-stable across float repr changes.
                 row = {
@@ -671,9 +704,16 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     "min": round(values[0], 6),
                     "median": round(statistics.median(values), 6),
                     "max": round(values[-1], 6),
-                    "measurement_ids": [mid for _, mid, _, _ in pairs],
+                    "measurement_ids": [pair[1] for pair in pairs],
                     "evidence_ids": sum(
-                        (evidence_ids for _, _, _, evidence_ids in pairs), []
+                        (pair[3] for pair in pairs), []
+                    ),
+                    "construct_ids": sum(
+                        (
+                            construct_ids_by_experiment[experiment_id]
+                            for *_, experiment_id in pairs
+                        ),
+                        [],
                     ),
                 }
                 _decorate_aggregate_row(row, gene, spec)
@@ -690,6 +730,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "max": None,
                 "measurement_ids": [],
                 "evidence_ids": [],
+                "construct_ids": [],
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -776,6 +817,7 @@ _EXPORT_COLUMNS = (
     "max",
     "measurement_ids",
     "evidence_ids",
+    "construct_ids",
     "note",
 )
 

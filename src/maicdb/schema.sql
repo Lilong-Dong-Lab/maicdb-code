@@ -486,3 +486,60 @@ CREATE INDEX ix_biophysics_experiment_stimulus_type ON biophysics_experiment (st
 CREATE INDEX ix_biophysics_experiment_structure_id ON biophysics_experiment (structure_id)
 
 CREATE INDEX ix_biophysics_experiment_variant_id ON biophysics_experiment (variant_id)
+
+CREATE TABLE construct (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(24) NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	structure_id INTEGER, 
+	mutation_set TEXT, 
+	tags TEXT, 
+	truncations TEXT, 
+	expression_design TEXT, 
+	notes TEXT, 
+	source_db VARCHAR(15), 
+	collected_date DATE, 
+	publication_id INTEGER, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE SET NULL, 
+	CONSTRAINT sourcedb CHECK (source_db IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	FOREIGN KEY(publication_id) REFERENCES publication (id) ON DELETE SET NULL
+)
+
+CREATE INDEX ix_construct_channel_id ON construct (channel_id)
+
+CREATE INDEX ix_construct_source_db ON construct (source_db)
+
+CREATE INDEX ix_construct_structure_id ON construct (structure_id)
+
+CREATE TABLE construct_variant (
+	id INTEGER NOT NULL, 
+	construct_id INTEGER NOT NULL, 
+	variant_id INTEGER NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_construct_variant UNIQUE (construct_id, variant_id), 
+	FOREIGN KEY(construct_id) REFERENCES construct (id) ON DELETE CASCADE, 
+	FOREIGN KEY(variant_id) REFERENCES variant (id) ON DELETE CASCADE
+)
+
+CREATE INDEX ix_construct_variant_construct_id ON construct_variant (construct_id)
+
+CREATE INDEX ix_construct_variant_variant_id ON construct_variant (variant_id)
+
+CREATE TABLE experiment_construct (
+	id INTEGER NOT NULL, 
+	experiment_id INTEGER NOT NULL, 
+	construct_id INTEGER NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_experiment_construct UNIQUE (experiment_id, construct_id), 
+	FOREIGN KEY(experiment_id) REFERENCES biophysics_experiment (id) ON DELETE CASCADE, 
+	FOREIGN KEY(construct_id) REFERENCES construct (id) ON DELETE CASCADE
+)
+
+CREATE INDEX ix_experiment_construct_construct_id ON experiment_construct (construct_id)
+
+CREATE INDEX ix_experiment_construct_experiment_id ON experiment_construct (experiment_id)

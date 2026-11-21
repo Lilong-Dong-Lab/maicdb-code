@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ construct.maicdb_id }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="construct-page">
+  <h1>{{ construct.maicdb_id }}</h1>
+  <aside class="frozen-banner"><strong>{{ strings.construct_heading }}</strong> — {{ construct.disclosure }}</aside>
+  <section class="identity">
+    <h2>{{ strings.construct_identity_heading }}</h2>
+    <dl class="identity-fields">
+      <dt>{{ strings.card_field_gene_symbol }}</dt>
+      <dd><a href="{{ root }}/channels/{{ construct.gene.slug }}/">{{ construct.gene.gene_symbol }}</a></dd>
+      <dt>{{ strings.construct_channel_label }}</dt><dd>{{ construct.channel_id }}</dd>
+      <dt>{{ strings.construct_structure_label }}</dt><dd>{{ construct.structure.maicdb_id if construct.structure else strings.card_not_recorded }}</dd>
+      <dt>{{ strings.construct_tags_label }}</dt><dd>{{ construct.tags or strings.card_not_recorded }}</dd>
+      <dt>{{ strings.construct_truncations_label }}</dt><dd>{{ construct.truncations or strings.card_not_recorded }}</dd>
+      <dt>{{ strings.construct_mutation_set_label }}</dt><dd>{{ construct.mutation_set or strings.card_not_recorded }}</dd>
+      <dt>{{ strings.construct_expression_label }}</dt><dd>{{ construct.expression_design or strings.card_not_recorded }}</dd>
+      <dt>{{ strings.construct_notes_label }}</dt><dd>{{ construct.notes or strings.card_not_recorded }}</dd>
+    </dl>
+  </section>
+  <section class="parameters">
+    <h2>{{ strings.construct_variants_heading }}</h2>
+    {% if construct.variants %}
+    <ul class="measure-rows">
+      {% for variant in construct.variants %}
+      <li><a href="{{ root }}/variants/{{ variant.maicdb_id | lower }}/">{{ variant.maicdb_id }}</a></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>{{ strings.card_zero_rows_note }}</p>{% endif %}
+  </section>
+  <section class="parameters">
+    <h2>{{ strings.construct_experiments_heading }}</h2>
+    {% if construct.experiments %}
+    <ul class="measure-rows">
+      {% for experiment in construct.experiments %}
+      <li>
+        <a href="{{ root }}/channels/{{ construct.gene.slug }}/#{{ experiment.measurement_id }}">{{ experiment.measurement_id or experiment.maicdb_id }}</a>
+        {% if experiment.experiment_label %}<span>{{ experiment.experiment_label }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>{{ strings.card_zero_rows_note }}</p>{% endif %}
+  </section>
+</article>
+{% endblock %}

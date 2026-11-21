@@ -105,6 +105,9 @@ __all__ = [
     "UnmappedMeasurement",
     "EvidenceItem",
     "EvidenceSubject",
+    "Construct",
+    "ConstructVariant",
+    "ExperimentConstruct",
     "DbMeta",
 ]
 
@@ -225,6 +228,93 @@ class EvidenceSubject(Base):
     )
 
 
+class Construct(Base):
+    """The measured genetic object for one or more experiments."""
+
+    __tablename__ = "construct"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    structure_id: Mapped[int | None] = mapped_column(
+        ForeignKey("structure.id", ondelete="SET NULL"), index=True
+    )
+    mutation_set: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[str | None] = mapped_column(Text)
+    truncations: Mapped[str | None] = mapped_column(Text)
+    expression_design: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    source_db: Mapped[SourceDb | None] = mapped_column(
+        name_stored_enum(SourceDb), index=True
+    )
+    collected_date: Mapped[date | None] = mapped_column(Date)
+    publication_id: Mapped[int | None] = mapped_column(
+        ForeignKey("publication.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    channel: Mapped[Channel | None] = relationship(back_populates="constructs")
+    structure: Mapped[Structure | None] = relationship(back_populates="constructs")
+    variants: Mapped[list[Variant]] = relationship(
+        secondary="construct_variant", back_populates="constructs"
+    )
+    experiments: Mapped[list[BiophysicsExperiment]] = relationship(
+        secondary="experiment_construct", back_populates="constructs"
+    )
+    publication: Mapped[Publication | None] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<Construct {self.maicdb_id!r}>"
+
+
+class ConstructVariant(Base):
+    """Explicit many-to-many membership between a Construct and Variant."""
+
+    __tablename__ = "construct_variant"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    construct_id: Mapped[int] = mapped_column(
+        ForeignKey("construct.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("variant.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "construct_id", "variant_id", name="uq_construct_variant"
+        ),
+    )
+
+
+class ExperimentConstruct(Base):
+    """Explicit many-to-many measurement link between Experiment and Construct."""
+
+    __tablename__ = "experiment_construct"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(
+        ForeignKey("biophysics_experiment.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    construct_id: Mapped[int] = mapped_column(
+        ForeignKey("construct.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "experiment_id", "construct_id", name="uq_experiment_construct"
+        ),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Identity module
 # --------------------------------------------------------------------------- #
@@ -290,6 +380,9 @@ class Channel(Base):
         back_populates="channel", cascade="all, delete-orphan"
     )
     variants: Mapped[list[Variant]] = relationship(
+        back_populates="channel", cascade="all, delete-orphan"
+    )
+    constructs: Mapped[list[Construct]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
     unmapped_measurements: Mapped[list[UnmappedMeasurement]] = relationship(
@@ -377,6 +470,7 @@ class Structure(Base):
         back_populates="structure"
     )
     publication: Mapped[Publication | None] = relationship()
+    constructs: Mapped[list[Construct]] = relationship(back_populates="structure")
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Structure maicdb_id={self.maicdb_id!r} pdb_id={self.pdb_id!r}>"
@@ -516,6 +610,9 @@ class BiophysicsExperiment(Base):
     structure: Mapped[Structure | None] = relationship(back_populates="biophysics_experiments")
     compound: Mapped[Compound | None] = relationship(back_populates="biophysics_experiments")
     variant: Mapped[Variant | None] = relationship(back_populates="biophysics_experiments")
+    constructs: Mapped[list[Construct]] = relationship(
+        secondary="experiment_construct", back_populates="experiments"
+    )
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -742,6 +839,9 @@ class Variant(Base):
     biophysics_experiments: Mapped[list[BiophysicsExperiment]] = relationship(
         back_populates="variant"
     )
+    constructs: Mapped[list[Construct]] = relationship(
+        secondary="construct_variant", back_populates="variants"
+    )
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -896,5 +996,8 @@ ALL_TABLES = (
     Publication,
     EvidenceItem,
     EvidenceSubject,
+    Construct,
+    ConstructVariant,
+    ExperimentConstruct,
     DbMeta,
 )

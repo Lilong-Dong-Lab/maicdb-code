@@ -102,7 +102,7 @@ def test_ddl_creates_cleanly_with_all_tables(engine):
     table_names = set(inspect(engine).get_table_names())
     expected = {t.__tablename__ for t in ALL_TABLES}
     assert expected <= table_names, f"missing tables: {expected - table_names}"
-    assert len(expected) == 12
+    assert len(expected) == 15
 
     # Spot-check key columns on the hub table.
     channel_cols = {c["name"] for c in inspect(engine).get_columns("channel")}

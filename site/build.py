@@ -65,6 +65,7 @@ from maicdb.analysis.site_payloads import (
     analysis_payloads,
     channel_mimic_blocks,
 )
+from maicdb.constructs import construct_page, variant_construct_page
 from maicdb.models import Bioactivity, BiophysicsExperiment, Channel, Publication, UnmappedMeasurement
 from maicdb.query import (
     PARAMETERS,
@@ -324,6 +325,7 @@ def _site_pages(
                     {"card": card, "entry": entry},
                 )
             )
+    pages.extend(_construct_pages(data_dir, gene_slugs))
     for param in index["parameters"]:
         name = param["name"]
         comparison = json.loads(
@@ -340,6 +342,34 @@ def _site_pages(
                 },
             )
         )
+    return pages
+
+
+def _construct_pages(data_dir: Path, gene_slugs: dict[str, str]) -> list:
+    """Add one page per persisted Construct/variant traversal payload."""
+    pages: list[tuple[str, str, dict]] = []
+    constructs_dir = data_dir / "constructs"
+    if constructs_dir.exists():
+        for path in sorted(constructs_dir.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            pages.append(
+                (
+                    "construct.html",
+                    f"constructs/{path.stem}",
+                    {"construct": payload, "gene_slugs": gene_slugs},
+                )
+            )
+    variants_dir = data_dir / "variants"
+    if variants_dir.exists():
+        for path in sorted(variants_dir.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            pages.append(
+                (
+                    "variant.html",
+                    f"variants/{path.stem}",
+                    {"variant_payload": payload, "gene_slugs": gene_slugs},
+                )
+            )
     return pages
 
 
@@ -417,6 +447,8 @@ _NAV_FLAGS_by_template = {
     "home.html": "home",
     "browse.html": "channels",
     "card.html": "channels",
+    "construct.html": "channels",
+    "variant.html": "channels",
     "parameters.html": "parameters",
     "parameter.html": "parameters",
     "downloads.html": "downloads",
@@ -634,10 +666,17 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 .group_by(Channel.gene_symbol)
             ).all()
         )
+        conn.close()
 
     written: list[Path] = []
     families: dict[str, dict] = {}
     search_entries: list[dict] = []
+    constructs_dir = data_dir / "constructs"
+    variants_dir = data_dir / "variants"
+    constructs_dir.mkdir(parents=True, exist_ok=True)
+    variants_dir.mkdir(parents=True, exist_ok=True)
+    rendered_constructs: set[str] = set()
+    rendered_variants: set[int] = set()
     # MIMIC badge blocks, computed once (P2's scoring engine behind P7's
     # per-channel field-level aggregation — site_payloads docstring).
     mimic_blocks = channel_mimic_blocks(engine)
@@ -660,6 +699,68 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         path = channels_dir / f"{slugify(gene)}.json"
         _dump(path, card)
         written.append(path)
+
+        construct_ids = sorted(
+            {
+                construct["construct"]["maicdb_id"]
+                for block in card["parameters"].values()
+                for row in block["rows"]
+                for construct in row["constructs"]
+            }
+        )
+        for construct_id in construct_ids:
+            if construct_id in rendered_constructs:
+                continue
+            payload = construct_page(engine, construct_id)
+            if payload is None:
+                continue
+            payload["gene"] = {
+                "gene_symbol": gene,
+                "slug": slugify(gene),
+            }
+            construct_path = constructs_dir / f"{slugify(construct_id)}.json"
+            _dump(construct_path, payload)
+            written.append(construct_path)
+            rendered_constructs.add(construct_id)
+            search_entries.append(
+                {
+                    "type": "construct",
+                    "name": "construct",
+                    "slug": slugify(construct_id),
+                    "label": construct_id,
+                    "family": identity["family"],
+                    "aliases": [],
+                    "uniprots": [],
+                    "url": f"/constructs/{slugify(construct_id)}/",
+                }
+            )
+            for variant_id in payload["variant_ids"]:
+                if variant_id in rendered_variants:
+                    continue
+                variant_payload = variant_construct_page(engine, variant_id)
+                if variant_payload is None:
+                    continue
+                variant_payload["gene"] = {
+                    "gene_symbol": gene,
+                    "slug": slugify(gene),
+                }
+                variant_slug = slugify(f"MAIC:VR:{variant_id:05d}")
+                variant_path = variants_dir / f"{variant_slug}.json"
+                _dump(variant_path, variant_payload)
+                written.append(variant_path)
+                rendered_variants.add(variant_id)
+                search_entries.append(
+                    {
+                        "type": "variant",
+                        "name": "variant",
+                        "slug": variant_slug,
+                        "label": f"MAIC:VR:{variant_id:05d}",
+                        "family": identity["family"],
+                        "aliases": [],
+                        "uniprots": [],
+                        "url": f"/variants/{variant_slug}/",
+                    }
+                )
 
         slug = slugify(gene)
         # Aggregate the browse index (family → channels → counts) from the

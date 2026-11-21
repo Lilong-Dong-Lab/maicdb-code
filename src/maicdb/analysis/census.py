@@ -93,6 +93,9 @@ _MANIFEST_TABLES = (
     ("compound", "compound"),
     ("variant", "variant"),
     ("structure", "structure"),
+    ("construct", "construct"),
+    ("construct_variant_link", "construct_variant"),
+    ("experiment_construct_link", "experiment_construct"),
     ("biophysics", "biophysics_experiment"),
     ("bioactivity", "bioactivity"),
     ("unmapped", "unmapped_measurement"),
@@ -265,6 +268,23 @@ def _corpus_track(engine: Engine) -> dict:
                 )
             )
             """,
+        ),
+        "construct_count": _scalar(engine, "SELECT COUNT(*) FROM construct"),
+        "construct_variant_link_count": _scalar(
+            engine, "SELECT COUNT(*) FROM construct_variant"
+        ),
+        "experiment_construct_link_count": _scalar(
+            engine, "SELECT COUNT(*) FROM experiment_construct"
+        ),
+        "legacy_variant_experiment_link_count": _scalar(
+            engine,
+            "SELECT COUNT(*) FROM biophysics_experiment "
+            "WHERE variant_id IS NOT NULL",
+        ),
+        "legacy_structure_experiment_link_count": _scalar(
+            engine,
+            "SELECT COUNT(*) FROM biophysics_experiment "
+            "WHERE structure_id IS NOT NULL",
         ),
         "p50_psi_rows": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment WHERE p50_unit = 'psi'"
