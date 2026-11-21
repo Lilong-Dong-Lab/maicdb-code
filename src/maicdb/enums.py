@@ -84,6 +84,8 @@ class EvidenceSubjectType(str, Enum):
     COMPOUND = "COMPOUND"
     VARIANT = "VARIANT"
     BIOPHYSICS_EXPERIMENT = "BIOPHYSICS_EXPERIMENT"
+    BIOACTIVITY = "BIOACTIVITY"
+    UNMAPPED_MEASUREMENT = "UNMAPPED_MEASUREMENT"
 
 
 class EvidenceReviewState(str, Enum):

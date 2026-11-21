@@ -23,8 +23,8 @@ downloads remain intentionally deferred.
 
 ## Consequences
 
-Ticket #97 implements only the biophysics evidence spine. It may not claim
-authority for bioactivity or unmapped measurements; ticket #98 performs the
-all-fact-family parity and authority cutover. Public payloads and exports expose
-the normalized Evidence item when available and an explicit legacy/unmigrated
-disclosure otherwise. Detailed editorial history remains vault-only.
+Ticket #97 implemented the biophysics evidence spine. Ticket #98 extends parity
+to bioactivity and unmapped measurements and makes the normalized Evidence model
+the shared authority for all three fact families. Public payloads and exports
+resolve Evidence through the same subject-link path; any uncovered fact row is
+counted and disclosed explicitly. Detailed editorial history remains vault-only.

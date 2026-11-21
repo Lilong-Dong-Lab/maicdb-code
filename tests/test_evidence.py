@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from maicdb.evidence import (
-    UNMIGRATED_EVIDENCE_DISCLOSURE,
     confidence_from_legacy,
     migrate_biophysics_evidence,
     _claim_for,
@@ -253,12 +252,6 @@ def test_channel_card_uses_shared_evidence_resolution(session, engine):
         for key in row["evidence"][0]
     )
     assert all("editorial_history" not in item for item in row["evidence"])
-
-
-def test_unmigrated_disclosure_is_canonical():
-    from maicdb.query import UNMIGRATED_FACT_FAMILY_DISCLOSURE
-
-    assert UNMIGRATED_FACT_FAMILY_DISCLOSURE == UNMIGRATED_EVIDENCE_DISCLOSURE
 
 
 def test_query_resolution_supports_missing_evidence(engine):

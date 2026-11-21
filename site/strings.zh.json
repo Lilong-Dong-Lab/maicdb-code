@@ -63,7 +63,7 @@
   "card_ev_note": "提取注记",
   "card_ev_condition": "条件键",
   "card_ev_n": "n",
-    "card_ev_migration": "证据迁移状态",
+    "card_ev_migration": "证据覆盖状态",
     "card_ev_item": "证据对象",
     "card_ev_claim": "科学结论",
     "card_ev_source": "来源",

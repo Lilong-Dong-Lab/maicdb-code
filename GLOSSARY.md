@@ -72,9 +72,9 @@ curator note. It is the reusable unit of provenance and review.
 _Avoid_: evidence object, provenance row
 
 **Evidence subject**:
-The database entity supported by an Evidence item. The link is many-to-many,
-so one item can support multiple subjects and one subject can cite multiple
-items.
+The biophysics experiment, bioactivity row, or unmapped measurement supported
+by an Evidence item. The link is many-to-many, so one item can support multiple
+subjects and one subject can cite multiple items.
 _Avoid_: evidence owner, parent row
 
 **Pin**:

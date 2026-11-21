@@ -230,7 +230,7 @@ CREATE TABLE evidence_subject (
 	PRIMARY KEY (id), 
 	CONSTRAINT uq_evidence_subject UNIQUE (evidence_item_id, subject_type, subject_id), 
 	FOREIGN KEY(evidence_item_id) REFERENCES evidence_item (id) ON DELETE CASCADE, 
-	CONSTRAINT evidencesubjecttype CHECK (subject_type IN ('CHANNEL', 'STRUCTURE', 'COMPOUND', 'VARIANT', 'BIOPHYSICS_EXPERIMENT'))
+	CONSTRAINT evidencesubjecttype CHECK (subject_type IN ('CHANNEL', 'STRUCTURE', 'COMPOUND', 'VARIANT', 'BIOPHYSICS_EXPERIMENT', 'BIOACTIVITY', 'UNMAPPED_MEASUREMENT'))
 )
 
 CREATE INDEX ix_evidence_subject_evidence_item_id ON evidence_subject (evidence_item_id)

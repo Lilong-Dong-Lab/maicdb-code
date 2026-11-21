@@ -58,7 +58,7 @@ from maicdb.models import (
     UnmappedMeasurement,
 )
 from maicdb.enums import EvidenceSubjectType
-from maicdb.evidence import UNMIGRATED_EVIDENCE_DISCLOSURE
+from maicdb.evidence import AUTHORITATIVE_EVIDENCE_DISCLOSURE
 
 __all__ = [
     "open_readonly",
@@ -114,7 +114,7 @@ RATIO_MEDIAN_NOTE = (
     "direction-unstated groups report count/min/max only)"
 )
 
-UNMIGRATED_FACT_FAMILY_DISCLOSURE = UNMIGRATED_EVIDENCE_DISCLOSURE
+UNMIGRATED_FACT_FAMILY_DISCLOSURE = AUTHORITATIVE_EVIDENCE_DISCLOSURE
 
 
 class UnknownGeneError(ValueError):
@@ -337,6 +337,70 @@ def biophysics_evidence(
                 "citation_text": item.pop("citation_text"),
             }
             item["publication"] = publication if publication["id"] is not None else None
+            item["evidence_type"] = _enum_value(item["evidence_type"])
+            item["confidence"] = _enum_value(item["confidence"])
+            item["review_state"] = _enum_value(item["review_state"])
+            resolved[item.pop("subject_id")].append(item)
+    return resolved
+
+
+def normalized_evidence(
+    engine: Engine, subject_type: EvidenceSubjectType, subject_ids: list[int]
+) -> dict[int, list[dict]]:
+    """Resolve normalized Evidence items for any supported fact family."""
+    resolved: dict[int, list[dict]] = {subject_id: [] for subject_id in subject_ids}
+    if not subject_ids:
+        return resolved
+    with engine.connect() as conn:
+        table_names = set(inspect(conn).get_table_names())
+        if not {"evidence_item", "evidence_subject"}.issubset(table_names):
+            return resolved
+        rows = conn.execute(
+            select(
+                EvidenceSubject.subject_id,
+                EvidenceItem.maicdb_id,
+                EvidenceItem.claim,
+                EvidenceItem.source,
+                Publication.id.label("publication_id"),
+                Publication.doi,
+                Publication.title,
+                Publication.journal,
+                Publication.year,
+                Publication.authors,
+                Publication.pmid,
+                Publication.citation_text,
+                EvidenceItem.quote,
+                EvidenceItem.location,
+                EvidenceItem.evidence_type,
+                EvidenceItem.confidence,
+                EvidenceItem.curator_note,
+                EvidenceItem.review_state,
+                EvidenceItem.review_timestamp,
+            )
+            .join(EvidenceItem, EvidenceSubject.evidence_item_id == EvidenceItem.id)
+            .join(Publication, EvidenceItem.publication_id == Publication.id, isouter=True)
+            .where(
+                EvidenceSubject.subject_type == subject_type,
+                EvidenceSubject.subject_id.in_(subject_ids),
+            )
+            .order_by(EvidenceSubject.subject_id, EvidenceItem.maicdb_id)
+        ).mappings()
+        for row in rows:
+            item = dict(row)
+            publication = {
+                "id": item.pop("publication_id"),
+                "doi": item.pop("doi"),
+                "title": item.pop("title"),
+                "journal": item.pop("journal"),
+                "year": item.pop("year"),
+                "authors": item.pop("authors"),
+                "pmid": item.pop("pmid"),
+                "citation_text": item.pop("citation_text"),
+            }
+            item["publication"] = publication if publication["id"] is not None else None
+            item["evidence_type"] = _enum_value(item["evidence_type"])
+            item["confidence"] = _enum_value(item["confidence"])
+            item["review_state"] = _enum_value(item["review_state"])
             resolved[item.pop("subject_id")].append(item)
     return resolved
 
@@ -385,9 +449,12 @@ def channel_card(
                 ).mappings()
             ]
             experiment_ids = [row.pop("id") for row in rows]
-            evidence = biophysics_evidence(engine, experiment_ids)
-            normalized_available = any(evidence.values())
-            for r in rows:
+            evidence = normalized_evidence(
+                engine,
+                EvidenceSubjectType.BIOPHYSICS_EXPERIMENT,
+                experiment_ids,
+            )
+            for index, r in enumerate(rows):
                 # Normalize column names to the card vocabulary: the value
                 # column is always "value", the unit column always "unit"
                 # (plain str — value-stored enum members render as "mmHg").
@@ -396,12 +463,10 @@ def channel_card(
                     r["unit"] = _enum_value(r.pop(spec.unit_column))
                 else:
                     r["unit"] = spec.fixed_unit
-                experiment_id = experiment_ids[rows.index(r)]
+                experiment_id = experiment_ids[index]
                 r["evidence"] = evidence[experiment_id]
-                if not normalized_available:
-                    r["unmigrated_evidence_disclosure"] = (
-                        UNMIGRATED_FACT_FAMILY_DISCLOSURE
-                    )
+                if not r["evidence"]:
+                    r["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
             card["parameters"][name] = {
                 "label": spec.label,
                 "n_rows": len(rows),
@@ -446,6 +511,7 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
             dict(r)
             for r in conn.execute(
                 select(
+                    Bioactivity.id,
                     Bioactivity.maicdb_id,
                     Bioactivity.measurement_id,
                     Compound.name.label("compound_name"),
@@ -463,10 +529,14 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
                 .order_by(Bioactivity.measurement_id, Bioactivity.maicdb_id)
             ).mappings()
         ]
+        evidence = normalized_evidence(
+            engine, EvidenceSubjectType.BIOACTIVITY, [row["id"] for row in rows]
+        )
         for row in rows:
-            row["unmigrated_evidence_disclosure"] = (
-                UNMIGRATED_FACT_FAMILY_DISCLOSURE
-            )
+            row["evidence"] = evidence[row["id"]]
+            row.pop("id")
+            if not row["evidence"]:
+                row["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
         for r in rows:
             r["activity_type"] = _enum_name(r["activity_type"])
             r["source_db"] = _enum_name(r["source_db"])
@@ -669,13 +739,18 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
                 out = {k: v for k, v in dict(row).items() if k != "channel_id"}
                 out["table"] = model.__tablename__
                 if model is BiophysicsExperiment:
-                    out["evidence"] = biophysics_evidence(engine, [row["id"]])[
-                        row["id"]
-                    ]
+                    subject_type = EvidenceSubjectType.BIOPHYSICS_EXPERIMENT
                 else:
-                    out["unmigrated_evidence_disclosure"] = (
-                        UNMIGRATED_FACT_FAMILY_DISCLOSURE
+                    subject_type = (
+                        EvidenceSubjectType.BIOACTIVITY
+                        if model is Bioactivity
+                        else EvidenceSubjectType.UNMAPPED_MEASUREMENT
                     )
+                out["evidence"] = normalized_evidence(
+                    engine, subject_type, [row["id"]]
+                )[row["id"]]
+                if not out["evidence"]:
+                    out["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
                 gene = conn.execute(
                     select(Channel.gene_symbol).where(Channel.id == row["channel_id"])
                 ).scalar_one_or_none()

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from collections.abc import Callable
+
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from maicdb.accessions import AccessionGenerator, AccessionPrefix
@@ -15,37 +17,41 @@ from maicdb.enums import (
 )
 from maicdb.models import (
     Base,
+    Bioactivity,
     BiophysicsExperiment,
     DbMeta,
     EvidenceItem,
     EvidenceSubject,
+    UnmappedMeasurement,
 )
 
 __all__ = [
     "EVIDENCE_SCHEMA_VERSION",
     "BIOPHYSICS_EVIDENCE_STATE",
-    "UNMIGRATED_EVIDENCE_DISCLOSURE",
-    "unmigrated_evidence_disclosure",
+    "AUTHORITATIVE_EVIDENCE_DISCLOSURE",
+    "evidence_authority_disclosure",
     "public_evidence_item",
     "confidence_from_legacy",
     "ensure_evidence_schema",
     "biophysics_evidence_items",
     "migrate_biophysics_evidence",
+    "migrate_bioactivity_evidence",
+    "migrate_unmapped_evidence",
+    "fact_family_coverage",
     "resolve_biophysics_evidence",
 ]
 
 EVIDENCE_SCHEMA_VERSION = "0.3.0"
 BIOPHYSICS_EVIDENCE_STATE = EvidenceMigrationState.MIGRATED
-UNMIGRATED_EVIDENCE_DISCLOSURE = (
-    "Bioactivity and unmapped measurements still carry legacy evidence fields; "
-    "normalized Evidence items become authoritative for all fact families in "
-    "ticket #98."
+AUTHORITATIVE_EVIDENCE_DISCLOSURE = (
+    "All fact families resolve normalized Evidence items as the authoritative "
+    "provenance source; legacy evidence columns remain as a compatibility bridge."
 )
 
 
-def unmigrated_evidence_disclosure() -> str:
-    """Return the public disclosure for unmigrated fact families."""
-    return UNMIGRATED_EVIDENCE_DISCLOSURE
+def evidence_authority_disclosure() -> str:
+    """Return the public disclosure for authoritative Evidence coverage."""
+    return AUTHORITATIVE_EVIDENCE_DISCLOSURE
 
 
 def confidence_from_legacy(value: str | None) -> EvidenceConfidence | None:
@@ -194,6 +200,130 @@ def migrate_biophysics_evidence(session: Session) -> dict[str, int]:
         "evidence_created": created,
         "subject_links_created": created,
         "schema_version_before": int(schema_before.replace(".", "").lstrip("0") or 0),
+    }
+
+
+def _claim_for_bioactivity(row: Bioactivity) -> str:
+    relation = row.relation or ""
+    activity_type = row.activity_type or "activity"
+    value = row.activity_value
+    unit = row.activity_units or ""
+    value_part = f"{relation} {value} {unit}".strip() if value is not None else "value not recorded"
+    return f"{row.maicdb_id}: {activity_type} {value_part}"
+
+
+def _claim_for_unmapped(row: UnmappedMeasurement) -> str:
+    value = row.value
+    unit = row.unit or ""
+    value_part = f"{value} {unit}".strip() if value is not None else "value not recorded"
+    return f"{row.maicdb_id}: {row.parameter_kind} {value_part}"
+
+
+def _migrate_evidence_rows(
+    session: Session,
+    subject_type: EvidenceSubjectType,
+    rows: list[Bioactivity | UnmappedMeasurement],
+    linked_subject_ids: set[int],
+    claim_for: Callable[[Bioactivity | UnmappedMeasurement], str],
+) -> dict[str, int]:
+    pending = sorted(
+        (row for row in rows if row.id not in linked_subject_ids),
+        key=lambda row: row.maicdb_id,
+    )
+    created = 0
+    for row in pending:
+        item = EvidenceItem(
+            maicdb_id=_next_evidence_accession(session),
+            claim=claim_for(row),
+            source=row.source_db.name if row.source_db else None,
+            publication_id=row.publication_id,
+            quote=row.evidence_quote,
+            location=row.evidence_location,
+            evidence_type=EvidenceType.MEASUREMENT,
+            confidence=confidence_from_legacy(row.confidence),
+            curator_note=row.extractor_note,
+            review_state=EvidenceReviewState.UNREVIEWED,
+        )
+        session.add(item)
+        session.flush()
+        session.add(
+            EvidenceSubject(
+                evidence_item_id=item.id,
+                subject_type=subject_type,
+                subject_id=row.id,
+            )
+        )
+        created += 1
+    session.flush()
+    return {
+        "rows_examined": len(rows),
+        "evidence_created": created,
+        "subject_links_created": created,
+    }
+
+
+def migrate_bioactivity_evidence(session: Session) -> dict[str, int]:
+    """Migrate legacy bioactivity evidence without losing or duplicating rows."""
+    rows = list(session.scalars(select(Bioactivity).order_by(Bioactivity.maicdb_id)))
+    linked_subject_ids = set(
+        session.execute(
+            select(EvidenceSubject.subject_id).where(
+                EvidenceSubject.subject_type == EvidenceSubjectType.BIOACTIVITY
+            )
+        ).scalars()
+    )
+    return _migrate_evidence_rows(
+        session,
+        EvidenceSubjectType.BIOACTIVITY,
+        rows,
+        linked_subject_ids,
+        _claim_for_bioactivity,
+    )
+
+
+def migrate_unmapped_evidence(session: Session) -> dict[str, int]:
+    """Migrate unmapped measurement evidence without losing or duplicating rows."""
+    rows = list(
+        session.scalars(select(UnmappedMeasurement).order_by(UnmappedMeasurement.maicdb_id))
+    )
+    linked_subject_ids = set(
+        session.execute(
+            select(EvidenceSubject.subject_id).where(
+                EvidenceSubject.subject_type == EvidenceSubjectType.UNMAPPED_MEASUREMENT
+            )
+        ).scalars()
+    )
+    return _migrate_evidence_rows(
+        session,
+        EvidenceSubjectType.UNMAPPED_MEASUREMENT,
+        rows,
+        linked_subject_ids,
+        _claim_for_unmapped,
+    )
+
+
+def fact_family_coverage(session: Session) -> dict[str, int]:
+    """Count fact rows whose normalized Evidence resolution is missing."""
+    facts = {
+        EvidenceSubjectType.BIOPHYSICS_EXPERIMENT: session.scalar(
+            select(func.count()).select_from(BiophysicsExperiment)
+        ),
+        EvidenceSubjectType.BIOACTIVITY: session.scalar(
+            select(func.count()).select_from(Bioactivity)
+        ),
+        EvidenceSubjectType.UNMAPPED_MEASUREMENT: session.scalar(
+            select(func.count()).select_from(UnmappedMeasurement)
+        ),
+    }
+    linked = dict(
+        session.execute(
+            select(EvidenceSubject.subject_type, func.count(distinct(EvidenceSubject.subject_id)))
+            .group_by(EvidenceSubject.subject_type)
+        ).all()
+    )
+    return {
+        subject_type.value: total - linked.get(subject_type, 0)
+        for subject_type, total in facts.items()
     }
 
 

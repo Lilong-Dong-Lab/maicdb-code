@@ -32,7 +32,6 @@ from maicdb.models import Base, BiophysicsExperiment, Channel
 from maicdb.query import (
     FROZEN_GENE_SYMBOLS,
     FROZEN_LAYER_DISCLOSURE,
-    UNMIGRATED_FACT_FAMILY_DISCLOSURE,
     RATIO_MEDIAN_NOTE,
     AmbiguousGeneError,
     UnknownGeneError,
@@ -425,13 +424,11 @@ def test_provenance_frozen_layer_disclosure(engine):
     assert not [k for k in ev_msc if k.lower().startswith("verif")]
 
 
-def test_provenance_discloses_unmigrated_fact_families(engine):
+def test_provenance_resolves_authoritative_evidence_for_bioactivity(engine):
     bioactivity = provenance(engine, "ASIC-00025")
     assert bioactivity is not None
-    assert (
-        bioactivity["unmigrated_evidence_disclosure"]
-        == UNMIGRATED_FACT_FAMILY_DISCLOSURE
-    )
+    assert bioactivity["evidence"][0]["maicdb_id"] == "MAIC:EV:00961"
+    assert "unmigrated_evidence_disclosure" not in bioactivity
 
 
 def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):

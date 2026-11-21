@@ -12,11 +12,10 @@ figure in §2–§5 was recomputed by the reviewer against the vault @
 official-counts authority per MAICDB_data_notes.md §7) and
 `tests/census_snapshot.json`.
 
-Ticket #97 adds the biophysics Evidence spine on top of the v0.2 mapping:
-legacy biophysics evidence fields are copied verbatim into normalized,
-reusable `evidence_item` records and `evidence_subject` links. #97 does not
-migrate bioactivity or unmapped evidence; #98 performs that parity and
-authority cutover.
+Ticket #97 added the biophysics Evidence spine on top of the v0.2 mapping.
+Ticket #98 extends the same migration to bioactivity and unmapped measurements,
+then makes `evidence_item`/`evidence_subject` the shared authority for all fact
+families. Legacy evidence columns remain as a compatibility bridge.
 
 ## 1. Purpose, inputs, outputs
 

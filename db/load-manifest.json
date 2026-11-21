@@ -1,5 +1,5 @@
 {
-  "vault_head": "14762a72d6ea35e670a194f854244dbc8b2247fb",
+  "vault_head": "dd49d8e65ac1d45d7c30f93e450ceac50595572c",
   "freeze_tag": "data-v1.2",
   "schema_version": "0.3.0",
   "counts": {
@@ -14,8 +14,14 @@
     "bioactivity": 137,
     "unmapped": 28,
     "unit_conversions": 105,
-    "evidence_item": 960,
-    "evidence_subject": 960
+    "evidence_item": 1125,
+    "evidence_subject": 1125,
+    "evidence_unresolved": 0,
+    "evidence_coverage_by_family": {
+      "BIOPHYSICS_EXPERIMENT": 0,
+      "BIOACTIVITY": 0,
+      "UNMAPPED_MEASUREMENT": 0
+    }
   },
   "disclosures": [
     "authors: 0 publications Zotero-enriched; first_author-only fallback for the rest",
@@ -24,7 +30,7 @@
     "unroled bioactivity modulators typed UNCLASSIFIED: ['Silica nanoparticles (Ludox SM30, ~10 nm)']",
     "compound descriptors: 4 / 86 carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)",
     "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)",
-    "Bioactivity and unmapped measurements retain legacy evidence fields until all-fact-family parity and authority cutover (ticket #98)."
+    "All fact families resolve normalized Evidence items as the authoritative provenance source; legacy evidence columns remain as a compatibility bridge."
   ],
   "dump": "db/maicdb.sql"
 }

@@ -48,15 +48,16 @@ Every fact row carries the full evidence chain (`measurement_id`,
 F-004 disclosure tokens verbatim, `condition_key`, `n`). License:
 **CC-BY-4.0** (recorded in `db_meta`).
 
-## Evidence spine (ticket #97)
+## Evidence authority (tickets #97/#98)
 
-The artifact contains **960 `evidence_item` records** and **960
-`evidence_subject` links** for the 960 biophysics experiments. Evidence items
-are reusable, stable `MAIC:EV:*` objects carrying a claim, source,
-publication, quote, location, controlled evidence type/confidence, curator
-note, lightweight review state, and review timestamp. Bioactivity and
-unmapped measurements remain on the v0.2 legacy evidence columns until
-ticket #98 completes; public outputs disclose that state explicitly.
+The artifact contains **1125 `evidence_item` records** and **1125
+`evidence_subject` links**—one authoritative Evidence object for every
+biophysics experiment (960), bioactivity row (137), and unmapped measurement
+(28). Evidence items are reusable, stable `MAIC:EV:*` objects carrying a
+claim, source, publication, quote, location, controlled evidence
+type/confidence, curator note, lightweight review state, and review timestamp.
+Queries, site payloads, CLI, and exports resolve this normalized model first;
+legacy evidence columns remain readable only as a compatibility bridge.
 
 > [!note] Date semantics
 > `db_meta.release_date` records the **data-freeze epoch** (2026-11-08 for

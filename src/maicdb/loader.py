@@ -48,7 +48,13 @@ from maicdb.enums import (
     StructureSource,
     TensionUnit,
 )
-from maicdb.evidence import migrate_biophysics_evidence
+from maicdb.evidence import (
+    AUTHORITATIVE_EVIDENCE_DISCLOSURE,
+    fact_family_coverage,
+    migrate_bioactivity_evidence,
+    migrate_biophysics_evidence,
+    migrate_unmapped_evidence,
+)
 from maicdb.models import (
     Bioactivity,
     BiophysicsExperiment,
@@ -649,13 +655,21 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                      ("data_freeze_tag", f"{FREEZE_TAG}@{head[:12]}"),
                      ("vault_repository", "Lilong-Dong-Lab/Project_DataBase_MAICDB")):
             s.add(DbMeta(key=k, value=v))
-        migration_counts = migrate_biophysics_evidence(s)
-        manifest["counts"]["evidence_item"] = migration_counts["evidence_created"]
-        manifest["counts"]["evidence_subject"] = migration_counts["subject_links_created"]
-        manifest["disclosures"].append(
-            "Bioactivity and unmapped measurements retain legacy evidence fields "
-            "until all-fact-family parity and authority cutover (ticket #98)."
+        migration_counts = {
+            "biophysics": migrate_biophysics_evidence(s),
+            "bioactivity": migrate_bioactivity_evidence(s),
+            "unmapped": migrate_unmapped_evidence(s),
+        }
+        manifest["counts"]["evidence_item"] = sum(
+            counts["evidence_created"] for counts in migration_counts.values()
         )
+        manifest["counts"]["evidence_subject"] = sum(
+            counts["subject_links_created"] for counts in migration_counts.values()
+        )
+        unresolved = fact_family_coverage(s)
+        manifest["counts"]["evidence_unresolved"] = sum(unresolved.values())
+        manifest["counts"]["evidence_coverage_by_family"] = unresolved
+        manifest["disclosures"].append(AUTHORITATIVE_EVIDENCE_DISCLOSURE)
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------

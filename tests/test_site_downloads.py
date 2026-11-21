@@ -88,7 +88,7 @@ def test_downloads_sizes_displayed_in_si_units(tmp_path):
     out = render_fixture(tmp_path)
     for locale in ("en", "zh"):
         html = _page(out, locale)
-        for size in ("5.2 MB", "3.7 MB", "1.4 kB", "1.3 kB"):
+        for size in ("5.4 MB", "3.9 MB", "1.6 kB", "1.3 kB"):
             assert size in html, size
 
 

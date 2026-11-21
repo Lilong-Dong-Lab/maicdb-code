@@ -242,6 +242,30 @@ def _corpus_track(engine: Engine) -> dict:
         "experiment_count": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment"
         ),
+        "bioactivity_count": _scalar(engine, "SELECT COUNT(*) FROM bioactivity"),
+        "unmapped_count": _scalar(
+            engine, "SELECT COUNT(*) FROM unmapped_measurement"
+        ),
+        "evidence_item_count": _scalar(engine, "SELECT COUNT(*) FROM evidence_item"),
+        "evidence_subject_count": _scalar(
+            engine, "SELECT COUNT(*) FROM evidence_subject"
+        ),
+        "evidence_unresolved_count": _scalar(
+            engine,
+            """
+            SELECT (
+                (SELECT COUNT(*) FROM biophysics_experiment)
+                + (SELECT COUNT(*) FROM bioactivity)
+                + (SELECT COUNT(*) FROM unmapped_measurement)
+            ) - (
+                SELECT COUNT(DISTINCT subject_type || ':' || subject_id)
+                FROM evidence_subject
+                WHERE subject_type IN (
+                    'BIOPHYSICS_EXPERIMENT', 'BIOACTIVITY', 'UNMAPPED_MEASUREMENT'
+                )
+            )
+            """,
+        ),
         "p50_psi_rows": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment WHERE p50_unit = 'psi'"
         ),
