@@ -90,6 +90,7 @@ def migrate_structure_function(session: Session) -> dict[str, int | str]:
     residues_created = 0
     locations_created = 0
     evidence_created = 0
+    variants_created = 0
     linked_structures = set(
         session.execute(
             select(EvidenceSubject.subject_id).where(
@@ -120,6 +121,7 @@ def migrate_structure_function(session: Session) -> dict[str, int | str]:
             session.add(variant)
             session.flush()
             variants_by_mutation[key].append(variant)
+            variants_created += 1
         if (variant.id, structure.id) in existing:
             continue
         position = _position(mutation)
@@ -198,6 +200,7 @@ def migrate_structure_function(session: Session) -> dict[str, int | str]:
     return {
         "schema_version_before": str(schema_before or ""),
         "schema_version_after": STRUCTURE_FUNCTION_SCHEMA_VERSION,
+        "variants_created": variants_created,
         "residues_created": residues_created,
         "locations_created": locations_created,
         "evidence_created": evidence_created,

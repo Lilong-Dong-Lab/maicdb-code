@@ -99,6 +99,8 @@ _MANIFEST_TABLES = (
     ("biophysics", "biophysics_experiment"),
     ("bioactivity", "bioactivity"),
     ("unmapped", "unmapped_measurement"),
+    ("structure_residue", "structure_residue"),
+    ("structure_variant_location", "structure_variant_location"),
 )
 
 

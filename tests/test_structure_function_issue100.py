@@ -58,6 +58,7 @@ def test_migration_records_residue_and_variant_location(session):
     counts = migrate_structure_function(session)
     session.commit()
     assert counts["schema_version_after"] == STRUCTURE_FUNCTION_SCHEMA_VERSION
+    assert counts["variants_created"] == 1
     assert counts["residues_created"] == 1
     assert counts["locations_created"] == 1
     assert counts["evidence_created"] == 1

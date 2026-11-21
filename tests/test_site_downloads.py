@@ -3,8 +3,8 @@
 Two seams, both consuming ``render_site()``:
 
 * **fixture-driven (no DB)** — the synthetic data layer from
-  test_site_pages.py plus the repo's real ``db/`` artifacts (they ship
-  in-repo, so the file-copy behavior is testable without the DB): the
+test_site_pages.py plus the repo's real ``db/`` artifacts (they ship
+in-repo, so the file-copy behavior is testable without the DB): the
   downloads page renders in both locales, every linked file exists in
   the tree it is served from, sizes shown match the source files, DOI /
   license identifiers come from CITATION.cff, and the unmapped
@@ -65,8 +65,8 @@ def test_downloads_files_copied_into_both_trees_and_linked(tmp_path):
     (the downloads page sits one level down → ``../``).
 
     Source bytes: the in-repo published artifacts (data-v1.2 + Evidence
-    items), sizes ``stat``-ed 2026-11-21 — sqlite 5492736,
-    sql 3901682, manifest 2036, CITATION.cff 1338.
+    items), sizes ``stat``-ed 2026-11-21 — sqlite 5570560,
+    sql 3907880, manifest 2503, CITATION.cff 1338.
     """
     out = render_fixture(tmp_path)
     for tree in (out, out / "zh"):
@@ -88,7 +88,7 @@ def test_downloads_sizes_displayed_in_si_units(tmp_path):
     out = render_fixture(tmp_path)
     for locale in ("en", "zh"):
         html = _page(out, locale)
-        for size in ("5.5 MB", "3.9 MB", "2.0 kB", "1.3 kB"):
+        for size in ("5.6 MB", "3.9 MB", "2.5 kB", "1.3 kB"):
             assert size in html, size
 
 

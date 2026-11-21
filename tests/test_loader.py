@@ -209,8 +209,9 @@ def test_full_load_conservation(tmp_path):
     # data-v1.1 calibers (unchanged at data-v1.2 — zero-row retarget):
     # 1125 = 960 (829 normal-route + 131 gap migrations)
     # + 137 + 28 KEEP; v1.0 was 1100 = 948 + 136 + 16, variant 125 → 133.
+    # Issue #100 adds two title-derived variants (135 total).
     assert (c["biophysics"], c["bioactivity"], c["unmapped"]) == (960, 137, 28)
-    assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 133
+    assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 135
     assert c["unit_conversions"] == 105
     assert c["compound"] == 86 and c["publication"] == 216
     assert any("silica" in d.lower() or "unroled" in d.lower()

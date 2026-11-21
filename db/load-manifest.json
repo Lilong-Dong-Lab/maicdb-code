@@ -7,7 +7,7 @@
     "channel": 12,
     "external_reference": 6,
     "compound": 86,
-    "variant": 133,
+    "variant": 135,
     "structure_publication_links": 10,
     "structure": 12,
     "biophysics": 960,
@@ -39,6 +39,7 @@
     "structure_function_migration": {
       "schema_version_before": "0.4.0",
       "schema_version_after": "0.5.0",
+      "variants_created": 2,
       "residues_created": 4,
       "locations_created": 4,
       "evidence_created": 4

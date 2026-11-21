@@ -40,7 +40,8 @@ as-reported originals preserved) + **137 bioactivity** + **28 unmapped**
 **12 channels** (osca = one family row, four accessions in
 `external_reference`), **12 structures** (piezo1; 10/12 linked to their
 primary citations), **86 compounds** (85 role-resolved + the unroled
-silica-nanoparticle family), **133 variants**, **6 external references**.
+silica-nanoparticle family), **135 variants** (133 extraction-derived plus
+2 title-derived), **6 external references**.
 
 Every fact row carries the full evidence chain (`measurement_id`,
 `evidence_quote`, `evidence_location`, `confidence`, `extractor_note` — the

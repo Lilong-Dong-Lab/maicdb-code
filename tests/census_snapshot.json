@@ -403,6 +403,8 @@
     "legacy_structure_experiment_link_count": 0,
     "legacy_variant_experiment_link_count": 200,
     "p50_psi_rows": 4,
+    "structure_residue_count": 4,
+    "structure_variant_location_count": 4,
     "t50_dyncm_rows": 15,
     "unmapped_count": 28,
     "x50_nm_rows": 37

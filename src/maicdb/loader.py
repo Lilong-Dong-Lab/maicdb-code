@@ -679,6 +679,9 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         }
         construct_counts = migrate_construct_links(s)
         structure_function_counts = migrate_structure_function(s)
+        manifest["counts"]["variant"] += structure_function_counts[
+            "variants_created"
+        ]
         manifest["counts"]["evidence_item"] = sum(
             counts["evidence_created"] for counts in migration_counts.values()
         )

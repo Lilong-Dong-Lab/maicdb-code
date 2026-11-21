@@ -116,7 +116,7 @@ Every number is a query result; no value is transcribed by hand.
 | external_reference | 6 |
 | publication | 216 |
 | unmapped_measurement | 28 |
-| variant | 133 |
+| variant | 135 |
 
 ### 2. Publication bibliometrics
 
