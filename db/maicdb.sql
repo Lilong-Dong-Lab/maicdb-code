@@ -1756,7 +1756,7 @@ CREATE TABLE db_meta (
 	value TEXT NOT NULL, 
 	PRIMARY KEY ("key")
 );
-INSERT INTO "db_meta" VALUES('schema_version','0.4.0');
+INSERT INTO "db_meta" VALUES('schema_version','0.5.0');
 INSERT INTO "db_meta" VALUES('license','CC-BY-4.0');
 INSERT INTO "db_meta" VALUES('release_date','2026-11-08');
 INSERT INTO "db_meta" VALUES('mimic_standard_version','v0.1-draft (MAICDB_Schema_Design §4.3)');
@@ -3053,6 +3053,10 @@ INSERT INTO "evidence_item" VALUES(1122,'MAIC:EV:01122','MAIC:UM:00025: pressure
 INSERT INTO "evidence_item" VALUES(1123,'MAIC:EV:01123','MAIC:UM:00026: x50 252.0 nm','LITERATURE',18,'The threshold for chondrocytes, 252 +/- 68 (n = 24) was significantly higher than that calculated for dedifferentiated cells 59 +/- 13 (n = 15).','Fig 5 (deflection thresholds)','MEASUREMENT','LOW','deflection threshold (nm); unit recorded as nm (IndentationUnit). Direct mechano-gating contested; deflection current = combined TRPV4+PIEZO1 (blocked by GSK205). Stretch P50 (87.1 mmHg) is PIEZO1-mediated -> NOT emitted as TRPV4. RT [demoted: combined TRPV4+PIEZO1 deflection current, not TRPV4-isolated]','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "evidence_item" VALUES(1124,'MAIC:EV:01124','MAIC:UM:00027: x50 59.0 nm','LITERATURE',18,'The threshold for chondrocytes, 252 +/- 68 (n = 24) was significantly higher than that calculated for dedifferentiated cells 59 +/- 13 (n = 15).','Fig 5 (deflection thresholds)','MEASUREMENT','LOW','deflection threshold (nm), dedifferentiated cells; direct gating contested [demoted: combined TRPV4+PIEZO1 deflection current, not TRPV4-isolated]','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "evidence_item" VALUES(1125,'MAIC:EV:01125','MAIC:UM:00028: tau_act 1.7 ms','LITERATURE',18,'chondrocyte currents: latency = 3.6 +/- 0.3 ms, activation time constant (tau1) = 1.7 +/- 0.3 ms (mono-exponential fit).','Fig 8C (activation kinetics)','MEASUREMENT','LOW','tau_act=tau1 1.7+/-0.3 ms (mono-exponential); latency 3.6+/-0.3 ms noted separately. Direct gating contested (deflection current). tau2 (decay) reported only as a significance test with NO numeric value -> tau_inact Y-flag yields no numeric row (figure-only) [demoted: combined TRPV4+PIEZO1 deflection current, not TRPV4-isolated]','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "evidence_item" VALUES(1126,'MAIC:EV:01126','8YFC: deposited title names construction mutation A1988V','PDB',211,'Human PIEZO1-A1988V-MDFIC',NULL,'STRUCTURE',NULL,'Construction mutation extracted from the deposited PDB title.','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "evidence_item" VALUES(1127,'MAIC:EV:01127','9VMX: deposited title names construction mutation E756Del','PDB',NULL,'Human PIEZO1-E756del-MDFIC',NULL,'STRUCTURE',NULL,'Construction mutation extracted from the deposited PDB title.','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "evidence_item" VALUES(1128,'MAIC:EV:01128','8ZU8: deposited title names construction mutation A1988V','PDB',211,'Human PIEZO1-A1988V',NULL,'STRUCTURE',NULL,'Construction mutation extracted from the deposited PDB title.','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "evidence_item" VALUES(1129,'MAIC:EV:01129','8YFG: deposited title names construction mutation R2456H','PDB',211,'Human PIEZO1-R2456H_MDFIC',NULL,'STRUCTURE',NULL,'Construction mutation extracted from the deposited PDB title.','UNREVIEWED',NULL,'2026-11-08 00:00:00.000000',NULL);
 CREATE TABLE evidence_subject (
 	id INTEGER NOT NULL, 
 	evidence_item_id INTEGER NOT NULL, 
@@ -4188,6 +4192,10 @@ INSERT INTO "evidence_subject" VALUES(1122,1122,'UNMAPPED_MEASUREMENT',25);
 INSERT INTO "evidence_subject" VALUES(1123,1123,'UNMAPPED_MEASUREMENT',26);
 INSERT INTO "evidence_subject" VALUES(1124,1124,'UNMAPPED_MEASUREMENT',27);
 INSERT INTO "evidence_subject" VALUES(1125,1125,'UNMAPPED_MEASUREMENT',28);
+INSERT INTO "evidence_subject" VALUES(1126,1126,'STRUCTURE',2);
+INSERT INTO "evidence_subject" VALUES(1127,1127,'STRUCTURE',3);
+INSERT INTO "evidence_subject" VALUES(1128,1128,'STRUCTURE',9);
+INSERT INTO "evidence_subject" VALUES(1129,1129,'STRUCTURE',12);
 CREATE TABLE experiment_construct (
 	id INTEGER NOT NULL, 
 	experiment_id INTEGER NOT NULL, 
@@ -4680,17 +4688,68 @@ CREATE TABLE structure (
 	FOREIGN KEY(publication_id) REFERENCES publication (id) ON DELETE SET NULL
 );
 INSERT INTO "structure" VALUES(1,'MAIC:ST:00001',1,'8ZU3','PDB',NULL,NULL,'Human PIEZO1-MDFIC','E, M',3.1,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
-INSERT INTO "structure" VALUES(2,'MAIC:ST:00002',1,'8YFC','PDB',NULL,NULL,'Human PIEZO1-A1988V-MDFIC','E, M',3.2,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
-INSERT INTO "structure" VALUES(3,'MAIC:ST:00003',1,'9VMX','PDB',NULL,NULL,'Human PIEZO1-E756del-MDFIC','E, M',3.2,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure" VALUES(2,'MAIC:ST:00002',1,'8YFC','PDB',NULL,NULL,'Human PIEZO1-A1988V-MDFIC','E, M',3.2,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,'A1988V',NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure" VALUES(3,'MAIC:ST:00003',1,'9VMX','PDB',NULL,NULL,'Human PIEZO1-E756del-MDFIC','E, M',3.2,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,'E756del',NULL,NULL,NULL,NULL,'PDB','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(4,'MAIC:ST:00004',1,'8YEZ','PDB',NULL,NULL,'Human PIEZO1','E, M',3.3,'Homo sapiens',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(5,'MAIC:ST:00005',1,'9VED','PDB',NULL,NULL,'The cryo-EM structure of mouse Piezo1-MDFI complex','E, M',3.63,'Mus musculus',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(6,'MAIC:ST:00006',1,'8IMZ','PDB',NULL,NULL,'Cryo-EM structure of mouse Piezo1-MDFIC complex (composite map)','E, M',3.66,'Mus musculus',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',212,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(7,'MAIC:ST:00007',1,'6B3R','PDB',NULL,NULL,'Structure of the mechanosensitive channel Piezo1','E, M',3.8,'Mus musculus',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',213,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(8,'MAIC:ST:00008',1,'6BPZ','PDB',NULL,NULL,'Structure of the mechanically activated ion channel Piezo1','E, M',3.8,'Mus musculus',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',214,'2026-11-08 00:00:00.000000',NULL);
-INSERT INTO "structure" VALUES(9,'MAIC:ST:00009',1,'8ZU8','PDB',NULL,NULL,'Human PIEZO1-A1988V','E, M',3.9,'Homo sapiens',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure" VALUES(9,'MAIC:ST:00009',1,'8ZU8','PDB',NULL,NULL,'Human PIEZO1-A1988V','E, M',3.9,'Homo sapiens',NULL,NULL,1,NULL,0,NULL,'A1988V',NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(10,'MAIC:ST:00010',1,'5Z10','PDB',NULL,NULL,'Structure of the mechanosensitive Piezo1 channel','E, M',3.97,'Mus musculus',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',215,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(11,'MAIC:ST:00011',1,'6LQI','PDB',NULL,NULL,'Cryo-EM structure of the mouse Piezo1 isoform Piezo1.1','E, M',4.5,'Mus musculus',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',216,'2026-11-08 00:00:00.000000',NULL);
-INSERT INTO "structure" VALUES(12,'MAIC:ST:00012',1,'8YFG','PDB',NULL,NULL,'Human PIEZO1-R2456H_MDFIC','E, M',4.5,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure" VALUES(12,'MAIC:ST:00012',1,'8YFG','PDB',NULL,NULL,'Human PIEZO1-R2456H_MDFIC','E, M',4.5,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,'R2456H',NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
+CREATE TABLE structure_residue (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(24) NOT NULL, 
+	structure_id INTEGER NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	number_system VARCHAR(7) NOT NULL, 
+	residue_number INTEGER NOT NULL, 
+	residue_name VARCHAR(8), 
+	residue_role VARCHAR(21) NOT NULL, 
+	structural_region TEXT, 
+	notes TEXT, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_structure_residue UNIQUE (structure_id, number_system, residue_number), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE CASCADE, 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	CONSTRAINT residuenumbersystem CHECK (number_system IN ('UNIPROT', 'PDB', 'AUTHOR')), 
+	CONSTRAINT residuerole CHECK (residue_role IN ('CONSTRUCTION_MUTATION', 'FUNCTIONAL_SITE', 'STRUCTURAL_REGION', 'UNASSIGNED'))
+);
+INSERT INTO "structure_residue" VALUES(1,'MAIC:RS:00001',2,1,'UNIPROT',1988,NULL,'CONSTRUCTION_MUTATION',NULL,'Deposited structure title names A1988V.','2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure_residue" VALUES(2,'MAIC:RS:00002',3,1,'UNIPROT',756,NULL,'CONSTRUCTION_MUTATION',NULL,'Deposited structure title names E756Del.','2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure_residue" VALUES(3,'MAIC:RS:00003',9,1,'UNIPROT',1988,NULL,'CONSTRUCTION_MUTATION',NULL,'Deposited structure title names A1988V.','2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure_residue" VALUES(4,'MAIC:RS:00004',12,1,'UNIPROT',2456,NULL,'CONSTRUCTION_MUTATION',NULL,'Deposited structure title names R2456H.','2026-11-08 00:00:00.000000',NULL);
+CREATE TABLE structure_variant_location (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(32) NOT NULL, 
+	variant_id INTEGER NOT NULL, 
+	structure_id INTEGER NOT NULL, 
+	uniprot_residue_id INTEGER, 
+	pdb_residue_id INTEGER, 
+	neighborhood TEXT, 
+	structural_region TEXT, 
+	support VARCHAR(14) NOT NULL, 
+	notes TEXT, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_structure_variant_location UNIQUE (variant_id, structure_id), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(variant_id) REFERENCES variant (id) ON DELETE CASCADE, 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE CASCADE, 
+	FOREIGN KEY(uniprot_residue_id) REFERENCES structure_residue (id) ON DELETE SET NULL, 
+	FOREIGN KEY(pdb_residue_id) REFERENCES structure_residue (id) ON DELETE SET NULL, 
+	CONSTRAINT mappingsupport CHECK (support IN ('TITLE_MUTATION', 'SIFTS', 'CURATED', 'UNMAPPED'))
+);
+INSERT INTO "structure_variant_location" VALUES(1,'MAIC:SL:00001',134,2,1,NULL,NULL,NULL,'TITLE_MUTATION','Construction mutation A1988V is named in the PDB title.','2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure_variant_location" VALUES(2,'MAIC:SL:00002',135,3,2,NULL,NULL,NULL,'TITLE_MUTATION','Construction mutation E756Del is named in the PDB title.','2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure_variant_location" VALUES(3,'MAIC:SL:00003',134,9,3,NULL,NULL,NULL,'TITLE_MUTATION','Construction mutation A1988V is named in the PDB title.','2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "structure_variant_location" VALUES(4,'MAIC:SL:00004',77,12,4,NULL,NULL,NULL,'TITLE_MUTATION','Construction mutation R2456H is named in the PDB title.','2026-11-08 00:00:00.000000',NULL);
 CREATE TABLE unmapped_measurement (
 	id INTEGER NOT NULL, 
 	maicdb_id VARCHAR(24) NOT NULL, 
@@ -4916,6 +4975,8 @@ INSERT INTO "variant" VALUES(130,'MAIC:VR:00130',3,NULL,NULL,'M713I',713,'M','I'
 INSERT INTO "variant" VALUES(131,'MAIC:VR:00131',3,NULL,NULL,'L619P',619,'L','P',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "variant" VALUES(132,'MAIC:VR:00132',3,NULL,NULL,'p.L596P',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "variant" VALUES(133,'MAIC:VR:00133',3,NULL,NULL,'p.W733R',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "variant" VALUES(134,'MAIC:VR:00134',1,NULL,NULL,'A1988V',1988,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'PDB',NULL,NULL,'2026-11-08 00:00:00.000000',NULL);
+INSERT INTO "variant" VALUES(135,'MAIC:VR:00135',1,NULL,NULL,'E756Del',756,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'PDB',NULL,NULL,'2026-11-08 00:00:00.000000',NULL);
 CREATE INDEX ix_bioactivity_activity_type ON bioactivity (activity_type);
 CREATE INDEX ix_bioactivity_assay_format ON bioactivity (assay_format);
 CREATE INDEX ix_bioactivity_channel_id ON bioactivity (channel_id);
@@ -4964,8 +5025,17 @@ CREATE INDEX ix_publication_pmid ON publication (pmid);
 CREATE INDEX ix_structure_channel_id ON structure (channel_id);
 CREATE INDEX ix_structure_conformational_state ON structure (conformational_state);
 CREATE INDEX ix_structure_doi ON structure (doi);
+CREATE INDEX ix_structure_residue_channel_id ON structure_residue (channel_id);
+CREATE INDEX ix_structure_residue_number_system ON structure_residue (number_system);
+CREATE INDEX ix_structure_residue_residue_role ON structure_residue (residue_role);
+CREATE INDEX ix_structure_residue_structure_id ON structure_residue (structure_id);
 CREATE INDEX ix_structure_source_db ON structure (source_db);
 CREATE INDEX ix_structure_structure_source ON structure (structure_source);
+CREATE INDEX ix_structure_variant_location_pdb_residue_id ON structure_variant_location (pdb_residue_id);
+CREATE INDEX ix_structure_variant_location_structure_id ON structure_variant_location (structure_id);
+CREATE INDEX ix_structure_variant_location_support ON structure_variant_location (support);
+CREATE INDEX ix_structure_variant_location_uniprot_residue_id ON structure_variant_location (uniprot_residue_id);
+CREATE INDEX ix_structure_variant_location_variant_id ON structure_variant_location (variant_id);
 CREATE INDEX ix_unmapped_measurement_channel_id ON unmapped_measurement (channel_id);
 CREATE INDEX ix_unmapped_measurement_condition_key ON unmapped_measurement (condition_key);
 CREATE INDEX ix_unmapped_measurement_source_db ON unmapped_measurement (source_db);
@@ -4987,4 +5057,6 @@ CREATE UNIQUE INDEX ix_compound_inchikey ON compound (inchikey);
 CREATE UNIQUE INDEX ix_publication_doi ON publication (doi);
 CREATE UNIQUE INDEX ix_structure_pdb_id ON structure (pdb_id);
 CREATE UNIQUE INDEX ix_unmapped_measurement_measurement_id ON unmapped_measurement (measurement_id);
+CREATE UNIQUE INDEX uq_pdb_residue ON structure_variant_location (pdb_residue_id);
+CREATE UNIQUE INDEX uq_uniprot_residue ON structure_variant_location (uniprot_residue_id);
 COMMIT;

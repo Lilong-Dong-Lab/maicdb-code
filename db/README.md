@@ -11,7 +11,7 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 
 | File | Content | Regenerate |
 |---|---|---|
-| `maicdb.sqlite` | The database (schema v0.3, 12 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
+| `maicdb.sqlite` | The database (schema v0.5, 17 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
 | `maicdb.sql` | Byte-stable SQL dump (the determinism contract — two loads of the same vault state are byte-identical) | Same command (written alongside) |
 | `load-manifest.json` | Row counts, disclosures, vault HEAD | Written by the loader |
 
@@ -25,10 +25,9 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
   vault HEAD and that `data/` + configs are unchanged since the tag
   (docs churn on the rolling repo is legal).
-- **Schema**: v0.3 (v0.2 evidence chain on both fact tables, six gap-adjudicated
-  migration columns, `unmapped_measurement` archive, `db_meta`; plus normalized
-  `evidence_item` / `evidence_subject` tables for the biophysics evidence spine; see
-  `docs/loader-mapping.md` for every mapping decision and its approval trail).
+- **Schema**: v0.5 (v0.3 normalized Evidence authority; v0.4 Construct
+  experiment/variant linkage; v0.5 structure-function residue and variant-location
+  mapping; see `docs/loader-mapping.md` and ADR-0007 for mapping decisions).
 
 ## Contents (from the load manifest)
 
@@ -50,14 +49,25 @@ F-004 disclosure tokens verbatim, `condition_key`, `n`). License:
 
 ## Evidence authority (tickets #97/#98)
 
-The artifact contains **1125 `evidence_item` records** and **1125
-`evidence_subject` links**—one authoritative Evidence object for every
+The artifact contains **1129 `evidence_item` records** and **1129
+`evidence_subject` links**: 1,125 fact-family Evidence objects (one for every
 biophysics experiment (960), bioactivity row (137), and unmapped measurement
-(28). Evidence items are reusable, stable `MAIC:EV:*` objects carrying a
+(28), plus four title-derived structure Evidence objects. Evidence items are
+reusable, stable `MAIC:EV:*` objects carrying a
 claim, source, publication, quote, location, controlled evidence
 type/confidence, curator note, lightweight review state, and review timestamp.
 Queries, site payloads, CLI, and exports resolve this normalized model first;
 legacy evidence columns remain readable only as a compatibility bridge.
+
+## Structure-function mapping (ticket #100)
+
+The artifact records four explicit construction mutations (`A1988V`,
+`E756del`, and `R2456H`) in their deposited PIEZO1 PDB structures. Each is
+represented by a UniProt-numbered `structure_residue`, a
+`structure_variant_location`, and a normalized `EvidenceItem` whose quote is
+the deposited PDB title. PDB residue coordinates are intentionally NULL in
+this release: the frozen vault does not carry residue-level SIFTS mappings,
+and the loader does not infer coordinates from sequence identity.
 
 > [!note] Date semantics
 > `db_meta.release_date` records the **data-freeze epoch** (2026-11-08 for

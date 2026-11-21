@@ -58,7 +58,7 @@ from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 
 from maicdb.analysis import figures as analysis_figures
 from maicdb.analysis.site_payloads import (
@@ -66,7 +66,18 @@ from maicdb.analysis.site_payloads import (
     channel_mimic_blocks,
 )
 from maicdb.constructs import construct_page, variant_construct_page
-from maicdb.models import Bioactivity, BiophysicsExperiment, Channel, Publication, UnmappedMeasurement
+from maicdb.structure_function import (
+    structure_function_page,
+    variant_structure_locations,
+)
+from maicdb.models import (
+    Bioactivity,
+    BiophysicsExperiment,
+    Channel,
+    Publication,
+    Structure,
+    UnmappedMeasurement,
+)
 from maicdb.query import (
     PARAMETERS,
     bioactivity_card,
@@ -326,6 +337,7 @@ def _site_pages(
                 )
             )
     pages.extend(_construct_pages(data_dir, gene_slugs))
+    pages.extend(_structure_pages(data_dir))
     for param in index["parameters"]:
         name = param["name"]
         comparison = json.loads(
@@ -368,6 +380,22 @@ def _construct_pages(data_dir: Path, gene_slugs: dict[str, str]) -> list:
                     "variant.html",
                     f"variants/{path.stem}",
                     {"variant_payload": payload, "gene_slugs": gene_slugs},
+                )
+            )
+    return pages
+
+
+def _structure_pages(data_dir: Path) -> list:
+    """Add one page per persisted structure-function payload."""
+    pages: list[tuple[str, str, dict]] = []
+    structures_dir = data_dir / "structures"
+    if structures_dir.exists():
+        for path in sorted(structures_dir.glob("*.json")):
+            pages.append(
+                (
+                    "structure.html",
+                    f"structures/{path.stem}",
+                    {"structure": json.loads(path.read_text(encoding="utf-8"))},
                 )
             )
     return pages
@@ -449,6 +477,7 @@ _NAV_FLAGS_by_template = {
     "card.html": "channels",
     "construct.html": "channels",
     "variant.html": "channels",
+    "structure.html": "channels",
     "parameters.html": "parameters",
     "parameter.html": "parameters",
     "downloads.html": "downloads",
@@ -673,8 +702,10 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
     search_entries: list[dict] = []
     constructs_dir = data_dir / "constructs"
     variants_dir = data_dir / "variants"
+    structures_dir = data_dir / "structures"
     constructs_dir.mkdir(parents=True, exist_ok=True)
     variants_dir.mkdir(parents=True, exist_ok=True)
+    structures_dir.mkdir(parents=True, exist_ok=True)
     rendered_constructs: set[str] = set()
     rendered_variants: set[int] = set()
     # MIMIC badge blocks, computed once (P2's scoring engine behind P7's
@@ -740,6 +771,10 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 variant_payload = variant_construct_page(engine, variant_id)
                 if variant_payload is None:
                     continue
+                variant_payload["structure_locations"] = variant_structure_locations(
+                    engine,
+                    variant_id,
+                )
                 variant_payload["gene"] = {
                     "gene_symbol": gene,
                     "slug": slugify(gene),
@@ -806,6 +841,31 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 "url": f"/channels/{slug}/",
             }
         )
+
+    with engine.connect() as conn:
+        structure_rows = (
+            list(conn.scalars(select(Structure.maicdb_id).order_by(Structure.maicdb_id)))
+            if "structure" in set(inspect(conn).get_table_names())
+            else []
+        )
+    for structure_accession in structure_rows:
+        payload = structure_function_page(engine, structure_accession)
+        if payload is None:
+            continue
+        search_entries.append(
+            {
+                "type": "structure",
+                "name": "structure",
+                "slug": slugify(structure_accession),
+                "label": payload["pdb_id"] or structure_accession,
+                "aliases": [structure_accession],
+                "uniprots": [],
+                "url": f"/structures/{slugify(structure_accession)}/",
+            }
+        )
+        path = structures_dir / f"{slugify(structure_accession)}.json"
+        _dump(path, payload)
+        written.append(path)
 
     for fam in sorted(families):
         search_entries.append(

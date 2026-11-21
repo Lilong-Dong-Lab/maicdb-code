@@ -79,9 +79,12 @@ from maicdb.enums import (
     EvidenceType,
     IVRelation,
     IndentationUnit,
+    MappingSupport,
     ParameterSet,
     PressureUnit,
     RecordingMode,
+    ResidueNumberSystem,
+    ResidueRole,
     SourceDb,
     StimulusType,
     StructureSource,
@@ -108,6 +111,8 @@ __all__ = [
     "Construct",
     "ConstructVariant",
     "ExperimentConstruct",
+    "StructureResidue",
+    "StructureVariantLocation",
     "DbMeta",
 ]
 
@@ -315,6 +320,99 @@ class ExperimentConstruct(Base):
     )
 
 
+class StructureResidue(Base):
+    """One numbered residue in one coordinate system for one structure."""
+
+    __tablename__ = "structure_residue"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    structure_id: Mapped[int] = mapped_column(
+        ForeignKey("structure.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    number_system: Mapped[ResidueNumberSystem] = mapped_column(
+        name_stored_enum(ResidueNumberSystem), nullable=False, index=True
+    )
+    residue_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    residue_name: Mapped[str | None] = mapped_column(String(8))
+    residue_role: Mapped[ResidueRole] = mapped_column(
+        name_stored_enum(ResidueRole), nullable=False, index=True
+    )
+    structural_region: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    structure: Mapped[Structure] = relationship(back_populates="residues")
+    channel: Mapped[Channel] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "structure_id",
+            "number_system",
+            "residue_number",
+            name="uq_structure_residue",
+        ),
+    )
+
+
+class StructureVariantLocation(Base):
+    """A variant location on a structure, with mapping support disclosed."""
+
+    __tablename__ = "structure_variant_location"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("variant.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    structure_id: Mapped[int] = mapped_column(
+        ForeignKey("structure.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    uniprot_residue_id: Mapped[int | None] = mapped_column(
+        ForeignKey("structure_residue.id", ondelete="SET NULL"), index=True
+    )
+    pdb_residue_id: Mapped[int | None] = mapped_column(
+        ForeignKey("structure_residue.id", ondelete="SET NULL"), index=True
+    )
+    neighborhood: Mapped[str | None] = mapped_column(Text)
+    structural_region: Mapped[str | None] = mapped_column(Text)
+    support: Mapped[MappingSupport] = mapped_column(
+        name_stored_enum(MappingSupport), nullable=False, index=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    variant: Mapped[Variant] = relationship(back_populates="structure_locations")
+    structure: Mapped[Structure] = relationship(back_populates="variant_locations")
+    uniprot_residue: Mapped[StructureResidue | None] = relationship(
+        foreign_keys=[uniprot_residue_id]
+    )
+    pdb_residue: Mapped[StructureResidue | None] = relationship(
+        foreign_keys=[pdb_residue_id]
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "variant_id", "structure_id", name="uq_structure_variant_location"
+        ),
+        Index("uq_uniprot_residue", uniprot_residue_id, unique=True),
+        Index("uq_pdb_residue", pdb_residue_id, unique=True),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Identity module
 # --------------------------------------------------------------------------- #
@@ -471,6 +569,12 @@ class Structure(Base):
     )
     publication: Mapped[Publication | None] = relationship()
     constructs: Mapped[list[Construct]] = relationship(back_populates="structure")
+    residues: Mapped[list[StructureResidue]] = relationship(
+        back_populates="structure", cascade="all, delete-orphan"
+    )
+    variant_locations: Mapped[list[StructureVariantLocation]] = relationship(
+        back_populates="structure", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Structure maicdb_id={self.maicdb_id!r} pdb_id={self.pdb_id!r}>"
@@ -842,6 +946,9 @@ class Variant(Base):
     constructs: Mapped[list[Construct]] = relationship(
         secondary="construct_variant", back_populates="variants"
     )
+    structure_locations: Mapped[list[StructureVariantLocation]] = relationship(
+        back_populates="variant", cascade="all, delete-orphan"
+    )
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -999,5 +1106,7 @@ ALL_TABLES = (
     Construct,
     ConstructVariant,
     ExperimentConstruct,
+    StructureResidue,
+    StructureVariantLocation,
     DbMeta,
 )

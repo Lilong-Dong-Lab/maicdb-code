@@ -32,5 +32,18 @@
   {% else %}
   <p>{{ strings.card_zero_rows_note }}</p>
   {% endfor %}
+  <section class="parameters">
+    <h2>{{ strings.structure_function_heading }}</h2>
+    {% if variant_payload.structure_locations %}
+    <ul class="measure-rows">
+      {% for traversal in variant_payload.structure_locations %}
+      <li>
+        <a href="{{ root }}/structures/{{ traversal.structure.maicdb_id | lower }}/">{{ traversal.structure.pdb_id or traversal.structure.maicdb_id }}</a>
+        <span>{{ traversal.location.support }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>{{ strings.card_zero_rows_note }}</p>{% endif %}
+  </section>
 </article>
 {% endblock %}

@@ -59,6 +59,10 @@ from maicdb.constructs import (
     SCHEMA_TRANSITION_DISCLOSURE,
     migrate_construct_links,
 )
+from maicdb.structure_function import (
+    STRUCTURE_FUNCTION_DISCLOSURE,
+    migrate_structure_function,
+)
 from maicdb.models import (
     Bioactivity,
     BiophysicsExperiment,
@@ -80,7 +84,7 @@ __all__ = ["load_vault", "main"]
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.4.0"
+SCHEMA_VERSION = "0.5.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -263,6 +267,14 @@ def _parse_short_mutation(hg: str) -> tuple[int | None, str | None, str | None]:
     if not m:
         return None, None, None
     return int(m.group(2)), m.group(1), m.group(3)
+
+
+def _title_construction_mutation(title: str | None) -> str | None:
+    """Extract one explicit PIEZO-style mutation from a PDB title."""
+    if title is None:
+        return None
+    match = re.search(r"(?<![A-Za-z0-9])([A-Z]\d+(?:[A-Z]|del|Stop))(?![A-Za-z0-9])", title)
+    return match.group(1) if match else None
 
 
 def _experiment_label(r: dict) -> str | None:
@@ -520,6 +532,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                         organism=_s(r.get("Organism")),
                         num_chains=int(r["Num_Chains"]) if str(r.get("Num_Chains") or "").isdigit() else None,
                         has_inhibitor=r.get("Has_Inhibitor", "").strip().lower() == "true",
+                        mutation=_title_construction_mutation(_s(r.get("Title"))),
                         source_db=SourceDb.PDB, collected_date=FREEZE_DATE,
                         created_at=FREEZE_EPOCH)
                     s.add(st)
@@ -665,12 +678,19 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             "unmapped": migrate_unmapped_evidence(s),
         }
         construct_counts = migrate_construct_links(s)
+        structure_function_counts = migrate_structure_function(s)
         manifest["counts"]["evidence_item"] = sum(
             counts["evidence_created"] for counts in migration_counts.values()
         )
         manifest["counts"]["evidence_subject"] = sum(
             counts["subject_links_created"] for counts in migration_counts.values()
         )
+        manifest["counts"]["evidence_item"] += structure_function_counts[
+            "evidence_created"
+        ]
+        manifest["counts"]["evidence_subject"] += structure_function_counts[
+            "evidence_created"
+        ]
         unresolved = fact_family_coverage(s)
         manifest["counts"]["evidence_unresolved"] = sum(unresolved.values())
         manifest["counts"]["evidence_coverage_by_family"] = unresolved
@@ -682,8 +702,19 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             "experiment_links_created"
         ]
         manifest["counts"]["construct_migration"] = construct_counts
+        manifest["counts"]["structure_residue"] = structure_function_counts[
+            "residues_created"
+        ]
+        manifest["counts"]["structure_variant_location"] = structure_function_counts[
+            "locations_created"
+        ]
+        manifest["counts"]["structure_evidence_item"] = structure_function_counts[
+            "evidence_created"
+        ]
+        manifest["counts"]["structure_function_migration"] = structure_function_counts
         manifest["disclosures"].append(AUTHORITATIVE_EVIDENCE_DISCLOSURE)
         manifest["disclosures"].append(SCHEMA_TRANSITION_DISCLOSURE)
+        manifest["disclosures"].append(STRUCTURE_FUNCTION_DISCLOSURE)
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------

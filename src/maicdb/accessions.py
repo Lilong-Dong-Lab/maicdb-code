@@ -39,6 +39,8 @@ class AccessionPrefix(str, Enum):
     UNMAPPED_MEASUREMENT = "UM"   # schema v0.2: adjudicated-kept gap archive rows
     EVIDENCE_ITEM = "EV"          # schema v0.3: normalized evidence provenance
     CONSTRUCT = "CN"              # schema v0.4: measured genetic construct
+    STRUCTURE_RESIDUE = "RS"      # schema v0.5: UniProt/PDB residue mapping
+    STRUCTURE_VARIANT_LOCATION = "SL"  # schema v0.5: variant-structure location
 
 
 #: Zero-padding width of the numeric segment. 5 digits → 99,999 per entity,

@@ -355,6 +355,25 @@ def test_build_renders_home_in_both_locale_trees(tmp_path):
 
 
 @requires_db
+def test_structure_function_pages_render_in_both_locales(tmp_path):
+    """All 12 structures render; the four title-derived mappings disclose
+    their evidence while the remaining structures show the empty state."""
+    out = tmp_path
+    run_build(out)
+    site = out / "_site"
+    en_pages = list((site / "structures").glob("*/index.html"))
+    assert len(en_pages) == 12
+    assert len(list((site / "zh" / "structures").glob("*/index.html"))) == 12
+    for html in en_pages:
+        assert "Structure-function mapping" in html.read_text(encoding="utf-8")
+    mapped = "\n".join(
+        path.read_text(encoding="utf-8") for path in en_pages
+    )
+    for mutation in ("A1988V", "E756del", "R2456H"):
+        assert mutation in mapped
+
+
+@requires_db
 def test_every_en_page_has_zh_counterpart_and_switcher(tmp_path):
     """Locale invariant over the WHOLE rendered tree, not just home:
     every EN page has a ``zh/`` counterpart file, and each page's

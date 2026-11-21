@@ -52,6 +52,9 @@ __all__ = [
     "EvidenceSubjectType",
     "EvidenceReviewState",
     "EvidenceMigrationState",
+    "ResidueRole",
+    "ResidueNumberSystem",
+    "MappingSupport",
     "StructureSource",
     "ParameterSet",
 ]
@@ -164,6 +167,32 @@ class StructureSource(str, Enum):
     ALPHAFOLD = "AlphaFold"
     SWISS_MODEL = "SWISS-MODEL"
     OTHER = "OTHER"
+
+
+class ResidueRole(str, Enum):
+    """Curated role assigned to a mapped residue."""
+
+    CONSTRUCTION_MUTATION = "construction_mutation"
+    FUNCTIONAL_SITE = "functional_site"
+    STRUCTURAL_REGION = "structural_region"
+    UNASSIGNED = "unassigned"
+
+
+class ResidueNumberSystem(str, Enum):
+    """Coordinate systems stored for a residue mapping."""
+
+    UNIPROT = "UniProt"
+    PDB = "PDB"
+    AUTHOR = "author"
+
+
+class MappingSupport(str, Enum):
+    """How a variant-to-structure location was established."""
+
+    TITLE_MUTATION = "title_mutation"
+    SIFTS = "SIFTS"
+    CURATED = "curated"
+    UNMAPPED = "unmapped"
 
 
 class ParameterSet(str, Enum):

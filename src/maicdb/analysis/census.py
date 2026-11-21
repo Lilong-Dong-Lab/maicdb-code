@@ -286,6 +286,18 @@ def _corpus_track(engine: Engine) -> dict:
             "SELECT COUNT(*) FROM biophysics_experiment "
             "WHERE structure_id IS NOT NULL",
         ),
+        "structure_residue_count": _scalar(
+            engine,
+            "SELECT COUNT(*) FROM structure_residue "
+            "WHERE 1 = (SELECT COUNT(*) FROM sqlite_master "
+            "WHERE type='table' AND name='structure_residue')",
+        ),
+        "structure_variant_location_count": _scalar(
+            engine,
+            "SELECT COUNT(*) FROM structure_variant_location "
+            "WHERE 1 = (SELECT COUNT(*) FROM sqlite_master "
+            "WHERE type='table' AND name='structure_variant_location')",
+        ),
         "p50_psi_rows": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment WHERE p50_unit = 'psi'"
         ),

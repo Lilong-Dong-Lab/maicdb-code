@@ -52,9 +52,12 @@ from maicdb.models import (
     Bioactivity,
     Channel,
     Compound,
+    Construct,
     EvidenceItem,
     EvidenceSubject,
+    ExperimentConstruct,
     Publication,
+    Structure,
     UnmappedMeasurement,
 )
 from maicdb.enums import EvidenceSubjectType
@@ -64,6 +67,10 @@ from maicdb.constructs import (
     construct_payloads_for_experiments,
     construct_traversals_for_experiments,
     variant_construct_page,
+)
+from maicdb.structure_function import (
+    structure_function_page,
+    variant_structure_locations,
 )
 
 __all__ = [
@@ -86,6 +93,8 @@ __all__ = [
     "biophysics_evidence",
     "export",
     "variant_construct_page",
+    "structure_function_page",
+    "variant_structure_locations",
     "main",
 ]
 
@@ -643,6 +652,27 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
         ]
         for experiment_id in (row[4] for row in rows)
     }
+    structure_ids_by_experiment = {
+        experiment_id: []
+        for experiment_id in (row[4] for row in rows)
+    }
+    with engine.connect() as conn:
+        structure_links = conn.execute(
+            select(
+                ExperimentConstruct.experiment_id,
+                Structure.id,
+            )
+            .join(Construct, ExperimentConstruct.construct_id == Construct.id)
+            .join(Structure, Construct.structure_id == Structure.id)
+            .where(
+                ExperimentConstruct.experiment_id.in_(
+                    structure_ids_by_experiment
+                ),
+                Structure.id.is_not(None),
+            )
+        ).all()
+    for experiment_id, structure_id in structure_links:
+        structure_ids_by_experiment[experiment_id].append(structure_id)
     construct_ids_by_experiment = {
         experiment_id: [
             construct["maicdb_id"]
@@ -715,6 +745,13 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                         ),
                         [],
                     ),
+                    "structure_ids": sum(
+                        (
+                            structure_ids_by_experiment[experiment_id]
+                            for *_, experiment_id in pairs
+                        ),
+                        [],
+                    ),
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)
@@ -731,6 +768,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "measurement_ids": [],
                 "evidence_ids": [],
                 "construct_ids": [],
+                "structure_ids": [],
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -818,6 +856,7 @@ _EXPORT_COLUMNS = (
     "measurement_ids",
     "evidence_ids",
     "construct_ids",
+    "structure_ids",
     "note",
 )
 

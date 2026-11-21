@@ -516,6 +516,36 @@ CREATE INDEX ix_construct_source_db ON construct (source_db)
 
 CREATE INDEX ix_construct_structure_id ON construct (structure_id)
 
+CREATE TABLE structure_residue (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(24) NOT NULL, 
+	structure_id INTEGER NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	number_system VARCHAR(7) NOT NULL, 
+	residue_number INTEGER NOT NULL, 
+	residue_name VARCHAR(8), 
+	residue_role VARCHAR(21) NOT NULL, 
+	structural_region TEXT, 
+	notes TEXT, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_structure_residue UNIQUE (structure_id, number_system, residue_number), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE CASCADE, 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	CONSTRAINT residuenumbersystem CHECK (number_system IN ('UNIPROT', 'PDB', 'AUTHOR')), 
+	CONSTRAINT residuerole CHECK (residue_role IN ('CONSTRUCTION_MUTATION', 'FUNCTIONAL_SITE', 'STRUCTURAL_REGION', 'UNASSIGNED'))
+)
+
+CREATE INDEX ix_structure_residue_channel_id ON structure_residue (channel_id)
+
+CREATE INDEX ix_structure_residue_number_system ON structure_residue (number_system)
+
+CREATE INDEX ix_structure_residue_residue_role ON structure_residue (residue_role)
+
+CREATE INDEX ix_structure_residue_structure_id ON structure_residue (structure_id)
+
 CREATE TABLE construct_variant (
 	id INTEGER NOT NULL, 
 	construct_id INTEGER NOT NULL, 
@@ -543,3 +573,40 @@ CREATE TABLE experiment_construct (
 CREATE INDEX ix_experiment_construct_construct_id ON experiment_construct (construct_id)
 
 CREATE INDEX ix_experiment_construct_experiment_id ON experiment_construct (experiment_id)
+
+CREATE TABLE structure_variant_location (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(32) NOT NULL, 
+	variant_id INTEGER NOT NULL, 
+	structure_id INTEGER NOT NULL, 
+	uniprot_residue_id INTEGER, 
+	pdb_residue_id INTEGER, 
+	neighborhood TEXT, 
+	structural_region TEXT, 
+	support VARCHAR(14) NOT NULL, 
+	notes TEXT, 
+	created_at DATETIME NOT NULL, 
+	updated_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_structure_variant_location UNIQUE (variant_id, structure_id), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(variant_id) REFERENCES variant (id) ON DELETE CASCADE, 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE CASCADE, 
+	FOREIGN KEY(uniprot_residue_id) REFERENCES structure_residue (id) ON DELETE SET NULL, 
+	FOREIGN KEY(pdb_residue_id) REFERENCES structure_residue (id) ON DELETE SET NULL, 
+	CONSTRAINT mappingsupport CHECK (support IN ('TITLE_MUTATION', 'SIFTS', 'CURATED', 'UNMAPPED'))
+)
+
+CREATE INDEX ix_structure_variant_location_pdb_residue_id ON structure_variant_location (pdb_residue_id)
+
+CREATE INDEX ix_structure_variant_location_structure_id ON structure_variant_location (structure_id)
+
+CREATE INDEX ix_structure_variant_location_support ON structure_variant_location (support)
+
+CREATE INDEX ix_structure_variant_location_uniprot_residue_id ON structure_variant_location (uniprot_residue_id)
+
+CREATE INDEX ix_structure_variant_location_variant_id ON structure_variant_location (variant_id)
+
+CREATE UNIQUE INDEX uq_pdb_residue ON structure_variant_location (pdb_residue_id)
+
+CREATE UNIQUE INDEX uq_uniprot_residue ON structure_variant_location (uniprot_residue_id)

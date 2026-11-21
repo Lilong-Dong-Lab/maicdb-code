@@ -28,3 +28,8 @@ to bioactivity and unmapped measurements and makes the normalized Evidence model
 the shared authority for all three fact families. Public payloads and exports
 resolve Evidence through the same subject-link path; any uncovered fact row is
 counted and disclosed explicitly. Detailed editorial history remains vault-only.
+Ticket #99 adds Construct as the measured genetic object between variants and
+experiments. Ticket #100 records UniProt residue coordinates, title-derived
+construction mutations, variant-structure locations, and explicit mapping
+support; PDB residue coordinates remain nullable until SIFTS-derived mappings
+are curated, rather than being inferred from sequence identity.
