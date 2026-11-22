@@ -40,7 +40,7 @@ from maicdb.accessions import AccessionGenerator, AccessionPrefix
 from maicdb.enums import (
     ActivityType,
     CompoundType,
-    EntityType,
+    ExternalReferenceRelationship,
     Family,
     IndentationUnit,
     PressureUnit,
@@ -69,13 +69,19 @@ from maicdb.models import (
     Channel,
     Compound,
     DbMeta,
-    ExternalReference,
     Publication,
     Structure,
     UnmappedMeasurement,
     Variant,
 )
 from maicdb.database import make_engine, create_all
+from maicdb.external_references import (
+    EXTERNAL_REFERENCE_SCHEMA_VERSION,
+    LEGACY_RELATIONSHIP_DISCLOSURE,
+    LEGACY_VERSION_DISCLOSURE,
+    SCHEMA_VERSION_DISCLOSURE,
+    add_external_reference,
+)
 from maicdb.vault import FrozenVault, LAYERS, resolve_vault
 
 __all__ = ["load_vault", "main"]
@@ -84,7 +90,7 @@ __all__ = ["load_vault", "main"]
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.5.0"
+SCHEMA_VERSION = "0.6.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -302,6 +308,19 @@ def _experiment_label(r: dict) -> str | None:
     return " | ".join(parts) or None
 
 
+def add_experiment_references(session: Session, experiment_id: int, doi: str) -> int:
+    add_external_reference(
+        session,
+        subject_type="experiment",
+        subject_id=experiment_id,
+        resource=SourceDb.DOI,
+        external_id=doi,
+        relationship=ExternalReferenceRelationship.PUBLISHED_IN,
+        created_at=FREEZE_EPOCH,
+    )
+    return 1
+
+
 # --------------------------------------------------------------------------- #
 # Vault access (discovery, layout, freeze contract, corpus reads) lives in
 # :mod:`maicdb.vault` — the seam module (architecture-review candidate 3,
@@ -360,7 +379,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
 
         # ---- channel (12; one row per layer; osca = one family row) ----------
         channels: dict[str, Channel] = {}
-        xref_rows: list[ExternalReference] = []
+        xref_rows: list[tuple[str, SourceDb, str]] = []
         xref_json = frozen.piezo1_cross_references_json
         piezo1_xref = json.loads(xref_json.read_text(encoding="utf-8")) if xref_json.exists() else {}
         for layer in LAYERS:
@@ -384,11 +403,10 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             if layer == "osca":
                 # DECIDED §6.2: one family row; the four accessions → xrefs.
                 for a in [u for u in uni.split("/") if u]:
-                    xref_rows.append(ExternalReference(
-                        entity_type=EntityType.CHANNEL, entity_id=None,  # patched post-flush
-                        source_db=SourceDb.UNIPROT, external_id=a,
-                        created_at=FREEZE_EPOCH))
+                    xref_rows.append(("osca", SourceDb.UNIPROT, a))
                 uni = None
+            elif uni and "/" not in uni:
+                xref_rows.append((layer, SourceDb.UNIPROT, uni))
             ch = Channel(
                 maicdb_id=acc.next(AccessionPrefix.CHANNEL),
                 gene_symbol=p["gene_symbol"], gene_aliases=aliases or None,
@@ -405,17 +423,25 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 for key, sdb in (("chembl_target_human", SourceDb.CHEMBL_TARGET),
                                  ("chembl_target_mouse", SourceDb.CHEMBL_TARGET)):
                     if piezo1_xref.get(key):
-                        xref_rows.append(ExternalReference(
-                            entity_type=EntityType.CHANNEL, entity_id=None,
-                            source_db=sdb, external_id=piezo1_xref[key],
-                            created_at=FREEZE_EPOCH))
+                        xref_rows.append(("piezo1", sdb, piezo1_xref[key]))
         s.flush()
-        for x in xref_rows:  # patch entity_id now that channels have ids
-            ch = channels["piezo1"] if x.source_db == SourceDb.CHEMBL_TARGET else channels["osca"]
-            x.entity_id = ch.id
-            s.add(x)
+        for layer, resource, external_id in xref_rows:
+            add_external_reference(
+                s,
+                subject_type="channel",
+                subject_id=channels[layer].id,
+                resource=resource,
+                external_id=external_id,
+                relationship=None,
+                allow_missing_version=True,
+                created_at=FREEZE_EPOCH,
+            )
         manifest["counts"]["channel"] = len(channels)
         manifest["counts"]["external_reference"] = len(xref_rows)
+        manifest["disclosures"].extend(
+            [LEGACY_RELATIONSHIP_DISCLOSURE, LEGACY_VERSION_DISCLOSURE]
+        )
+        manifest["disclosures"].append(SCHEMA_VERSION_DISCLOSURE)
 
         # ---- compound (85; modulator_name dedup; majority role; descriptors) -
         roles: dict[str, Counter] = {}
@@ -467,6 +493,24 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 created_at=FREEZE_EPOCH)
             s.add(compounds[name])
         s.flush()
+        compound_xrefs = 0
+        for name, compound in compounds.items():
+            descriptor = descriptors.get(name.lower(), {})
+            source = descriptor.get("source")
+            if source == "ChEMBL" and name.upper().startswith("CHEMBL"):
+                add_external_reference(
+                    s,
+                    subject_type="compound",
+                    subject_id=compound.id,
+                    resource=SourceDb.CHEMBL_MOLECULE,
+                    external_id=name,
+                    relationship=ExternalReferenceRelationship.SAME_AS,
+                    allow_missing_version=True,
+                    created_at=FREEZE_EPOCH,
+                )
+                compound.chembl_id = name
+                compound_xrefs += 1
+        manifest["counts"]["external_reference"] += compound_xrefs
         manifest["counts"]["compound"] = len(compounds)
         if unroled_activity_names:
             manifest["disclosures"].append(
@@ -543,7 +587,19 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             # caught the constructor-time-id NULL bug here)
             s.flush()
             linked = 0
+            structure_xrefs = 0
             for st, doi in pending_links:
+                if st.pdb_id:
+                    add_external_reference(
+                        s,
+                        subject_type="structure",
+                        subject_id=st.id,
+                        resource=SourceDb.PDB,
+                        external_id=st.pdb_id,
+                        relationship=None,
+                        created_at=FREEZE_EPOCH,
+                    )
+                    structure_xrefs += 1
                 pub = pubs.get(doi) or st_pubs.get(doi)
                 if pub is not None and pub.id is not None:
                     st.publication_id = pub.id
@@ -555,6 +611,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             manifest["counts"]["publication"] += len(st_pubs) - sum(
                 1 for d in st_pubs if d in pubs)  # net new structure-only pubs
             pubs.update(st_pubs)
+            manifest["counts"]["external_reference"] += structure_xrefs
         manifest["counts"]["structure"] = n_struct
 
         # ---- facts -------------------------------------------------------------
@@ -583,6 +640,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             obj.holding_potential_mv = _f(r.get("holding_potential_mv"))
 
         counts = Counter()
+        pending_experiment_refs: list[tuple[BiophysicsExperiment, str]] = []
         for r in sorted(rows, key=lambda x: x["measurement_id"]):
             table = r["db_target_table"]
             ch = channels[r["source_layer"]]
@@ -599,6 +657,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 mimic(r, bx)
                 _route_biophysics(r, bx)
                 s.add(bx)
+                if r.get("doi"):
+                    pending_experiment_refs.append((bx, r["doi"]))
             elif table == "bioactivity":
                 counts["bioactivity"] += 1
                 name = _s(r.get("modulator_name"))
@@ -650,6 +710,8 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                     mimic(r, bx)
                     _route_gap_migration(r, bx)
                     s.add(bx)
+                    if r.get("doi"):
+                        pending_experiment_refs.append((bx, r["doi"]))
                 else:
                     raise ValueError(
                         f"unadjudicated gap combination: {r['measurement_id']} "
@@ -658,6 +720,11 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
                 raise ValueError(f"unknown db_target_table {table!r} in {r['measurement_id']}")
         for k in ("biophysics", "bioactivity", "unmapped"):
             manifest["counts"][k] = counts[k]
+        s.flush()
+        experiment_xrefs = 0
+        for bx, doi in pending_experiment_refs:
+            experiment_xrefs += add_experiment_references(s, bx.id, doi)
+        manifest["counts"]["external_reference"] += experiment_xrefs
         manifest["disclosures"].append(
             "ratio_direction NULL this load: staging's 70 classified direction "
             "values (note/web/machine provenance) were not ported — parse "

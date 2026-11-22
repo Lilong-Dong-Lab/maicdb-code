@@ -34,9 +34,9 @@ Design notes (see ``report/MAICDB_Schema_Design.md`` for full rationale):
   Card" is the database's most-queried row and should be one query away).
 * Cross-references use a **hybrid** scheme: canonical accessions
   (``uniprot_accession``, ``pdb_id``, ``inchikey``, ``clinvar_accession``) live
-  as indexed columns on the parent table for O(1) lookup; the long tail goes in
-  the polymorphic :class:`ExternalReference` table so new source DBs never
-  require a migration.
+  as indexed columns on the parent table for O(1) lookup; semantic links live
+  in subject-specific tables, with the legacy polymorphic surface retained as
+  a compatibility view.
 * Thresholds (P50/T50/X50) use **value + unit pairs** because units vary across
   labs (mmHg, kPa, mN/m, …); kinetics (τ) and conductance use fixed units
   baked into the column name.
@@ -51,16 +51,21 @@ from datetime import date, datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
+    Column,
     Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    Table,
+    PrimaryKeyConstraint,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -71,6 +76,7 @@ from maicdb.enums import (
     ClinvarSignificance,
     CompoundType,
     EntityType,
+    ExternalReferenceRelationship,
     Family,
     FunctionalEffect,
     EvidenceConfidence,
@@ -104,6 +110,12 @@ __all__ = [
     "Bioactivity",
     "Variant",
     "ExternalReference",
+    "ExternalReferenceRecord",
+    "ChannelExternalReference",
+    "CompoundExternalReference",
+    "VariantExternalReference",
+    "StructureExternalReference",
+    "ExperimentExternalReference",
     "Publication",
     "UnmappedMeasurement",
     "EvidenceItem",
@@ -118,12 +130,226 @@ __all__ = [
 
 
 class Base(DeclarativeBase):
-    """Declarative base for all MAIC-DB models.
+    """Declarative base for all MAIC-DB models."""
 
-    Defined here (rather than in :mod:`maicdb.database`) so that simply
-    importing :mod:`maicdb.models` registers every table on the metadata.
-    :mod:`maicdb.database` re-exports it for convenience.
+
+# --------------------------------------------------------------------------- #
+# Support: semantic external-reference matrix (schema v0.3)
+# --------------------------------------------------------------------------- #
+_VERSIONED_RESOURCES = "'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM'"
+_SEMANTIC_XREF_CHECKS = {
+    "url IS NOT NULL": "ck_external_reference_url_present",
+    "external_id = trim(external_id)": "ck_external_reference_id_trimmed",
+    (
+        "external_version IS NULL "
+        f"OR resource IN ({_VERSIONED_RESOURCES})"
+    ): "ck_external_reference_version_applicable",
+    (
+        "external_version IS NOT NULL "
+        f"OR resource NOT IN ({_VERSIONED_RESOURCES})"
+        " OR legacy_version_disclosed = 1"
+    ): "ck_external_reference_version_required",
+    (
+        "external_version IS NULL "
+        "OR (trim(external_version) != '' AND external_version != 'unknown')"
+    ): "ck_external_reference_version_explicit",
+}
+
+
+class ExternalReferenceRecord(Base):
+    """A semantic, versioned link from one supported subject to a resource.
+
+    Subject-specific link tables are the authoritative storage;
+    ``external_reference`` remains as a compatibility view only.
     """
+
+    __tablename__ = "external_reference_record"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    resource: Mapped[SourceDb] = mapped_column(
+        name_stored_enum(SourceDb), nullable=False, index=True
+    )
+    external_id: Mapped[str] = mapped_column(Text, nullable=False)
+    relationship: Mapped[ExternalReferenceRelationship] = mapped_column(
+        name_stored_enum(ExternalReferenceRelationship),
+        nullable=False,
+        index=True,
+    )
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    external_version: Mapped[str | None] = mapped_column(Text)
+    legacy_version_disclosed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
+    )
+    created_at: Mapped[str] = mapped_column(
+        DateTime, server_default=func.current_timestamp(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "resource",
+            "external_id",
+            "relationship",
+            name="uq_external_reference_semantics",
+        ),
+        *(
+            CheckConstraint(condition, name=name)
+            for condition, name in _SEMANTIC_XREF_CHECKS.items()
+        ),
+    )
+
+
+_FOREIGN_KEY_COLUMNS = {
+    "channel": ForeignKey("channel.id", ondelete="CASCADE"),
+    "compound": ForeignKey("compound.id", ondelete="CASCADE"),
+    "variant": ForeignKey("variant.id", ondelete="CASCADE"),
+    "structure": ForeignKey("structure.id", ondelete="CASCADE"),
+    "experiment": ForeignKey("biophysics_experiment.id", ondelete="CASCADE"),
+}
+
+
+def _link_semantic_columns():
+    return (
+        Column("resource", name_stored_enum(SourceDb), nullable=False),
+        Column("external_id", Text, nullable=False),
+        Column(
+            "relationship",
+            name_stored_enum(ExternalReferenceRelationship),
+            nullable=False,
+        ),
+)
+
+
+Table(
+    "compound_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("compound_id", Integer, _FOREIGN_KEY_COLUMNS["compound"], nullable=False),
+    PrimaryKeyConstraint("id", "compound_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "compound_id",
+        name="uq_compound_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "channel_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("channel_id", Integer, _FOREIGN_KEY_COLUMNS["channel"], nullable=False),
+    PrimaryKeyConstraint("id", "channel_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "channel_id",
+        name="uq_channel_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "variant_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("variant_id", Integer, _FOREIGN_KEY_COLUMNS["variant"], nullable=False),
+    PrimaryKeyConstraint("id", "variant_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "variant_id",
+        name="uq_variant_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "structure_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("structure_id", Integer, _FOREIGN_KEY_COLUMNS["structure"], nullable=False),
+    PrimaryKeyConstraint("id", "structure_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "structure_id",
+        name="uq_structure_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "experiment_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("experiment_id", Integer, _FOREIGN_KEY_COLUMNS["experiment"], nullable=False),
+    PrimaryKeyConstraint("id", "experiment_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "experiment_id",
+        name="uq_experiment_external_reference_semantics",
+    ),
+)
+
+
+class ExternalReference:
+    """A legacy-shaped compatibility view over authoritative subject links."""
+
+    __tablename__ = "external_reference"
+    __mapper_args__ = {"primary_key": ["id"]}
+
+
+class ChannelExternalReference(Base):
+    __table__ = Base.metadata.tables["channel_external_reference"]
+
+
+class CompoundExternalReference(Base):
+    __table__ = Base.metadata.tables["compound_external_reference"]
+
+
+class VariantExternalReference(Base):
+    __table__ = Base.metadata.tables["variant_external_reference"]
+
+
+class StructureExternalReference(Base):
+    __table__ = Base.metadata.tables["structure_external_reference"]
+
+
+class ExperimentExternalReference(Base):
+    __table__ = Base.metadata.tables["experiment_external_reference"]
+
 
 
 # --------------------------------------------------------------------------- #
@@ -958,53 +1184,8 @@ class Variant(Base):
         )
 
 
-# --------------------------------------------------------------------------- #
-# Support: polymorphic external references (the cross-reference long tail)
-# --------------------------------------------------------------------------- #
-class ExternalReference(Base):
-    """An external-database identifier attached to any core entity.
-
-    Polymorphic by (``entity_type``, ``entity_id``). SQLite cannot enforce a
-    polymorphic foreign key, so the link is validated at the ORM/application
-    layer; this keeps the schema extensible — adding a new source database never
-    requires altering a parent table.
-
-    Use the canonical-accession columns on parent tables for the handful of IDs
-    that *are* an entity's identity; use this table for everything else.
-    """
-
-    __tablename__ = "external_reference"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    entity_type: Mapped[EntityType] = mapped_column(name_stored_enum(EntityType), nullable=False, index=True)
-    entity_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    source_db: Mapped[SourceDb] = mapped_column(name_stored_enum(SourceDb), nullable=False, index=True)
-    external_id: Mapped[str] = mapped_column(Text, nullable=False)
-    url: Mapped[str | None] = mapped_column(Text)
-
-    created_at: Mapped[str] = mapped_column(
-        DateTime, server_default=func.current_timestamp(), nullable=False
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "entity_type",
-            "entity_id",
-            "source_db",
-            "external_id",
-            name="uq_xref_entity_source_id",
-        ),
-        # Fast "all xrefs of entity X".
-        Index("ix_xref_entity", "entity_type", "entity_id"),
-        # Fast reverse lookup "which MAIC entity maps to this external ID".
-        Index("ix_xref_reverse", "source_db", "external_id"),
-    )
-
-    def __repr__(self) -> str:  # pragma: no cover
-        return (
-            f"<ExternalReference {self.entity_type.value}:{self.entity_id} "
-            f"{self.source_db.value}={self.external_id!r}>"
-        )
+# The legacy polymorphic external-reference surface is created as a view by
+# :func:`maicdb.database.create_all`; it projects the subject-specific tables.
 
 
 # --------------------------------------------------------------------------- #
@@ -1100,6 +1281,12 @@ ALL_TABLES = (
     Variant,
     UnmappedMeasurement,
     ExternalReference,
+    ExternalReferenceRecord,
+    ChannelExternalReference,
+    CompoundExternalReference,
+    VariantExternalReference,
+    StructureExternalReference,
+    ExperimentExternalReference,
     Publication,
     EvidenceItem,
     EvidenceSubject,

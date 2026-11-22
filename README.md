@@ -225,7 +225,7 @@ maicdb-code/
 
 The `maicdb.query` library (`src/maicdb/query.py`) provides read-only,
 deterministic queries over the published artifact `db/maicdb.sqlite`
-(schema 0.5.0 · 1125 curated measurement rows · CC-BY-4.0). The `maicdb-query` CLI is its first
+(schema 0.6.0 · 1125 curated measurement rows · CC-BY-4.0). The `maicdb-query` CLI is its first
 consumer; the website/API layers to come will wrap the same library.
 
 ```bash

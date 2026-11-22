@@ -46,6 +46,22 @@ FROZEN1_CARD = {
         "activation_mechanism": "Test mechanism",
         "ortholog_group": "FROZEN1",
         "summary": None,
+        "external_references": [
+            {
+                "resource": "UNIPROT",
+                "external_id": "P00000",
+                "relationship": "SAME_AS",
+                "url": "https://www.uniprot.org/uniprotkb/P00000",
+                "external_version": None,
+            },
+            {
+                "resource": "ChEMBL_Target",
+                "external_id": "CHEMBL0000000",
+                "relationship": "RELATED_TO",
+                "url": "https://www.ebi.ac.uk/chembl/gcov/CHEMBL0000000",
+                "external_version": "2026-11",
+            },
+        ],
     },
     "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
     "parameters": {
@@ -66,6 +82,15 @@ FROZEN1_CARD = {
                     "extractor_note": "合成提取注记：原样中文显示",
                     "condition_key": "synthetic_condition",
                     "n": "4",
+                    "external_references": [
+                        {
+                            "resource": "DOI",
+                            "external_id": "10.0000/synthetic-p50",
+                            "relationship": "PUBLISHED_IN",
+                            "url": "https://doi.org/10.0000/synthetic-p50",
+                            "external_version": None,
+                        }
+                    ],
                     "constructs": [],
                 }
             ],
@@ -114,6 +139,15 @@ FROZEN1_CARD = {
                 "extractor_note": "合成生物活性注记",
                 "condition_key": "synthetic_bio_condition",
                 "n": "8",
+                "external_references": [
+                    {
+                        "resource": "CHEMBL_MOLECULE",
+                        "external_id": "CHEMBL0000001",
+                        "relationship": "SAME_AS",
+                        "url": "https://www.ebi.ac.uk/chembl/compound_report_card/CHEMBL0000001",
+                        "external_version": None,
+                    }
+                ],
                 "constructs": [],
             }
         ],
@@ -374,6 +408,15 @@ SYNTH_P50_COMPARISON = {
     ],
     "sign_convention": "synthetic sign-convention wording",
     "frozen_layer_disclosure": _SYNTH_DISCLOSURE,
+    "external_references": [
+        {
+            "resource": "DOI",
+            "external_id": "10.0000/synthetic-p50",
+            "relationship": "PUBLISHED_IN",
+            "url": "https://doi.org/10.0000/synthetic-p50",
+            "external_version": None,
+        }
+    ],
 }
 
 SYNTH_RATIO_COMPARISON = {
@@ -411,6 +454,35 @@ SYNTH_PARAMETERS: dict[str, dict] = {
     "p50": SYNTH_P50_COMPARISON,
     "ion_selectivity_ratio": SYNTH_RATIO_COMPARISON,
 }
+
+SYNTH_EXTERNAL_REFERENCE_PAGE = {
+    "type": "channel",
+    "rows": [
+        {
+            "maicdb_id": "MAIC:CH:TEST01",
+            "label": "FROZEN1 (Test organism)",
+            "detail": None,
+            "target": "/channels/frozen1/",
+            "external_references": [
+                {
+                    "resource": "UNIPROT",
+                    "external_id": "P00000",
+                    "relationship": "SAME_AS",
+                    "url": "https://www.uniprot.org/uniprotkb/P00000",
+                    "external_version": None,
+                }
+            ],
+        }
+    ],
+}
+
+SYNTH_EXTERNAL_REFERENCE_PAGES = [
+    SYNTH_EXTERNAL_REFERENCE_PAGE,
+    {"type": "compound", "rows": []},
+    {"type": "variant", "rows": []},
+    {"type": "structure", "rows": []},
+    {"type": "experiment", "rows": []},
+]
 
 #: Synthetic search index (M3-T6): mirrors the data layer's flat entry
 #: list (spec Q9 field set); test_site_search.py's Python matcher twin
@@ -482,6 +554,9 @@ def render_fixture(tmp_path: Path) -> Path:
         (data_dir / "parameters" / f"{name}.json").write_text(
             json.dumps(comparison), encoding="utf-8"
         )
+    (data_dir / "external-references.json").write_text(
+        json.dumps(SYNTH_EXTERNAL_REFERENCE_PAGES), encoding="utf-8"
+    )
     (data_dir / "search-index.json").write_text(
         json.dumps(SYNTH_SEARCH_INDEX), encoding="utf-8"
     )
@@ -580,6 +655,58 @@ def test_card_identity_header_renders_all_eleven_fields(tmp_path):
     assert zh.count(marker_zh) == 4
     assert "<title>FROZEN1 · MAIC-DB</title>" in html
     assert "<html lang=\"zh\">" in zh
+
+
+def test_card_renders_semantic_external_reference_matrix(tmp_path):
+    out = render_fixture(tmp_path)
+    for locale, prefix in (("en", ""), ("zh", "zh/")):
+        html = (
+            out / prefix / "channels" / "frozen1" / "index.html"
+        ).read_text(encoding="utf-8")
+        assert html.count(_strings(locale)["card_xref_heading"]) >= 1
+        assert "P00000" in html
+        assert "SAME_AS" in html
+        assert "CHEMBL0000000" in html
+        assert "RELATED_TO" in html
+        assert "2026-11" in html
+        assert 'href="https://www.uniprot.org/uniprotkb/P00000"' in html
+
+
+def test_card_renders_subject_semantic_external_reference_matrices(tmp_path):
+    out = render_fixture(tmp_path)
+    html = (out / "channels" / "frozen1" / "index.html").read_text(encoding="utf-8")
+    assert "10.0000/synthetic-p50" in html
+    assert "PUBLISHED_IN" in html
+    assert "CHEMBL0000001" in html
+    assert html.count('aria-label="External references"') >= 3
+
+
+def test_external_reference_pages_render_every_supported_subject(tmp_path):
+    out = render_fixture(tmp_path)
+    for subject_type in ("channel", "compound", "variant", "structure", "experiment"):
+        en = (
+            out / "references" / subject_type / "index.html"
+        ).read_text(encoding="utf-8")
+        zh = (
+            out / "zh" / "references" / subject_type / "index.html"
+        ).read_text(encoding="utf-8")
+        assert _strings("en")["external_references_page_title"] in en
+        assert _strings("zh")["external_references_page_title"] in zh
+        if subject_type == "channel":
+            assert "P00000" in en
+            assert "SAME_AS" in en
+            assert 'href="https://www.uniprot.org/uniprotkb/P00000"' in en
+        else:
+            assert _strings("en")["external_references_no_rows"] in en
+            assert _strings("zh")["external_references_no_rows"] in zh
+
+
+def test_parameter_page_renders_aggregated_semantic_reference_matrix(tmp_path):
+    out = render_fixture(tmp_path)
+    html = (out / "parameters" / "p50" / "index.html").read_text(encoding="utf-8")
+    assert html.count('aria-label="External references"') == 1
+    assert "10.0000/synthetic-p50" in html
+    assert 'href="https://doi.org/10.0000/synthetic-p50"' in html
 
 
 def test_card_parameter_blocks_zero_rows_visible(tmp_path):

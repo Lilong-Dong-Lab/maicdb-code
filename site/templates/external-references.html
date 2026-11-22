@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.external_references_page_title }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="reference-page">
+  <h1>{{ strings.external_references_page_title }}</h1>
+  <p>{{ strings.external_references_page_intro }}</p>
+  <section class="external-references">
+  <h2>{{ strings.card_xref_heading }}</h2>
+    {% if page.rows %}
+    <table class="xref-table" aria-label="{{ strings.external_references_page_title }}">
+      <thead>
+        <tr>
+          <th scope="col">{{ strings.external_references_subject }}</th>
+          <th scope="col">{{ strings.card_xref_resource }}</th>
+          <th scope="col">{{ strings.card_xref_identifier }}</th>
+          <th scope="col">{{ strings.card_xref_relationship }}</th>
+          <th scope="col">{{ strings.card_xref_version }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for subject in page.rows %}
+        {% for reference in subject.external_references %}
+        <tr>
+          <th scope="row">
+            {% if subject.target %}
+            <a href="{{ subject.target }}">{{ subject.label }}</a>
+            {% else %}
+            {{ subject.label }}
+            {% endif %}
+            {% if subject.detail %}
+            <small>{{ subject.detail }}</small>
+            {% endif %}
+          </th>
+          <td>{{ reference.resource }}</td>
+          <td><a href="{{ reference.url }}">{{ reference.external_id }}</a></td>
+          <td>{{ reference.relationship }}</td>
+          <td>{{ reference.external_version if reference.external_version is not none else strings.card_xref_not_versioned }}</td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>{{ strings.external_references_no_rows }}</p>
+    {% endif %}
+  </section>
+</article>
+{% endblock %}

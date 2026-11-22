@@ -1,7 +1,7 @@
 """Tests for :mod:`maicdb.query` — the M1 read-only query library + CLI.
 
 Real-data provenance: every fixture value below is pinned against the
-published artifact ``db/maicdb.sqlite`` (schema 0.3.0, freeze provenance
+published artifact ``db/maicdb.sqlite`` (schema 0.6.0, freeze provenance
 in ``db/load-manifest.json``) or the vault data notes
 (``shared/assignments/data/MAICDB_data_notes.md`` — §2 counts, §6.3 small
 families, §6.7 frozen wording). Census SQL for each pinned number is quoted
@@ -446,14 +446,15 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     lines = csv_a.splitlines()
     assert lines[0] == (
         "gene,family,parameter,unit,count,min,median,max,"
-        "measurement_ids,evidence_ids,construct_ids,structure_ids,note"
+        "measurement_ids,evidence_ids,construct_ids,structure_ids,"
+        "external_references,note"
     )
     assert len(lines) == 14  # header + 13 data rows
     assert FROZEN_LAYER_DISCLOSURE in err_a
     assert "sign convention" in err_a and "as recorded" in err_a
 
     rows = list(csv.reader(lines[1:]))
-    assert all(len(r) == 13 for r in rows)
+    assert all(len(r) == 14 for r in rows)
     # Every counted aggregate row is traceable: ids listed, ;-joined.
     msc_psi = next(r for r in rows if r[0] == "MscL" and r[3] == "psi")
     assert msc_psi[8].count(";") == 3  # 4 ids

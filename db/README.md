@@ -11,7 +11,7 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 
 | File | Content | Regenerate |
 |---|---|---|
-| `maicdb.sqlite` | The database (schema v0.5, 17 tables) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
+| `maicdb.sqlite` | The database (schema v0.6, 22 tables + compatibility view) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
 | `maicdb.sql` | Byte-stable SQL dump (the determinism contract — two loads of the same vault state are byte-identical) | Same command (written alongside) |
 | `load-manifest.json` | Row counts, disclosures, vault HEAD | Written by the loader |
 
@@ -25,9 +25,10 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
   vault HEAD and that `data/` + configs are unchanged since the tag
   (docs churn on the rolling repo is legal).
-- **Schema**: v0.5 (v0.3 normalized Evidence authority; v0.4 Construct
+- **Schema**: v0.6 (v0.3 normalized Evidence authority; v0.4 Construct
   experiment/variant linkage; v0.5 structure-function residue and variant-location
-  mapping; see `docs/loader-mapping.md` and ADR-0007 for mapping decisions).
+  mapping; v0.6 subject-specific semantic external-reference matrix; see
+  `docs/loader-mapping.md` and ADR-0007 for mapping decisions).
 
 ## Contents (from the load manifest)
 
@@ -39,9 +40,11 @@ as-reported originals preserved) + **137 bioactivity** + **28 unmapped**
 — + 6 structure-only citations),
 **12 channels** (osca = one family row, four accessions in
 `external_reference`), **12 structures** (piezo1; 10/12 linked to their
-primary citations), **86 compounds** (85 role-resolved + the unroled
+external references), **12 structures** (piezo1; 10/12 linked to their
+primary citations; each PDB ID also carries a semantic structure reference),
+**86 compounds** (85 role-resolved + the unroled
 silica-nanoparticle family), **135 variants** (133 extraction-derived plus
-2 title-derived), **6 external references**.
+2 title-derived), **27 semantic external references**.
 
 Every fact row carries the full evidence chain (`measurement_id`,
 `evidence_quote`, `evidence_location`, `confidence`, `extractor_note` — the

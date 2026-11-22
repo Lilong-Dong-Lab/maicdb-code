@@ -40,6 +40,31 @@
 </dl>
 {% endmacro %}
 
+{% macro external_reference_table(references) %}
+{% if references is defined and references %}
+<table class="xref-table" aria-label="{{ strings.card_xref_heading }}">
+  <thead>
+    <tr>
+      <th scope="col">{{ strings.card_xref_resource }}</th>
+      <th scope="col">{{ strings.card_xref_identifier }}</th>
+      <th scope="col">{{ strings.card_xref_relationship }}</th>
+      <th scope="col">{{ strings.card_xref_version }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for x in references %}
+    <tr>
+      <th scope="row">{{ x.resource }}</th>
+      <td><a href="{{ x.url }}">{{ x.external_id }}</a></td>
+      <td>{{ x.relationship }}</td>
+      <td>{{ x.external_version if x.external_version is not none else strings.card_xref_not_versioned }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endmacro %}
+
 {% block content %}
 <article class="channel-page">
   <h1>{{ card.gene.gene_symbol }}</h1>
@@ -75,6 +100,13 @@
       <dt>{{ strings.card_field_summary }}</dt><dd>{{ card.gene.summary or strings.card_not_recorded }}</dd>
     </dl>
   </section>
+
+  {% if card.gene.external_references is defined and card.gene.external_references %}
+  <section class="external-references">
+    <h2>{{ strings.card_xref_heading }}</h2>
+    {{ external_reference_table(card.gene.external_references) }}
+  </section>
+  {% endif %}
 
   <section class="parameters">
     <h2>{{ strings.card_parameters_heading }}</h2>
@@ -112,6 +144,7 @@
             </dl>
             {% endif %}
             {{ evidence_dl(r) }}
+            {{ external_reference_table(r.external_references) }}
           </details>
         </li>
         {% endfor %}
@@ -139,6 +172,7 @@
             <span class="val">{{ r.activity_type }}{% if r.relation %} {{ r.relation }}{% endif %}{% if r.activity_value is not none %} {{ r.activity_value }}{% endif %}{% if r.activity_units %} {{ r.activity_units }}{% endif %}</span>
           </summary>
           {{ evidence_dl(r, assay=true) }}
+          {{ external_reference_table(r.external_references) }}
         </details>
       </li>
       {% endfor %}

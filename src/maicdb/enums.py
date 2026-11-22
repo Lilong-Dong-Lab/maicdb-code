@@ -411,6 +411,15 @@ class SourceDb(str, Enum):
     LITERATURE = "Literature"
 
 
+class ExternalReferenceRelationship(str, Enum):
+    """Controlled semantics between a MAIC-DB subject and an external record."""
+
+    SAME_AS = "SAME_AS"
+    DERIVED_FROM = "DERIVED_FROM"
+    RELATED_TO = "RELATED_TO"
+    PUBLISHED_IN = "PUBLISHED_IN"
+
+
 class EntityType(str, Enum):
     """Polymorphic parent of an :class:`external_reference` row."""
 

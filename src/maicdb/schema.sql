@@ -4,29 +4,29 @@ CREATE TABLE db_meta (
 	PRIMARY KEY ("key")
 )
 
-CREATE TABLE external_reference (
+CREATE TABLE external_reference_record (
 	id INTEGER NOT NULL, 
-	entity_type VARCHAR(21) NOT NULL, 
-	entity_id INTEGER NOT NULL, 
-	source_db VARCHAR(15) NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
 	external_id TEXT NOT NULL, 
-	url TEXT, 
+	relationship VARCHAR(12) NOT NULL, 
+	url TEXT NOT NULL, 
+	external_version TEXT, 
+	legacy_version_disclosed BOOLEAN DEFAULT 0 NOT NULL, 
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
 	PRIMARY KEY (id), 
-	CONSTRAINT uq_xref_entity_source_id UNIQUE (entity_type, entity_id, source_db, external_id), 
-	CONSTRAINT entitytype CHECK (entity_type IN ('CHANNEL', 'STRUCTURE', 'COMPOUND', 'VARIANT', 'BIOPHYSICS_EXPERIMENT')), 
-	CONSTRAINT sourcedb CHECK (source_db IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE'))
+	CONSTRAINT uq_external_reference_semantics UNIQUE (resource, external_id, relationship), 
+	CONSTRAINT ck_external_reference_url_present CHECK (url IS NOT NULL), 
+	CONSTRAINT ck_external_reference_id_trimmed CHECK (external_id = trim(external_id)), 
+	CONSTRAINT ck_external_reference_version_applicable CHECK (external_version IS NULL OR resource IN ('CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM')), 
+	CONSTRAINT ck_external_reference_version_required CHECK (external_version IS NOT NULL OR resource NOT IN ('CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM') OR legacy_version_disclosed = 1), 
+	CONSTRAINT ck_external_reference_version_explicit CHECK (external_version IS NULL OR (trim(external_version) != '' AND external_version != 'unknown')), 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
 )
 
-CREATE INDEX ix_external_reference_entity_id ON external_reference (entity_id)
+CREATE INDEX ix_external_reference_record_relationship ON external_reference_record (relationship)
 
-CREATE INDEX ix_external_reference_entity_type ON external_reference (entity_type)
-
-CREATE INDEX ix_external_reference_source_db ON external_reference (source_db)
-
-CREATE INDEX ix_xref_entity ON external_reference (entity_type, entity_id)
-
-CREATE INDEX ix_xref_reverse ON external_reference (source_db, external_id)
+CREATE INDEX ix_external_reference_record_resource ON external_reference_record (resource)
 
 CREATE TABLE publication (
 	id INTEGER NOT NULL, 
@@ -221,6 +221,34 @@ CREATE INDEX ix_bioactivity_condition_key ON bioactivity (condition_key)
 CREATE UNIQUE INDEX ix_bioactivity_measurement_id ON bioactivity (measurement_id)
 
 CREATE INDEX ix_bioactivity_source_db ON bioactivity (source_db)
+
+CREATE TABLE channel_external_reference (
+	id INTEGER NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, channel_id), 
+	CONSTRAINT uq_channel_external_reference_semantics UNIQUE (resource, external_id, relationship, channel_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+)
+
+CREATE TABLE compound_external_reference (
+	id INTEGER NOT NULL, 
+	compound_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, compound_id), 
+	CONSTRAINT uq_compound_external_reference_semantics UNIQUE (resource, external_id, relationship, compound_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(compound_id) REFERENCES compound (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+)
 
 CREATE TABLE evidence_subject (
 	id INTEGER NOT NULL, 
@@ -516,6 +544,20 @@ CREATE INDEX ix_construct_source_db ON construct (source_db)
 
 CREATE INDEX ix_construct_structure_id ON construct (structure_id)
 
+CREATE TABLE structure_external_reference (
+	id INTEGER NOT NULL, 
+	structure_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, structure_id), 
+	CONSTRAINT uq_structure_external_reference_semantics UNIQUE (resource, external_id, relationship, structure_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+)
+
 CREATE TABLE structure_residue (
 	id INTEGER NOT NULL, 
 	maicdb_id VARCHAR(24) NOT NULL, 
@@ -546,6 +588,20 @@ CREATE INDEX ix_structure_residue_residue_role ON structure_residue (residue_rol
 
 CREATE INDEX ix_structure_residue_structure_id ON structure_residue (structure_id)
 
+CREATE TABLE variant_external_reference (
+	id INTEGER NOT NULL, 
+	variant_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, variant_id), 
+	CONSTRAINT uq_variant_external_reference_semantics UNIQUE (resource, external_id, relationship, variant_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(variant_id) REFERENCES variant (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+)
+
 CREATE TABLE construct_variant (
 	id INTEGER NOT NULL, 
 	construct_id INTEGER NOT NULL, 
@@ -573,6 +629,20 @@ CREATE TABLE experiment_construct (
 CREATE INDEX ix_experiment_construct_construct_id ON experiment_construct (construct_id)
 
 CREATE INDEX ix_experiment_construct_experiment_id ON experiment_construct (experiment_id)
+
+CREATE TABLE experiment_external_reference (
+	id INTEGER NOT NULL, 
+	experiment_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, experiment_id), 
+	CONSTRAINT uq_experiment_external_reference_semantics UNIQUE (resource, external_id, relationship, experiment_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(experiment_id) REFERENCES biophysics_experiment (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+)
 
 CREATE TABLE structure_variant_location (
 	id INTEGER NOT NULL, 
@@ -610,3 +680,14 @@ CREATE INDEX ix_structure_variant_location_variant_id ON structure_variant_locat
 CREATE UNIQUE INDEX uq_pdb_residue ON structure_variant_location (pdb_residue_id)
 
 CREATE UNIQUE INDEX uq_uniprot_residue ON structure_variant_location (uniprot_residue_id)
+
+CREATE VIEW external_reference AS
+SELECT r.id, c.channel_id, cp.compound_id, v.variant_id,
+       st.structure_id, e.experiment_id, r.resource, r.external_id,
+       r.relationship, r.url, r.external_version, r.created_at
+FROM external_reference_record r
+LEFT JOIN channel_external_reference c ON c.id = r.id
+LEFT JOIN compound_external_reference cp ON cp.id = r.id
+LEFT JOIN variant_external_reference v ON v.id = r.id
+LEFT JOIN structure_external_reference st ON st.id = r.id
+LEFT JOIN experiment_external_reference e ON e.id = r.id

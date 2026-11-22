@@ -84,6 +84,7 @@ from maicdb.query import (
     channel_card,
     export,
     open_readonly,
+    subject_pages,
 )
 
 
@@ -250,7 +251,10 @@ def _alt_href(page_dir: str, locale: str) -> str:
 
 
 def _site_pages(
-    index: dict, data_dir: Path, download_files: list[dict]
+    index: dict,
+    data_dir: Path,
+    download_files: list[dict],
+    strings: dict[str, dict],
 ) -> list[tuple[str, str, dict]]:
     """The page list: (template, tree-relative directory, extra context).
 
@@ -323,6 +327,20 @@ def _site_pages(
         for fam in index["families"]
         for entry in fam["channels"]
     }
+    reference_pages = json.loads(
+        (data_dir / "external-references.json").read_text(encoding="utf-8")
+    )
+    for page in reference_pages:
+        pages.append(
+            (
+                "external-references.html",
+                f"references/{page['type']}",
+                {
+                    "page": page,
+                    "heading_key": f"{page['type']}_references_heading",
+                },
+            )
+        )
     for fam in index["families"]:
         for entry in fam["channels"]:
             slug = entry["slug"]
@@ -480,6 +498,7 @@ _NAV_FLAGS_by_template = {
     "structure.html": "channels",
     "parameters.html": "parameters",
     "parameter.html": "parameters",
+    "external-references.html": "parameters",
     "downloads.html": "downloads",
     "analysis.html": "analysis",
     "audit.html": "analysis",
@@ -534,7 +553,6 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         )
         for name in ("audit", "biophysics", "atlas", "trends")
     }
-    pages = _site_pages(index, data_dir, download_files)
     env = Environment(
         loader=FileSystemLoader(site_dir / "templates"),
         autoescape=True,
@@ -553,6 +571,7 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         code: json.loads((site_dir / f"strings.{code}.json").read_text(encoding="utf-8"))
         for code in _LOCALES
     }
+    pages = _site_pages(index, data_dir, download_files, strings)
     site = _site_facts(repo_root)
     # Curated Chinese content (M3-T-LOC): a presentation-layer overlay —
     # only the ZH tree renders it; the data layer and the EN tree are
@@ -594,6 +613,11 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
                 index["families"], index["parameters"], zh_content
             )
         for template, page_dir, extra in pages:
+            if "heading_key" in extra:
+                extra = {
+                    **extra,
+                    "heading": strings[locale][extra.pop("heading_key")],
+                }
             if locale == "zh":
                 if "card" in extra:
                     extra = {**extra, "card": _zh_card(extra["card"], zh_content)}
@@ -901,6 +925,10 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 "n_rows": sum(r["count"] for r in json.loads(doc)["rows"]),
             }
         )
+
+    reference_path = data_dir / "external-references.json"
+    _dump(reference_path, subject_pages(engine))
+    written.append(reference_path)
 
     # Analysis payloads (P7, spec §8): the four track modules' outputs
     # serialized verbatim — pages read these JSON files, never the DB.

@@ -59,6 +59,7 @@ from maicdb.models import (
     Publication,
     Structure,
     UnmappedMeasurement,
+    Variant,
 )
 from maicdb.enums import EvidenceSubjectType
 from maicdb.evidence import AUTHORITATIVE_EVIDENCE_DISCLOSURE
@@ -72,8 +73,14 @@ from maicdb.structure_function import (
     structure_function_page,
     variant_structure_locations,
 )
+from maicdb.external_references import (
+    all_external_references,
+    external_references_for_experiments,
+    external_references_for_subject,
+)
 
 __all__ = [
+    "semantic_references",
     "open_readonly",
     "DEFAULT_DB_PATH",
     "PARAMETERS",
@@ -88,6 +95,7 @@ __all__ = [
     "channel_card",
     "construct_page",
     "bioactivity_card",
+    "subject_pages",
     "parameter_comparison",
     "provenance",
     "biophysics_evidence",
@@ -97,6 +105,140 @@ __all__ = [
     "variant_structure_locations",
     "main",
 ]
+
+
+def semantic_references(engine: Engine) -> list[dict]:
+    """Return the semantic matrix across every supported subject type."""
+    return all_external_references(engine)
+
+
+def subject_pages(engine: Engine) -> list[dict]:
+    """Return the five external-reference pages together.
+
+    Every row pairs one supported subject with one supporting semantic
+    reference. Subject labels come from the subject rows themselves; the
+    convenience accession columns are not used as the reference authority.
+    """
+    references = semantic_references(engine)
+    if not references:
+        return []
+
+    with engine.connect() as connection:
+        channel_rows = connection.execute(
+            select(Channel.id, Channel.maicdb_id, Channel.gene_symbol, Channel.organism)
+            .order_by(Channel.gene_symbol, Channel.organism)
+        ).all()
+        compound_rows = connection.execute(
+            select(Compound.id, Compound.maicdb_id, Compound.name)
+            .order_by(Compound.name, Compound.maicdb_id)
+        ).all()
+        variant_rows = connection.execute(
+            select(
+                Variant.id,
+                Variant.maicdb_id,
+                Variant.mutation_short,
+                Variant.phenotype,
+            ).order_by(Variant.mutation_short, Variant.maicdb_id)
+        ).all()
+        structure_rows = connection.execute(
+            select(
+                Structure.id,
+                Structure.maicdb_id,
+                Structure.title,
+                Channel.gene_symbol,
+            )
+            .join(Channel, Structure.channel_id == Channel.id)
+            .order_by(Channel.gene_symbol, Structure.maicdb_id)
+        ).all()
+        experiment_rows = connection.execute(
+            select(
+                BiophysicsExperiment.id,
+                BiophysicsExperiment.maicdb_id,
+                BiophysicsExperiment.measurement_id,
+                Channel.gene_symbol,
+            )
+            .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
+            .order_by(BiophysicsExperiment.maicdb_id)
+        ).all()
+
+    rows_by_subject: dict[str, dict[int, dict]] = {
+        "channel": {
+            row.id: {
+                "maicdb_id": row.maicdb_id,
+                "label": f"{row.gene_symbol} ({row.organism})",
+                "target": f"/channels/{row.gene_symbol.lower()}/",
+                "external_references": [],
+            }
+            for row in channel_rows
+        },
+        "compound": {
+            row.id: {
+                "maicdb_id": row.maicdb_id,
+                "label": row.name,
+                "target": None,
+                "external_references": [],
+            }
+            for row in compound_rows
+        },
+        "variant": {
+            row.id: {
+                "maicdb_id": row.maicdb_id,
+                "label": row.mutation_short or row.maicdb_id,
+                "detail": row.phenotype,
+                "target": None,
+                "external_references": [],
+            }
+            for row in variant_rows
+        },
+        "structure": {
+            row.id: {
+                "maicdb_id": row.maicdb_id,
+                "label": row.title or row.maicdb_id,
+                "detail": row.gene_symbol,
+                "target": None,
+                "external_references": [],
+            }
+            for row in structure_rows
+        },
+        "experiment": {
+            row.id: {
+                "maicdb_id": row.maicdb_id,
+                "label": row.measurement_id or row.maicdb_id,
+                "detail": row.gene_symbol,
+                "target": (
+                    f"/channels/{row.gene_symbol.lower()}/#{row.measurement_id}"
+                    if row.measurement_id
+                    else None
+                ),
+                "external_references": [],
+            }
+            for row in experiment_rows
+        },
+    }
+
+    page_order = ("channel", "compound", "variant", "structure", "experiment")
+    page_rows: dict[str, list[dict]] = {subject_type: [] for subject_type in page_order}
+    for reference in references:
+        subject = rows_by_subject.get(reference["subject_type"], {}).get(
+            reference["subject_id"]
+        )
+        if subject is None:
+            continue
+        subject["external_references"].append(
+            {key: value for key, value in reference.items() if key not in {
+                "subject_type", "subject_id"
+            }}
+        )
+    for subject_type in page_order:
+        page_rows[subject_type] = [
+            subject
+            for subject in rows_by_subject[subject_type].values()
+            if subject["external_references"]
+        ]
+    return [
+        {"type": subject_type, "rows": page_rows[subject_type]}
+        for subject_type in page_order
+    ]
 
 #: Default artifact location (repository layout; override with ``--db``).
 DEFAULT_DB_PATH = Path("db") / "maicdb.sqlite"
@@ -265,6 +407,7 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
             Channel.activation_mechanism,
             Channel.ortholog_group,
             Channel.summary,
+            Channel.id,
         ).where(Channel.gene_symbol == gene)
     ).mappings().all()
     if not rows:
@@ -286,6 +429,9 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
     # Render name-stored enum members as their stored names.
     for key in ("family", "activation_mechanism"):
         identity[key] = _enum_name(identity.get(key))
+    identity["external_references"] = external_references_for_subject(
+        conn, "channel", identity.pop("id")
+    )
     return identity
 
 
@@ -465,7 +611,7 @@ def channel_card(
                     )
                 ).mappings()
             ]
-            experiment_ids = [row.pop("id") for row in rows]
+            experiment_ids = [row["id"] for row in rows]
             evidence = normalized_evidence(
                 engine,
                 EvidenceSubjectType.BIOPHYSICS_EXPERIMENT,
@@ -484,11 +630,14 @@ def channel_card(
                     r["unit"] = _enum_value(r.pop(spec.unit_column))
                 else:
                     r["unit"] = spec.fixed_unit
-                experiment_id = experiment_ids[index]
+                experiment_id = r.pop("id")
                 r["evidence"] = evidence[experiment_id]
                 r["constructs"] = constructs[experiment_id]
                 if not r["evidence"]:
                     r["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
+                r["external_references"] = external_references_for_subject(
+                    conn, "experiment", experiment_id
+                )
             card["parameters"][name] = {
                 "label": spec.label,
                 "n_rows": len(rows),
@@ -543,6 +692,7 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
                     Bioactivity.relation,
                     Bioactivity.source_db,
                     Bioactivity.assay_description,
+                    Compound.id.label("compound_id"),
                     *(getattr(Bioactivity, c) for c in _EVIDENCE_COLUMNS),
                 )
                 .join(Channel, Bioactivity.channel_id == Channel.id)
@@ -562,6 +712,10 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
         for r in rows:
             r["activity_type"] = _enum_name(r["activity_type"])
             r["source_db"] = _enum_name(r["source_db"])
+            compound_id = r.pop("compound_id")
+            r["external_references"] = external_references_for_subject(
+                conn, "compound", compound_id
+            )
     card: dict = {"gene": gene, "n_rows": len(rows), "rows": rows}
     if gene in FROZEN_GENE_SYMBOLS:
         card["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
@@ -607,6 +761,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 Channel.family,
                 Channel.organism,
                 Channel.organism_taxid,
+                Channel.id,
             ).order_by(Channel.gene_symbol, Channel.organism)
         ).all()
         by_gene: dict[str, list] = {}
@@ -622,13 +777,15 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     f"{variants}; organism-disambiguated comparisons are "
                     "not yet supported"
                 )
-        genes = [(g, entries[0][1]) for g, entries in by_gene.items()]
+        genes = [
+            (g, entries[0][1], entries[0][4]) for g, entries in by_gene.items()
+        ]
         unit_col = (
             getattr(BiophysicsExperiment, spec.unit_column)
             if spec.unit_column is not None
             else None
         )
-        rows = conn.execute(
+        rows_query = (
             select(
                 Channel.gene_symbol,
                 value_col,
@@ -641,7 +798,15 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
             )
             .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
             .where(value_col.is_not(None))
-        ).all()
+        )
+        rows = conn.execute(rows_query).all()
+        experiment_ids = [
+            int(row[4])
+            for row in rows
+        ]
+        parameter_references = external_references_for_experiments(
+            engine, experiment_ids
+        )
 
     construct_ids_by_experiment = {
         experiment_id: [
@@ -703,7 +868,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
         )
 
     out: list[dict] = []
-    for gene, family in genes:
+    for gene, family, channel_id in genes:
         family_name = _enum_name(family)
         # NULL units are their own bucket (reported, never erased — rule 5).
         # ``key`` keeps the order TOTAL and documented: None first, then the
@@ -752,6 +917,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                         ),
                         [],
                     ),
+                    "external_references": parameter_references,
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)
@@ -769,6 +935,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "evidence_ids": [],
                 "construct_ids": [],
                 "structure_ids": [],
+                "external_references": parameter_references,
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -857,6 +1024,7 @@ _EXPORT_COLUMNS = (
     "evidence_ids",
     "construct_ids",
     "structure_ids",
+    "external_references",
     "note",
 )
 
@@ -894,6 +1062,20 @@ def export(
     No timestamps anywhere; identical inputs produce byte-identical output.
     """
     rows = parameter_comparison(engine, parameter)
+    reference_keys = set()
+    parameter_references = []
+    for row in rows:
+        for reference in row["external_references"]:
+            key = (
+                reference["resource"],
+                reference["external_id"],
+                reference["relationship"],
+                reference["url"],
+                reference["external_version"],
+            )
+            if key not in reference_keys:
+                reference_keys.add(key)
+                parameter_references.append(reference)
 
     if format == "csv":
         buf = io.StringIO()
@@ -909,11 +1091,13 @@ def export(
                         for mid in r["measurement_ids"]
                     )
                     if col == "measurement_ids"
-                    else (
-                        ";".join(eid for eid in r["evidence_ids"])
-                        if col == "evidence_ids"
-                        else r.get(col, "")
+                    else json.dumps(
+                        r[col], sort_keys=True, ensure_ascii=False, separators=(",", ":")
                     )
+                    if col == "external_references"
+                    else ";".join(eid for eid in r["evidence_ids"])
+                    if col == "evidence_ids"
+                    else r.get(col, "")
                     for col in _EXPORT_COLUMNS
                 ]
             )
@@ -922,7 +1106,11 @@ def export(
         return buf.getvalue()
 
     if format == "json":
-        doc: dict = {"parameter": parameter, "rows": rows}
+        doc: dict = {
+            "parameter": parameter,
+            "external_references": parameter_references,
+            "rows": rows,
+        }
         if parameter in THRESHOLD_PARAMETERS:
             doc["sign_convention"] = SIGN_CONVENTION_NOTE
         if _touches_frozen(rows):
