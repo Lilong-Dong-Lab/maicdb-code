@@ -76,7 +76,6 @@ from maicdb.models import (
 )
 from maicdb.database import make_engine, create_all
 from maicdb.external_references import (
-    EXTERNAL_REFERENCE_SCHEMA_VERSION,
     LEGACY_RELATIONSHIP_DISCLOSURE,
     LEGACY_VERSION_DISCLOSURE,
     SCHEMA_VERSION_DISCLOSURE,

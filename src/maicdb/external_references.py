@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Literal
-from urllib.parse import quote
 
 from sqlalchemy import select, text
 from sqlalchemy.engine import Connection, Engine

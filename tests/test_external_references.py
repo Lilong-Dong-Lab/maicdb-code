@@ -10,7 +10,6 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from maicdb.database import create_all
 from maicdb.enums import (
     ExternalReferenceRelationship,
     Family,

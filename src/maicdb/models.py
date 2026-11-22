@@ -75,7 +75,6 @@ from maicdb.enums import (
     AssayFormat,
     ClinvarSignificance,
     CompoundType,
-    EntityType,
     ExternalReferenceRelationship,
     Family,
     FunctionalEffect,

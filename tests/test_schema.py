@@ -40,7 +40,6 @@ from maicdb.enums import (
     VariantType,
 )
 from maicdb.models import (
-    ALL_TABLES,
     Bioactivity,
     BiophysicsExperiment,
     Channel,
