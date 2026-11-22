@@ -62,17 +62,17 @@ jobs:
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: 428 passed (execution-derived 2026-11-22 by scripts/check-suite-matrix.sh; re-derive with the same script. See KNOWN-QUIRKS quirk 3).
+        # Local-with-vault reference: 443 passed (execution-derived 2026-11-22 by scripts/check-suite-matrix.sh; local-with-vault execution at 918d9e9 additionally had six environment-bound `database is locked` vault-loader failures. See KNOWN-QUIRKS quirk 3).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt
           # digit-boundary anchors on both ends: "368 passed" or "1 warning"
           # inside "11 warnings" must NOT match the pin (vacuous-pass guard)
-          grep -qE "(^|[^0-9])428 passed, 8 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
-            if grep -qE "(^|[^0-9])410 passed, 26 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
-              echo "::error::'410 passed, 26 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
+          grep -qE "(^|[^0-9])443 passed, 8 skipped, 1 warning([^0-9]|$)" pytest-summary.txt || {
+            if grep -qE "(^|[^0-9])425 passed, 26 skipped, 1 warning([^0-9]|$)" pytest-summary.txt; then
+              echo "::error::'425 passed, 26 skipped' = the tag-absent signature — the v1.0.0-data tag is missing from the checkout. Fix the fetch (fetch-depth: 0 + tags), do NOT re-pin."
             else
-              echo "::error::suite summary drifted from the pinned '428 passed, 8 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
+              echo "::error::suite summary drifted from the pinned '443 passed, 8 skipped, 1 warning' — if a test was genuinely added/removed, run scripts/check-suite-matrix.sh and re-pin here and in KNOWN-QUIRKS quirk 3"
             fi
             exit 1
           }
