@@ -1,3 +1,14 @@
+CREATE TABLE data_layer (
+	name VARCHAR(32) NOT NULL, 
+	value VARCHAR(32) NOT NULL, 
+	definition TEXT NOT NULL, 
+	PRIMARY KEY (name), 
+	CONSTRAINT uq_data_layer UNIQUE (name, value), 
+	CONSTRAINT uq_data_layer_value UNIQUE (value), 
+	CONSTRAINT ck_data_layer_value CHECK (value IN ('source_reported', 'curated', 'computed')), 
+	CONSTRAINT ck_data_layer_name CHECK (name IN ('SOURCE_REPORTED', 'CURATED', 'COMPUTED'))
+)
+
 CREATE TABLE db_meta (
 	"key" VARCHAR(64) NOT NULL, 
 	value TEXT NOT NULL, 
@@ -140,6 +151,18 @@ CREATE INDEX ix_compound_name ON compound (name)
 CREATE INDEX ix_compound_pubchem_cid ON compound (pubchem_cid)
 
 CREATE INDEX ix_compound_source_db ON compound (source_db)
+
+CREATE TABLE data_layer_inventory (
+	"key" VARCHAR(128) NOT NULL, 
+	surface VARCHAR(64) NOT NULL, 
+	field VARCHAR(128) NOT NULL, 
+	layer VARCHAR(15) NOT NULL, 
+	rule TEXT NOT NULL, 
+	PRIMARY KEY ("key"), 
+	CONSTRAINT ck_data_layer_inventory_trimmed CHECK (key = trim(key) AND surface = trim(surface) AND field = trim(field) AND rule = trim(rule)), 
+	CONSTRAINT fk_data_layer_inventory_layer FOREIGN KEY(layer) REFERENCES data_layer (name), 
+	CONSTRAINT datalayer CHECK (layer IN ('SOURCE_REPORTED', 'CURATED', 'COMPUTED'))
+)
 
 CREATE TABLE evidence_item (
 	id INTEGER NOT NULL, 

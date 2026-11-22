@@ -57,6 +57,7 @@ __all__ = [
     "MappingSupport",
     "StructureSource",
     "ParameterSet",
+    "DataLayer",
 ]
 
 
@@ -106,6 +107,14 @@ class EvidenceMigrationState(str, Enum):
 
     MIGRATED = "MIGRATED"
     UNMIGRATED = "UNMIGRATED"
+
+
+class DataLayer(str, Enum):
+    """The provenance layer of a value-bearing scientific output."""
+
+    SOURCE_REPORTED = "source_reported"
+    CURATED = "curated"
+    COMPUTED = "computed"
 
 
 def name_stored_enum(enum_cls: type[Enum]) -> SQLEnum:

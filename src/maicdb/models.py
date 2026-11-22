@@ -63,6 +63,7 @@ from sqlalchemy import (
     Text,
     Table,
     PrimaryKeyConstraint,
+    ForeignKeyConstraint,
     UniqueConstraint,
     func,
     text,
@@ -75,6 +76,7 @@ from maicdb.enums import (
     AssayFormat,
     ClinvarSignificance,
     CompoundType,
+    DataLayer,
     ExternalReferenceRelationship,
     Family,
     FunctionalEffect,
@@ -115,6 +117,8 @@ __all__ = [
     "VariantExternalReference",
     "StructureExternalReference",
     "ExperimentExternalReference",
+    "DataLayerVocabulary",
+    "DataLayerInventory",
     "Publication",
     "UnmappedMeasurement",
     "EvidenceItem",
@@ -130,6 +134,57 @@ __all__ = [
 
 class Base(DeclarativeBase):
     """Declarative base for all MAIC-DB models."""
+
+
+# --------------------------------------------------------------------------- #
+# Support: native data-layer provenance (schema v0.7)
+# --------------------------------------------------------------------------- #
+class DataLayerVocabulary(Base):
+    """The schema-controlled provenance layer vocabulary."""
+
+    __tablename__ = "data_layer"
+
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    value: Mapped[str] = mapped_column(String(32), nullable=False)
+    definition: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("name", "value", name="uq_data_layer"),
+        UniqueConstraint("value", name="uq_data_layer_value"),
+        CheckConstraint(
+            "value IN ('source_reported', 'curated', 'computed')",
+            name="ck_data_layer_value",
+        ),
+        CheckConstraint(
+            "name IN ('SOURCE_REPORTED', 'CURATED', 'COMPUTED')",
+            name="ck_data_layer_name",
+        ),
+    )
+
+
+class DataLayerInventory(Base):
+    """One value-bearing output and its auditable classification rule."""
+
+    __tablename__ = "data_layer_inventory"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    surface: Mapped[str] = mapped_column(String(64), nullable=False)
+    field: Mapped[str] = mapped_column(String(128), nullable=False)
+    layer: Mapped[DataLayer] = mapped_column(
+        name_stored_enum(DataLayer), nullable=False
+    )
+    rule: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "key = trim(key) AND surface = trim(surface) "
+            "AND field = trim(field) AND rule = trim(rule)",
+            name="ck_data_layer_inventory_trimmed",
+        ),
+        ForeignKeyConstraint(
+            ["layer"], ["data_layer.name"], name="fk_data_layer_inventory_layer"
+        ),
+    )
 
 
 # --------------------------------------------------------------------------- #

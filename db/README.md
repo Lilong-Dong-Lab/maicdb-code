@@ -11,7 +11,7 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 
 | File | Content | Regenerate |
 |---|---|---|
-| `maicdb.sqlite` | The database (schema v0.6, 22 tables + compatibility view) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
+| `maicdb.sqlite` | The database (schema v0.7, 24 tables + compatibility view) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
 | `maicdb.sql` | Byte-stable SQL dump (the determinism contract — two loads of the same vault state are byte-identical) | Same command (written alongside) |
 | `load-manifest.json` | Row counts, disclosures, vault HEAD | Written by the loader |
 
@@ -25,9 +25,10 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
   vault HEAD and that `data/` + configs are unchanged since the tag
   (docs churn on the rolling repo is legal).
-- **Schema**: v0.6 (v0.3 normalized Evidence authority; v0.4 Construct
-  experiment/variant linkage; v0.5 structure-function residue and variant-location
-  mapping; v0.6 subject-specific semantic external-reference matrix; see
+- **Schema**: v0.7 (v0.3 normalized Evidence authority; v0.4 Construct
+experiment/variant linkage; v0.5 structure-function residue and variant-location
+mapping; v0.6 subject-specific semantic external-reference matrix; v0.7 native
+Data-layer vocabulary and inventory; see
   `docs/loader-mapping.md` and ADR-0007 for mapping decisions).
 
 ## Contents (from the load manifest)
@@ -72,6 +73,15 @@ represented by a UniProt-numbered `structure_residue`, a
 the deposited PDB title. PDB residue coordinates are intentionally NULL in
 this release: the frozen vault does not carry residue-level SIFTS mappings,
 and the loader does not infer coordinates from sequence identity.
+
+## Native Data-layer provenance (ticket #102)
+
+Schema v0.7 adds a controlled `data_layer` vocabulary
+(`source_reported`, `curated`, `computed`) and a shared
+`data_layer_inventory` table. The inventory is the extensible contract for
+value-bearing scientific outputs: each row carries its public surface, field,
+layer, and an auditable migration or derivation rule. The marker is additive
+provenance; it never overwrites or reinterprets the underlying values.
 
 > [!note] Date semantics
 > `db_meta.release_date` records the **data-freeze epoch** (2026-11-08 for

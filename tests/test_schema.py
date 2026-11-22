@@ -102,7 +102,7 @@ def test_ddl_creates_cleanly_with_all_tables(engine):
     table_names = set(inspect(engine).get_table_names())
     expected = set(Base.metadata.tables)
     assert expected <= table_names, f"missing tables: {expected - table_names}"
-    assert len(expected) == 22
+    assert len(expected) == 24
     assert "external_reference" in inspect(engine).get_view_names()
 
     # Spot-check key columns on the hub table.

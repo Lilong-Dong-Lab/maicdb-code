@@ -62,6 +62,7 @@ from maicdb.analysis.trends import (
     pubs_per_year_by_family,
     pubs_per_year_total,
 )
+from maicdb.data_layers import in_scope_entry
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -84,6 +85,10 @@ def data_freeze_tag(engine: Engine) -> str:
             )
         ).scalar()
     return str(tag) if tag is not None else ""
+
+
+def _computed_layer(key: str) -> str:
+    return in_scope_entry(key).layer.value
 
 
 def _rows(objs) -> list[dict]:
@@ -117,6 +122,7 @@ def audit_payload(engine: Engine) -> dict:
         ]
     return {
         "data_freeze_tag": data_freeze_tag(engine),
+        "data_layer": _computed_layer("analysis.audit.scores"),
         "provenance": (
             "maicdb.analysis.audit (P3, spec §5.1) — tri-state MIMIC "
             "counts, census-anchored; ADR-0005 applicability"
@@ -157,6 +163,7 @@ def biophysics_payload(engine: Engine) -> dict:
         }
     return {
         "data_freeze_tag": data_freeze_tag(engine),
+        "data_layer": _computed_layer("analysis.biophysics.statistics"),
         "provenance": (
             "maicdb.analysis.biophysics (P4, spec §5.2) — "
             "DerSimonian–Laird on log10 |P50|, publication-level "
@@ -175,6 +182,7 @@ def atlas_payload(engine: Engine) -> dict:
     matrix = compound_channel_matrix(engine)
     return {
         "data_freeze_tag": data_freeze_tag(engine),
+        "data_layer": _computed_layer("analysis.atlas.p_activity"),
         "provenance": (
             "maicdb.analysis.atlas (P5, spec §5.3) — variant and "
             "compound surfaces on P1's p_activity axis; structural "
@@ -195,6 +203,7 @@ def trends_payload(engine: Engine) -> dict:
     records = load_trend_records(engine)
     return {
         "data_freeze_tag": data_freeze_tag(engine),
+        "data_layer": _computed_layer("analysis.trends.counts"),
         "provenance": (
             "maicdb.analysis.trends (P6, spec §5.4) — corpus growth and "
             "field-adoption views; per-family year cells are NOT "

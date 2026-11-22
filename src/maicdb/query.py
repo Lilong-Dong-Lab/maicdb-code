@@ -69,6 +69,7 @@ from maicdb.constructs import (
     construct_traversals_for_experiments,
     variant_construct_page,
 )
+from maicdb.data_layers import in_scope_entry
 from maicdb.structure_function import (
     structure_function_page,
     variant_structure_locations,
@@ -568,6 +569,10 @@ def normalized_evidence(
     return resolved
 
 
+def _data_layers(*keys: str) -> dict[str, str]:
+    return {key.split(".")[-1]: in_scope_entry(key).layer.value for key in keys}
+
+
 def channel_card(
     engine: Engine, gene: str, parameters: list[str] | None = None
 ) -> dict:
@@ -630,6 +635,11 @@ def channel_card(
                     r["unit"] = _enum_value(r.pop(spec.unit_column))
                 else:
                     r["unit"] = spec.fixed_unit
+                r["data_layers"] = _data_layers(
+                    "channel_card.value_as_reported",
+                    "channel_card.unit_as_reported",
+                    "channel_card.value",
+                )
                 experiment_id = r.pop("id")
                 r["evidence"] = evidence[experiment_id]
                 r["constructs"] = constructs[experiment_id]
@@ -706,6 +716,7 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
         )
         for row in rows:
             row["evidence"] = evidence[row["id"]]
+            row["data_layers"] = _data_layers("bioactivity_card.activity_value")
             row.pop("id")
             if not row["evidence"]:
                 row["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
@@ -918,6 +929,9 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                         [],
                     ),
                     "external_references": parameter_references,
+                    "data_layer": in_scope_entry(
+                        "parameter_comparison.value_statistics"
+                    ).layer.value,
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)
@@ -936,6 +950,9 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "construct_ids": [],
                 "structure_ids": [],
                 "external_references": parameter_references,
+                "data_layer": in_scope_entry(
+                    "parameter_comparison.value_statistics"
+                ).layer.value,
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -984,6 +1001,7 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
             if row is not None:
                 out = {k: v for k, v in dict(row).items() if k != "channel_id"}
                 out["table"] = model.__tablename__
+                out["data_layers"] = _data_layers("provenance.value")
                 if model is BiophysicsExperiment:
                     subject_type = EvidenceSubjectType.BIOPHYSICS_EXPERIMENT
                 else:
@@ -1025,6 +1043,7 @@ _EXPORT_COLUMNS = (
     "construct_ids",
     "structure_ids",
     "external_references",
+    "data_layer",
     "note",
 )
 

@@ -59,6 +59,7 @@ from maicdb.constructs import (
     SCHEMA_TRANSITION_DISCLOSURE,
     migrate_construct_links,
 )
+from maicdb.data_layers import seed_data_layer_contract
 from maicdb.structure_function import (
     STRUCTURE_FUNCTION_DISCLOSURE,
     migrate_structure_function,
@@ -89,7 +90,7 @@ __all__ = ["load_vault", "main"]
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.6.0"
+SCHEMA_VERSION = "0.7.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -348,6 +349,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
     engine = make_engine(f"sqlite:///{out_sqlite}", echo=False)
     create_all(engine)
     with Session(engine) as s:
+        data_layer_counts = seed_data_layer_contract(s)
         # ---- publication (205; DOI dedup; first-seen title; Zotero authors) --
         pubs: dict[str, Publication] = {}
         title_variants: Counter = Counter()
@@ -781,6 +783,10 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
             "evidence_created"
         ]
         manifest["counts"]["structure_function_migration"] = structure_function_counts
+        manifest["counts"]["data_layer"] = data_layer_counts["vocabulary_rows"]
+        manifest["counts"]["data_layer_inventory"] = data_layer_counts[
+            "inventory_rows"
+        ]
         manifest["disclosures"].append(AUTHORITATIVE_EVIDENCE_DISCLOSURE)
         manifest["disclosures"].append(SCHEMA_TRANSITION_DISCLOSURE)
         manifest["disclosures"].append(STRUCTURE_FUNCTION_DISCLOSURE)
