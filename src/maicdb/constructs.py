@@ -34,7 +34,7 @@ __all__ = [
     "variant_construct_page",
 ]
 
-CONSTRUCT_SCHEMA_VERSION = "0.4.0"
+CONSTRUCT_SCHEMA_VERSION = "0.7.0"
 SCHEMA_TRANSITION_DISCLOSURE = (
     "Construct links are authoritative traversal relationships; direct "
     "experiment variant and structure columns remain compatibility bridges."

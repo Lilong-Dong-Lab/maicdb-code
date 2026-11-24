@@ -152,6 +152,13 @@ DATA_LAYER_INVENTORY: tuple[DataLayerEntry, ...] = (
         rule="Calculated as the difference between two computed p_activity values.",
     ),
     DataLayerEntry(
+        key="analysis.coverage.counts",
+        surface="analysis",
+        field="total, coverage, linkage, and review counts",
+        layer=DataLayer.COMPUTED,
+        rule="Aggregated from the frozen database by deterministic SQL grouped over whole database, family, and channel slices.",
+    ),
+    DataLayerEntry(
         key="analysis.trends.counts",
         surface="analysis",
         field="publication and parameter trend counts",
@@ -250,10 +257,7 @@ def migrate_data_layers(engine: Engine) -> dict:
                 },
             )
         connection.execute(
-            text(
-                "UPDATE db_meta SET value = :version "
-                "WHERE key = 'schema_version'"
-            ),
+            text("UPDATE db_meta SET value = :version WHERE key = 'schema_version'"),
             {"version": DATA_LAYER_SCHEMA_VERSION},
         )
         counts["vocabulary_rows"] = connection.execute(

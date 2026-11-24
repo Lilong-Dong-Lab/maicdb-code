@@ -241,6 +241,89 @@ SYNTH_CARDS = {"frozen1": FROZEN1_CARD, "plain2": PLAIN2_CARD}
 #: Real-data pins live in test_analysis_site_payloads_artifact.py and
 #: the site-build artifact tests.
 SYNTH_ANALYSIS = {
+    "coverage": {
+        "data_freeze_tag": "data-vTEST@synthetic",
+        "data_layer": "COMPUTED",
+        "computed_layer": "computed",
+        "no_core_schema_change": "No core schema change.",
+        "all": {
+            "scope_type": "all",
+            "scope_key": "all",
+            "totals": {
+                "channels": 2,
+                "families": 1,
+                "ortholog_groups": 1,
+                "publications": 1,
+                "experiments": 2,
+                "bioactivities": 1,
+                "unmapped_measurements": 1,
+                "compounds": 1,
+                "variants": 1,
+                "structures": 1,
+                "evidence_items": 3,
+                "external_references": 2,
+            },
+            "coverage": {
+                "denominator": 2,
+                "required_fields": 2,
+                "evidence_links": 2,
+                "construct_links": 1,
+                "residue_maps": 1,
+                "external_references": 1,
+                "review_state": 2,
+            },
+            "linkage": {
+                "experiments_to_variants": 1,
+                "variants_to_structures": 1,
+                "structures_to_functional_residues": 1,
+                "records_to_publications": 3,
+                "subjects_to_external_references": 2,
+            },
+            "review": {
+                "accepted": 1,
+                "provisional": 1,
+                "reviewed": 1,
+                "unreviewed": 0,
+                "conflicted": 0,
+                "total": 3,
+                "last_review_date": "2026-11-23",
+            },
+        },
+        "families": [
+            {
+                "scope_key": "TESTFAM",
+                "channels": ["FROZEN1", "PLAIN2"],
+            }
+        ],
+        "channels": [
+            {
+                "scope_key": "FROZEN1",
+                "totals": {
+                    "experiments": 1,
+                    "bioactivities": 1,
+                    "unmapped_measurements": 0,
+                    "evidence_items": 2,
+                    "external_references": 1,
+                },
+                "coverage": {"evidence_links": 1, "denominator": 1},
+                "linkage": {"experiments_to_variants": 1},
+                "review": {"total": 2, "last_review_date": "2026-11-23"},
+            },
+            {
+                "scope_key": "PLAIN2",
+                "totals": {
+                    "experiments": 1,
+                    "bioactivities": 0,
+                    "unmapped_measurements": 1,
+                    "evidence_items": 1,
+                    "external_references": 0,
+                },
+                "coverage": {"evidence_links": 1, "denominator": 1},
+                "linkage": {"experiments_to_variants": 0},
+                "review": {"total": 1, "last_review_date": None},
+            },
+        ],
+    },
     "audit": {
         "data_freeze_tag": "data-vTEST@synthetic",
         "provenance": "synthetic",
@@ -248,24 +331,35 @@ SYNTH_ANALYSIS = {
         "mean_score": 0.5,
         "field_totals": {
             "recording_mode": {
-                "reported": 1, "not_reported": 0, "not_extracted": 1,
-                "applicable": 2, "compliance": 0.5,
+                "reported": 1,
+                "not_reported": 0,
+                "not_extracted": 1,
+                "applicable": 2,
+                "compliance": 0.5,
             },
         },
         "heatmap": {
             "K2P": {
                 "recording_mode": {
-                    "reported": 1, "not_reported": 0, "not_extracted": 1,
-                    "applicable": 2, "compliance": 0.5,
+                    "reported": 1,
+                    "not_reported": 0,
+                    "not_extracted": 1,
+                    "applicable": 2,
+                    "compliance": 0.5,
                 },
             },
         },
         "compliance_by_year": {
-            "years": [{"year": 2009, "k": 1, "mean": 0.4},
-                      {"year": 2011, "k": 1, "mean": 0.6}],
-            "pre_k": 1, "pre_mean": 0.4,
-            "post_k": 1, "post_mean": 0.6,
-            "unassigned_k": 0, "piezo_year": 2010,
+            "years": [
+                {"year": 2009, "k": 1, "mean": 0.4},
+                {"year": 2011, "k": 1, "mean": 0.6},
+            ],
+            "pre_k": 1,
+            "pre_mean": 0.4,
+            "post_k": 1,
+            "post_mean": 0.6,
+            "unassigned_k": 0,
+            "piezo_year": 2010,
         },
         "breakdowns": {
             "family": [{"group": "K2P", "k": 2, "mean": 0.5}],
@@ -276,8 +370,10 @@ SYNTH_ANALYSIS = {
         "four_field_audit": {
             "fields": {
                 "stimulus_velocity": {
-                    "field_name": "stimulus_velocity", "total": 2,
-                    "missing_as_written": 2, "applicable": 1,
+                    "field_name": "stimulus_velocity",
+                    "total": 2,
+                    "missing_as_written": 2,
+                    "applicable": 1,
                     "missing_when_applicable": 1,
                 },
             },
@@ -290,11 +386,17 @@ SYNTH_ANALYSIS = {
         "provenance": "synthetic",
         "threshold_meta": [
             {
-                "family": "K2P", "stimulus_type": "SUCTION",
-                "k": 2, "n": 2, "pooled_mmhg": 30.0,
-                "pooled_kpa": 4.0, "identifiable": True,
-                "ci_mmhg": [20.0, 40.0], "pi_mmhg": [10.0, 50.0],
-                "i2": 0.5, "negative_n": 0,
+                "family": "K2P",
+                "stimulus_type": "SUCTION",
+                "k": 2,
+                "n": 2,
+                "pooled_mmhg": 30.0,
+                "pooled_kpa": 4.0,
+                "identifiable": True,
+                "ci_mmhg": [20.0, 40.0],
+                "pi_mmhg": [10.0, 50.0],
+                "i2": 0.5,
+                "negative_n": 0,
             },
         ],
         "kinetics_atlas": [],
@@ -304,33 +406,49 @@ SYNTH_ANALYSIS = {
     "atlas": {
         "data_freeze_tag": "data-vTEST@synthetic",
         "provenance": "synthetic",
-        "n_cells": 2, "n_compounds": 2, "n_channels": 1,
+        "n_cells": 2,
+        "n_compounds": 2,
+        "n_channels": 1,
         "delta_p50": [
             {
-                "maicdb_id": "MAIC:BX:00001", "gene_symbol": "TREK-1",
-                "family": "K2P", "delta_p50": 30.0, "unit": "mmHg",
-                "variant_linked": False, "variant": None,
-                "functional_effect": None, "variant_position": None,
+                "maicdb_id": "MAIC:BX:00001",
+                "gene_symbol": "TREK-1",
+                "family": "K2P",
+                "delta_p50": 30.0,
+                "unit": "mmHg",
+                "variant_linked": False,
+                "variant": None,
+                "functional_effect": None,
+                "variant_position": None,
                 "domains": (),
             },
         ],
         "matrix": [
             {
-                "compound_name": "A", "gene_symbol": "TREK-1",
-                "family": "K2P", "k": 1, "pactivity": 5.0,
+                "compound_name": "A",
+                "gene_symbol": "TREK-1",
+                "family": "K2P",
+                "k": 1,
+                "pactivity": 5.0,
                 "basis_counts": [["molar", 1]],
             },
             {
-                "compound_name": "B", "gene_symbol": "TREK-1",
-                "family": "K2P", "k": 1, "pactivity": None,
+                "compound_name": "B",
+                "gene_symbol": "TREK-1",
+                "family": "K2P",
+                "k": 1,
+                "pactivity": None,
                 "basis_counts": [["missing_value", 1]],
             },
         ],
         "selectivity": [
             {
-                "compound_name": "A", "channels_with_value": 1,
-                "best_pactivity": 5.0, "best_channel": "TREK-1",
-                "selectivity_gap": None, "best_off_target_channel": None,
+                "compound_name": "A",
+                "channels_with_value": 1,
+                "best_pactivity": 5.0,
+                "best_channel": "TREK-1",
+                "selectivity_gap": None,
+                "best_off_target_channel": None,
             },
         ],
     },
@@ -342,7 +460,8 @@ SYNTH_ANALYSIS = {
             {"year": 2011, "family": "K2P", "k": 1},
         ],
         "pubs_per_year_total": [
-            {"year": 2009, "k": 1}, {"year": 2011, "k": 1},
+            {"year": 2009, "k": 1},
+            {"year": 2011, "k": 1},
         ],
         "parameter_adoption": [
             {"year": 2009, "parameter": "p50", "k": 1, "of_year": 1},
@@ -431,7 +550,11 @@ SYNTH_RATIO_COMPARISON = {
             "min": 1.2,
             "median": None,
             "max": 40.0,
-            "measurement_ids": ["PLAIN2-EX-00001", "PLAIN2-EX-00002", "PLAIN2-EX-00003"],
+            "measurement_ids": [
+                "PLAIN2-EX-00001",
+                "PLAIN2-EX-00002",
+                "PLAIN2-EX-00003",
+            ],
             "note": "synthetic ratio-median note",
         },
         {
@@ -543,9 +666,7 @@ def render_fixture(tmp_path: Path) -> Path:
     data_dir = tmp_path / "_data"
     (data_dir / "channels").mkdir(parents=True)
     (data_dir / "parameters").mkdir(parents=True)
-    (data_dir / "index.json").write_text(
-        json.dumps(SYNTH_INDEX), encoding="utf-8"
-    )
+    (data_dir / "index.json").write_text(json.dumps(SYNTH_INDEX), encoding="utf-8")
     for slug, card in SYNTH_CARDS.items():
         (data_dir / "channels" / f"{slug}.json").write_text(
             json.dumps(card), encoding="utf-8"
@@ -579,9 +700,7 @@ def render_fixture(tmp_path: Path) -> Path:
 
 
 def _strings(locale: str) -> dict:
-    return json.loads(
-        (SITE_DIR / f"strings.{locale}.json").read_text(encoding="utf-8")
-    )
+    return json.loads((SITE_DIR / f"strings.{locale}.json").read_text(encoding="utf-8"))
 
 
 def _details_blocks(html: str) -> list[tuple[str | None, str]]:
@@ -631,6 +750,23 @@ def test_browse_renders_family_grouped_grid(tmp_path):
         assert ">1<" in frozen1_card  # bioactivity rider (1 row)
 
 
+def test_coverage_pages_render_all_family_and_channel_filters(tmp_path):
+    """Coverage appears without JS and family filtering is precomputed."""
+    out = render_fixture(tmp_path)
+    for locale, prefix in (("en", ""), ("zh", "zh/")):
+        analysis = (out / prefix / "analysis" / "index.html").read_text()
+        coverage = (out / prefix / "analysis" / "coverage" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        card = (out / prefix / "channels" / "frozen1" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        assert _strings(locale)["coverage_statistics_title"] in analysis
+        assert _strings(locale)["coverage_scope_all"] in coverage
+        assert "3" in coverage and "2026-11-23" in coverage
+        assert _strings(locale)["coverage_card_title"] in card
+
+
 # --------------------------------------------------------------------------- #
 # Channel card page (fixture)
 # --------------------------------------------------------------------------- #
@@ -650,19 +786,21 @@ def test_card_identity_header_renders_all_eleven_fields(tmp_path):
     assert html.count("(not recorded)") == 4
     assert "None" not in html  # no Python None leaks into the page
 
-    zh = (out / "zh" / "channels" / "frozen1" / "index.html").read_text(encoding="utf-8")
+    zh = (out / "zh" / "channels" / "frozen1" / "index.html").read_text(
+        encoding="utf-8"
+    )
     marker_zh = _strings("zh")["card_not_recorded"]
     assert zh.count(marker_zh) == 4
     assert "<title>FROZEN1 · MAIC-DB</title>" in html
-    assert "<html lang=\"zh\">" in zh
+    assert '<html lang="zh">' in zh
 
 
 def test_card_renders_semantic_external_reference_matrix(tmp_path):
     out = render_fixture(tmp_path)
     for locale, prefix in (("en", ""), ("zh", "zh/")):
-        html = (
-            out / prefix / "channels" / "frozen1" / "index.html"
-        ).read_text(encoding="utf-8")
+        html = (out / prefix / "channels" / "frozen1" / "index.html").read_text(
+            encoding="utf-8"
+        )
         assert html.count(_strings(locale)["card_xref_heading"]) >= 1
         assert "P00000" in html
         assert "SAME_AS" in html
@@ -684,12 +822,12 @@ def test_card_renders_subject_semantic_external_reference_matrices(tmp_path):
 def test_external_reference_pages_render_every_supported_subject(tmp_path):
     out = render_fixture(tmp_path)
     for subject_type in ("channel", "compound", "variant", "structure", "experiment"):
-        en = (
-            out / "references" / subject_type / "index.html"
-        ).read_text(encoding="utf-8")
-        zh = (
-            out / "zh" / "references" / subject_type / "index.html"
-        ).read_text(encoding="utf-8")
+        en = (out / "references" / subject_type / "index.html").read_text(
+            encoding="utf-8"
+        )
+        zh = (out / "zh" / "references" / subject_type / "index.html").read_text(
+            encoding="utf-8"
+        )
         assert _strings("en")["external_references_page_title"] in en
         assert _strings("zh")["external_references_page_title"] in zh
         if subject_type == "channel":
@@ -737,9 +875,9 @@ def test_card_evidence_expansion_hidden_until_expanded(tmp_path):
     The Chinese extractor note renders verbatim in BOTH locales."""
     out = render_fixture(tmp_path)
     for prefix in ("", "zh/"):
-        html = (
-            out / prefix / "channels" / "frozen1" / "index.html"
-        ).read_text(encoding="utf-8")
+        html = (out / prefix / "channels" / "frozen1" / "index.html").read_text(
+            encoding="utf-8"
+        )
         blocks = _details_blocks(html)
         assert len(blocks) == 3  # 2 parameter rows + 1 bioactivity row
         all_inner = "\n".join(inner for _, inner in blocks)
@@ -802,14 +940,14 @@ def test_card_frozen_banner_semantics_fixture(tmp_path):
     )["frozen_layer_disclosure"]
     out = render_fixture(tmp_path)
     for prefix, expected in (("", _SYNTH_DISCLOSURE), ("zh/", zh_disclosure)):
-        frozen = (
-            out / prefix / "channels" / "frozen1" / "index.html"
-        ).read_text(encoding="utf-8")
+        frozen = (out / prefix / "channels" / "frozen1" / "index.html").read_text(
+            encoding="utf-8"
+        )
         assert expected in frozen
         assert not list(affirmative_status_hits(frozen))
-        plain = (
-            out / prefix / "channels" / "plain2" / "index.html"
-        ).read_text(encoding="utf-8")
+        plain = (out / prefix / "channels" / "plain2" / "index.html").read_text(
+            encoding="utf-8"
+        )
         assert _SYNTH_DISCLOSURE not in plain and zh_disclosure not in plain
         assert not list(affirmative_status_hits(plain))
 
@@ -861,7 +999,9 @@ class _StatusScanner(HTMLParser):
                 self.hits.append(f"attr-name:{name}={value}")
             if value.strip().lower() in _AFFIRMATIVE_STATUSES:
                 self.hits.append(f"attr-value:{name}={value}")
-            elif name.lower() in {"class", "id"} and "verified" in value.lower().split():
+            elif (
+                name.lower() in {"class", "id"} and "verified" in value.lower().split()
+            ):
                 self.hits.append(f"badge:{name}={value}")
 
     def handle_data(self, data):
@@ -887,7 +1027,7 @@ def test_status_scanner_rejects_affirmative_forms():
     assert list(affirmative_status_hits('<span class="badge verified">ok</span>'))
     assert list(affirmative_status_hits('<span aria-label="verified">ok</span>'))
     assert list(affirmative_status_hits('<span data-status="verified">ok</span>'))
-    assert list(affirmative_status_hits('<p>Verified</p>'))
+    assert list(affirmative_status_hits("<p>Verified</p>"))
     assert list(affirmative_status_hits("<p>status: verified</p>"))
     # prose legitimately containing the word — passes
     assert not list(affirmative_status_hits("<p>not been re-verified</p>"))
@@ -955,9 +1095,7 @@ def test_db_anchor_ids_equal_measurement_ids_piezo1(tmp_path):
         for r in block["rows"]
         if r["measurement_id"]
     } | {
-        r["measurement_id"]
-        for r in card["bioactivity"]["rows"]
-        if r["measurement_id"]
+        r["measurement_id"] for r in card["bioactivity"]["rows"] if r["measurement_id"]
     }
     assert len(expected) == 160 + 14
     html = (out / "_site" / "channels" / "piezo1" / "index.html").read_text(

@@ -99,8 +99,6 @@ def ensure_evidence_schema(session: Session) -> str:
         checkfirst=True,
     )
     before = session.scalar(select(DbMeta.value).where(DbMeta.key == "schema_version"))
-    if before != EVIDENCE_SCHEMA_VERSION:
-        session.merge(DbMeta(key="schema_version", value=EVIDENCE_SCHEMA_VERSION))
     return str(before or "")
 
 

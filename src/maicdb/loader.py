@@ -94,7 +94,7 @@ __all__ = ["load_vault", "main"]
 FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
 FREEZE_DATE = date(2026, 11, 8)
 FREEZE_TAG = "data-v1.2"
-SCHEMA_VERSION = "0.7.0"
+SCHEMA_VERSION = "0.8.0"
 
 # ---- Canonical channel identity per layer (vault cross_references JSON where
 # ---- available; configs otherwise). organism/taxid: the curated canonical
@@ -737,6 +737,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         manifest["counts"]["unit_conversions"] = sum(
             1 for r in rows if _REPORTED_UNIT_RE.search(r.get("extractor_note") or ""))
 
+        s.commit()
         # ---- db_meta ------------------------------------------------------------
         for k, v in (("schema_version", SCHEMA_VERSION), ("license", "CC-BY-4.0"),
                      ("release_date", FREEZE_DATE.isoformat()),
@@ -752,6 +753,7 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         construct_counts = migrate_construct_links(s)
         structure_function_counts = migrate_structure_function(s)
         s.flush()
+        s.commit()
         compound_relationship_counts = migrate_compound_relationships(
             s.get_bind()
         )

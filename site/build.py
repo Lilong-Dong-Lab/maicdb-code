@@ -247,7 +247,9 @@ def _alt_href(page_dir: str, locale: str) -> str:
     """Language-switcher target: the same page in the other locale tree
     (relative; the template appends the trailing slash)."""
     other = _LOCALES[locale][1]
-    return posixpath.relpath(_tree_prefix(page_dir, other), _tree_prefix(page_dir, locale))
+    return posixpath.relpath(
+        _tree_prefix(page_dir, other), _tree_prefix(page_dir, locale)
+    )
 
 
 def _site_pages(
@@ -285,6 +287,9 @@ def _site_pages(
     audit = json.loads(
         (data_dir / "analysis" / "audit.json").read_text(encoding="utf-8")
     )
+    coverage = json.loads(
+        (data_dir / "analysis" / "coverage.json").read_text(encoding="utf-8")
+    )
     atlas = json.loads(
         (data_dir / "analysis" / "atlas.json").read_text(encoding="utf-8")
     )
@@ -304,7 +309,16 @@ def _site_pages(
     ]
     pages.extend(
         [
-            ("analysis.html", "analysis", {"headlines": headlines}),
+            (
+                "coverage.html",
+                "analysis/coverage",
+                {"coverage": coverage},
+            ),
+            (
+                "analysis.html",
+                "analysis",
+                {"headlines": headlines, "coverage": coverage},
+            ),
             (
                 "audit.html",
                 "analysis/audit",
@@ -330,6 +344,9 @@ def _site_pages(
     reference_pages = json.loads(
         (data_dir / "external-references.json").read_text(encoding="utf-8")
     )
+    coverage_by_channel = {
+        channel["scope_key"]: channel for channel in coverage["channels"]
+    }
     for page in reference_pages:
         pages.append(
             (
@@ -351,7 +368,11 @@ def _site_pages(
                 (
                     "card.html",
                     f"channels/{slug}",
-                    {"card": card, "entry": entry},
+                    {
+                        "card": card,
+                        "entry": entry,
+                        "coverage": coverage_by_channel[entry["gene_symbol"]],
+                    },
                 )
             )
     pages.extend(_construct_pages(data_dir, gene_slugs))
@@ -448,8 +469,7 @@ def _trends_pivots(trends: dict) -> dict:
     for row in trends["parameter_adoption"]:
         per_param.setdefault(row["parameter"], {})[row["year"]] = row["k"]
     adoption_grid = [
-        (label, [per_param.get(label, {}).get(y) for y in years])
-        for label in per_param
+        (label, [per_param.get(label, {}).get(y) for y in years]) for label in per_param
     ]
     return {
         "trends_families": families,
@@ -464,9 +484,7 @@ def _analysis_headlines(
 ) -> dict:
     """Landing-page headline numbers, lifted (not recomputed) from the
     payloads — the page renders payload facts only."""
-    identifiable = [
-        c for c in biophysics["threshold_meta"] if c.get("identifiable")
-    ]
+    identifiable = [c for c in biophysics["threshold_meta"] if c.get("identifiable")]
     return {
         "audit_data_tag": audit["data_freeze_tag"],
         "audit_n_records": audit["n_records"],
@@ -501,6 +519,7 @@ _NAV_FLAGS_by_template = {
     "external-references.html": "parameters",
     "downloads.html": "downloads",
     "analysis.html": "analysis",
+    "coverage.html": "analysis",
     "audit.html": "analysis",
     "atlas.html": "analysis",
     "trends.html": "analysis",
@@ -521,7 +540,9 @@ def _nav_flags(template: str) -> dict[str, bool]:
     }
 
 
-def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) -> list[Path]:
+def render_site(
+    data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path
+) -> list[Path]:
     """Render every page kind into both locale trees under *out_dir*.
 
     Reads ``<data_dir>/index.json``, the per-channel card JSONs and the
@@ -551,7 +572,7 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         name: json.loads(
             (data_dir / "analysis" / f"{name}.json").read_text(encoding="utf-8")
         )
-        for name in ("audit", "biophysics", "atlas", "trends")
+        for name in ("audit", "biophysics", "atlas", "trends", "coverage")
     }
     env = Environment(
         loader=FileSystemLoader(site_dir / "templates"),
@@ -568,7 +589,9 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
         "f3": lambda x: f"{x:.3f}",
     }
     strings = {
-        code: json.loads((site_dir / f"strings.{code}.json").read_text(encoding="utf-8"))
+        code: json.loads(
+            (site_dir / f"strings.{code}.json").read_text(encoding="utf-8")
+        )
         for code in _LOCALES
     }
     pages = _site_pages(index, data_dir, download_files, strings)
@@ -576,9 +599,7 @@ def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) 
     # Curated Chinese content (M3-T-LOC): a presentation-layer overlay —
     # only the ZH tree renders it; the data layer and the EN tree are
     # untouched (spec §6).
-    zh_content = json.loads(
-        (site_dir / "zh-content.json").read_text(encoding="utf-8")
-    )
+    zh_content = json.loads((site_dir / "zh-content.json").read_text(encoding="utf-8"))
     # Cache-busting asset URLs (content hash, deterministic — the
     # byte-stable contract holds): a stylesheet or script edit changes
     # the query string, so a browser holding the previous copy must
@@ -673,9 +694,7 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         # gene_symbol → channel id, the MIMIC badge join key (P7). The
         # analysis module keys blocks by channel id; cards are keyed by
         # gene symbol.
-        gene_ids = dict(
-            conn.execute(select(Channel.gene_symbol, Channel.id)).all()
-        )
+        gene_ids = dict(conn.execute(select(Channel.gene_symbol, Channel.id)).all())
         # Home-scale census (SQL, never transcribed — ticket #38): one
         # measurement = one row across the three fact tables; the
         # publications count is the normalized citation table itself.
@@ -844,8 +863,7 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                     1 for b in card["parameters"].values() if b["n_rows"] > 0
                 ),
                 "parameters": {
-                    name: block["n_rows"]
-                    for name, block in card["parameters"].items()
+                    name: block["n_rows"] for name, block in card["parameters"].items()
                 },
             }
         )
@@ -868,7 +886,9 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
 
     with engine.connect() as conn:
         structure_rows = (
-            list(conn.scalars(select(Structure.maicdb_id).order_by(Structure.maicdb_id)))
+            list(
+                conn.scalars(select(Structure.maicdb_id).order_by(Structure.maicdb_id))
+            )
             if "structure" in set(inspect(conn).get_table_names())
             else []
         )

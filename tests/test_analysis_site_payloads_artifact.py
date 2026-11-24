@@ -92,9 +92,7 @@ def test_audit_payload_census(payloads, engine, census_snapshot):
     key — SELECT COUNT(*) FROM biophysics_experiment)."""
     audit = payloads["audit"]
     with engine.connect() as conn:
-        n = conn.execute(
-            text("SELECT COUNT(*) FROM biophysics_experiment")
-        ).scalar()
+        n = conn.execute(text("SELECT COUNT(*) FROM biophysics_experiment")).scalar()
     assert n == census_snapshot["site_payloads"]["audit_n_records"]
     assert audit["n_records"] == n
     # module-output determinism pin: the mean per-record score (inputs —
@@ -135,9 +133,10 @@ def test_badge_blocks_cross_check_the_scorer(blocks, engine, census_snapshot):
     lose a count."""
     scores = score_all(engine)
     assert len(blocks) == census_snapshot["site_payloads"]["badge_channels"]
-    assert sum(b["n_records"] for b in blocks.values()) == census_snapshot[
-        "site_payloads"
-    ]["badge_record_total"]
+    assert (
+        sum(b["n_records"] for b in blocks.values())
+        == census_snapshot["site_payloads"]["badge_record_total"]
+    )
     assert sum(b["reported"] for b in blocks.values()) == sum(
         s.reported for s in scores
     )
@@ -157,10 +156,7 @@ def test_badge_block_piezo1_anchor(blocks, engine, census_snapshot):
             text("SELECT id FROM channel WHERE gene_symbol = 'PIEZO1'")
         ).scalar()
         n_records = conn.execute(
-            text(
-                "SELECT COUNT(*) FROM biophysics_experiment "
-                "WHERE channel_id = :cid"
-            ),
+            text("SELECT COUNT(*) FROM biophysics_experiment WHERE channel_id = :cid"),
             {"cid": piezo1_id},
         ).scalar()
         n_stim = conn.execute(
@@ -295,10 +291,11 @@ def test_build_emits_analysis_pages_payloads_and_figures(tmp_path, census_snapsh
     out = tmp_path / "out"
     run_build(out)
     site = out / "_site"
-    tracks = {"audit", "biophysics", "atlas", "trends"}
+    tracks = {"coverage", "audit", "biophysics", "atlas", "trends"}
     assert {p.stem for p in (out / "_data" / "analysis").glob("*.json")} == tracks
     pages = [
         "analysis/index.html",
+        "analysis/coverage/index.html",
         "analysis/audit/index.html",
         "analysis/atlas/index.html",
         "analysis/trends/index.html",

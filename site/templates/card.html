@@ -76,6 +76,15 @@
 
   <section class="identity">
     <h2>{{ strings.card_identity_heading }}</h2>
+    {% if coverage is defined %}
+    <section class="channel-coverage-summary">
+      <h3>{{ strings.coverage_card_title }}</h3>
+      <dl>
+        <dt>{{ strings.coverage_evidence_items }}</dt><dd>{{ coverage.totals.evidence_items }}</dd>
+        <dt>{{ strings.coverage_external_references }}</dt><dd>{{ coverage.totals.external_references }}</dd>
+      </dl>
+    </section>
+    {% endif %}
     {# MIMIC badge (P7, spec §8): field-level compliance across this
        channel's records (P2 scoring, ADR-0005 denominators). Channels
        without experiment records carry no block and render no badge. #}

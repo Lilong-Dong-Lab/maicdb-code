@@ -80,9 +80,7 @@ def data_freeze_tag(engine: Engine) -> str:
     ``data_freeze_tag``)."""
     with engine.connect() as conn:
         tag = conn.execute(
-            sql_text(
-                "SELECT value FROM db_meta WHERE key = 'data_freeze_tag'"
-            )
+            sql_text("SELECT value FROM db_meta WHERE key = 'data_freeze_tag'")
         ).scalar()
     return str(tag) if tag is not None else ""
 
@@ -108,16 +106,12 @@ def audit_payload(engine: Engine) -> dict:
     scores = score_all(engine)
     meta = load_meta(engine)
     families = load_families(engine)
-    era = compliance_by_year(
-        scores, {mid: m.year for mid, m in meta.items()}
-    )
+    era = compliance_by_year(scores, {mid: m.year for mid, m in meta.items()})
     with engine.connect() as conn:
         records = [
             dict(r)
             for r in conn.execute(
-                sql_text(
-                    "SELECT * FROM biophysics_experiment ORDER BY maicdb_id"
-                )
+                sql_text("SELECT * FROM biophysics_experiment ORDER BY maicdb_id")
             ).mappings()
         ]
     return {
@@ -128,20 +122,15 @@ def audit_payload(engine: Engine) -> dict:
             "counts, census-anchored; ADR-0005 applicability"
         ),
         "n_records": len(scores),
-        "mean_score": (
-            sum(s.score for s in scores) / len(scores) if scores else None
-        ),
-        "field_totals": {
-            k: _cell_payload(v) for k, v in field_totals(scores).items()
-        },
+        "mean_score": (sum(s.score for s in scores) / len(scores) if scores else None),
+        "field_totals": {k: _cell_payload(v) for k, v in field_totals(scores).items()},
         "heatmap": {
             fam: {k: _cell_payload(c) for k, c in fields.items()}
             for fam, fields in heatmap(scores, families).items()
         },
         "compliance_by_year": {**asdict(era), "piezo_year": PIEZO_YEAR},
         "breakdowns": {
-            key: _rows(breakdown(scores, meta, key))
-            for key in BREAKDOWN_KEYS
+            key: _rows(breakdown(scores, meta, key)) for key in BREAKDOWN_KEYS
         },
         "four_field_audit": asdict(four_field_audit(records)),
     }
@@ -155,10 +144,7 @@ def biophysics_payload(engine: Engine) -> dict:
         ck = {
             str(r["maicdb_id"]): (r["condition_key"] or "")
             for r in conn.execute(
-                sql_text(
-                    "SELECT maicdb_id, condition_key FROM "
-                    "biophysics_experiment"
-                )
+                sql_text("SELECT maicdb_id, condition_key FROM biophysics_experiment")
             ).mappings()
         }
     return {
@@ -219,7 +205,10 @@ def trends_payload(engine: Engine) -> dict:
 
 def analysis_payloads(engine: Engine) -> dict[str, dict]:
     """All four track payloads in one call (the site build's entry)."""
+    from maicdb.analysis.coverage import coverage_payload
+
     return {
+        "coverage": coverage_payload(engine),
         "audit": audit_payload(engine),
         "biophysics": biophysics_payload(engine),
         "atlas": atlas_payload(engine),

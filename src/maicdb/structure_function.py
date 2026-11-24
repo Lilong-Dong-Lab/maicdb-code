@@ -41,7 +41,7 @@ __all__ = [
     "variant_structure_locations",
 ]
 
-STRUCTURE_FUNCTION_SCHEMA_VERSION = "0.5.0"
+STRUCTURE_FUNCTION_SCHEMA_VERSION = "0.7.0"
 STRUCTURE_FUNCTION_DISCLOSURE = (
     "Structure construction mutations are extracted from deposited PDB titles; "
     "residue-level PDB coordinates remain null until SIFTS mappings are curated."
