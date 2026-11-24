@@ -77,6 +77,13 @@ by an Evidence item. The link is many-to-many, so one item can support multiple
 subjects and one subject can cite multiple items.
 _Avoid_: evidence owner, parent row
 
+**Compound-channel relationship**:
+The authoritative row for a compound-channel pair, recording semantic role,
+direction, assay context, concentration-response semantics, and disclosure.
+Legacy `compound.compound_type` is a compatibility and migration signal, not
+the relationship authority.
+_Avoid_: compound role (that is the legacy scalar on `compound`)
+
 **Pin**:
 A frozen expected value a test asserts — the test-side record of a census
 value at a freeze. Generated pins cite the snapshot and the generator

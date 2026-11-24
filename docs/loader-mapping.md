@@ -21,6 +21,11 @@ context. Ticket #100 extracts construction mutations explicitly named by
 deposited PDB titles into UniProt residue records, variant-structure locations,
 and Evidence subjects; PDB residue coordinates remain NULL until a SIFTS-derived
 mapping is added to the vault.
+Ticket #103 materializes one authoritative relationship row per
+`(compound_id, channel_id)` pair observed in `bioactivity`. The row records
+the semantic role, direction, assay context, concentration-response semantics,
+and conflict disclosure. Legacy `compound.compound_type` remains a compatibility
+and migration signal, not the relationship authority.
 
 ## 1. Purpose, inputs, outputs
 
@@ -172,6 +177,14 @@ Corpus kind split: IC50 91 / EC50 21 / KD 13 / KI 8 / PEC50 3 (KB has 0 rows).
 `stimulus_detail` concatenation (spec recommendation);
 `assay_format`/`cell_line`/`target_species` NULL this load (parse deferred).
 Evidence columns as §2. `uq_bioactivity_dedup` respected.
+
+### 3.6.1 `compound_channel_relationship` — schema v0.8 migration
+Relationship rows are derived from the legacy compound role and explicit
+activity-type signals. `AGONIST_ACTIVITY` maps to `ACTIVATOR`, `INHIBITION`
+maps to `INHIBITOR_BLOCKER`; contradictory signals produce `CONFLICT` with a
+disclosure instead of overwriting a legacy classification. Pair-level assay
+contexts are aggregated from distinct non-empty `bioactivity.assay_description`
+values and joined in source order by the deterministic accession sort.
 
 ### 3.7 `variant` — 125 rows (hgvs_short dedup from 197 variant-carrying rows)
 `variant_hgvs_short`→`mutation_short` (dedup key); `position`/`ref_aa`/`alt_aa`

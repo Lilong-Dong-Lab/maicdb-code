@@ -41,6 +41,7 @@ class AccessionPrefix(str, Enum):
     CONSTRUCT = "CN"              # schema v0.4: measured genetic construct
     STRUCTURE_RESIDUE = "RS"      # schema v0.5: UniProt/PDB residue mapping
     STRUCTURE_VARIANT_LOCATION = "SL"  # schema v0.5: variant-structure location
+    COMPOUND_CHANNEL_RELATIONSHIP = "CR"  # schema v0.8
 
 
 #: Zero-padding width of the numeric segment. 5 digits → 99,999 per entity,

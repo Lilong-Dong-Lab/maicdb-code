@@ -447,14 +447,14 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     assert lines[0] == (
         "gene,family,parameter,unit,count,min,median,max,"
         "measurement_ids,evidence_ids,construct_ids,structure_ids,"
-        "external_references,data_layer,note"
+        "external_references,data_layer,parameter_provenance,note"
     )
     assert len(lines) == 14  # header + 13 data rows
     assert FROZEN_LAYER_DISCLOSURE in err_a
     assert "sign convention" in err_a and "as recorded" in err_a
 
     rows = list(csv.reader(lines[1:]))
-    assert all(len(r) == 15 for r in rows)
+    assert all(len(r) == 16 for r in rows)
     assert all(r[13] == "computed" for r in rows)
     # Every counted aggregate row is traceable: ids listed, ;-joined.
     msc_psi = next(r for r in rows if r[0] == "MscL" and r[3] == "psi")

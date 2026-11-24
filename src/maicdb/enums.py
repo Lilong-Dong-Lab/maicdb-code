@@ -58,6 +58,9 @@ __all__ = [
     "StructureSource",
     "ParameterSet",
     "DataLayer",
+    "CompoundChannelRole",
+    "CompoundChannelDirection",
+    "ConcentrationResponseSemantics",
 ]
 
 
@@ -115,6 +118,33 @@ class DataLayer(str, Enum):
     SOURCE_REPORTED = "source_reported"
     CURATED = "curated"
     COMPUTED = "computed"
+
+
+class CompoundChannelRole(str, Enum):
+    """The contextual role of a compound on a channel."""
+
+    ACTIVATOR = "activator"
+    INHIBITOR_BLOCKER = "inhibitor_blocker"
+    POTENTIATOR = "potentiator"
+    ANTAGONIST = "antagonist"
+    UNCLASSIFIED = "unclassified"
+    CONFLICT = "conflict"
+
+
+class CompoundChannelDirection(str, Enum):
+    """The subject direction of a Compound-channel relationship."""
+
+    COMPOUND_TO_CHANNEL = "compound_to_channel"
+    CHANNEL_TO_COMPOUND = "channel_to_compound"
+
+
+class ConcentrationResponseSemantics(str, Enum):
+    """How a compound-channel measurement depends on concentration."""
+
+    FULL_CURVE = "full_curve"
+    SINGLE_POINT = "single_point"
+    ENSEMBLE_AVERAGE = "ensemble_average"
+    NOT_APPLICABLE = "not_applicable"
 
 
 def name_stored_enum(enum_cls: type[Enum]) -> SQLEnum:

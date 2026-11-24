@@ -284,10 +284,7 @@ def all_external_references(engine: Engine) -> list[dict]:
             f"FROM {table} subject "
             "JOIN external_reference_record r ON subject.id = r.id"
         )
-    query = " UNION ALL ".join(queries) + (
-        " ORDER BY subject_type, subject_id, resource, external_id, "
-        "relationship"
-    )
+    query = " UNION ALL ".join(queries) + " ORDER BY 1, 2, 3, 4, 5"
 
     with engine.connect() as connection:
         rows = connection.execute(

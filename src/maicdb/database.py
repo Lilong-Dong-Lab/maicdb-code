@@ -82,7 +82,10 @@ def render_ddl() -> str:
     dialect = sqlite.dialect()
     chunks: list[str] = []
     for table in Base.metadata.sorted_tables:
-        chunks.append(str(CreateTable(table).compile(dialect=dialect)).strip())
+        table_ddl = str(CreateTable(table).compile(dialect=dialect))
+        chunks.append(
+            "\n".join(line.rstrip() for line in table_ddl.splitlines())
+        )
         for index in sorted(table.indexes, key=lambda i: i.name or ""):
             chunks.append(
                 str(CreateIndex(index).compile(dialect=dialect)).strip()

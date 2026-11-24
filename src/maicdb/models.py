@@ -76,6 +76,9 @@ from maicdb.enums import (
     AssayFormat,
     ClinvarSignificance,
     CompoundType,
+    CompoundChannelDirection,
+    CompoundChannelRole,
+    ConcentrationResponseSemantics,
     DataLayer,
     ExternalReferenceRelationship,
     Family,
@@ -119,6 +122,7 @@ __all__ = [
     "ExperimentExternalReference",
     "DataLayerVocabulary",
     "DataLayerInventory",
+    "CompoundChannelRelationship",
     "Publication",
     "UnmappedMeasurement",
     "EvidenceItem",
@@ -1157,6 +1161,60 @@ class Bioactivity(Base):
         )
 
 
+class CompoundChannelRelationship(Base):
+    """The contextual relationship between one compound and one channel."""
+
+    __tablename__ = "compound_channel_relationship"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    compound_id: Mapped[int] = mapped_column(
+        ForeignKey("compound.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[CompoundChannelRole] = mapped_column(
+        name_stored_enum(CompoundChannelRole), nullable=False, index=True
+    )
+    direction: Mapped[CompoundChannelDirection] = mapped_column(
+        name_stored_enum(CompoundChannelDirection), nullable=False
+    )
+    assay_context: Mapped[str | None] = mapped_column(Text)
+    concentration_response: Mapped[
+        ConcentrationResponseSemantics
+    ] = mapped_column(
+        name_stored_enum(ConcentrationResponseSemantics), nullable=False
+    )
+    disclosure: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+
+    compound = relationship(Compound)
+    channel = relationship(Channel)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "compound_id",
+            "channel_id",
+            "role",
+            "direction",
+            name="uq_compound_channel_relationship_semantics",
+        ),
+        CheckConstraint(
+            "assay_context IS NOT NULL "
+            "OR concentration_response = 'NOT_APPLICABLE' "
+            "OR disclosure IS NOT NULL",
+            name="ck_compound_relationship_assay_context",
+        ),
+        CheckConstraint(
+            "role != 'CONFLICT' OR disclosure IS NOT NULL",
+            name="ck_compound_relationship_conflict_disclosure",
+        ),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Disease module
 # --------------------------------------------------------------------------- #
@@ -1323,6 +1381,7 @@ CORE_TABLES = (
     BiophysicsExperiment,
     Compound,
     Bioactivity,
+    CompoundChannelRelationship,
     Variant,
     UnmappedMeasurement,
 )

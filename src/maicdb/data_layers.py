@@ -96,6 +96,27 @@ DATA_LAYER_INVENTORY: tuple[DataLayerEntry, ...] = (
         rule="The formal schema's normalized bioactivity value after curation.",
     ),
     DataLayerEntry(
+        key="bioactivity_card.activity_value_as_reported",
+        surface="bioactivity_card",
+        field="activity_value_as_reported",
+        layer=DataLayer.SOURCE_REPORTED,
+        rule="Serialized from the activity value reported by the frozen source, falling back to the curated activity value when no distinct source cell exists.",
+    ),
+    DataLayerEntry(
+        key="channel_card.conversion_provenance",
+        surface="channel_card",
+        field="conversion_provenance",
+        layer=DataLayer.CURATED,
+        rule="A documented no-conversion or unit-conversion statement derived from the parameter's as-reported pair and normalized value.",
+    ),
+    DataLayerEntry(
+        key="compound_channel_relationship.assay_context",
+        surface="compound_channel_relationship",
+        field="assay_context",
+        layer=DataLayer.CURATED,
+        rule="Normalized from the relationship's legacy compound signal and joined bioactivity assay contexts without silent conflict resolution.",
+    ),
+    DataLayerEntry(
         key="provenance.value",
         surface="provenance",
         field="value",

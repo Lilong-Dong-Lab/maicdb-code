@@ -27,7 +27,7 @@
             {% else %}
             {{ subject.label }}
             {% endif %}
-            {% if subject.detail %}
+            {% if subject.detail is defined %}
             <small>{{ subject.detail }}</small>
             {% endif %}
           </th>

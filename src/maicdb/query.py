@@ -70,6 +70,7 @@ from maicdb.constructs import (
     variant_construct_page,
 )
 from maicdb.data_layers import in_scope_entry
+from maicdb.parameter_provenance import relationships_for_bioactivity
 from maicdb.structure_function import (
     structure_function_page,
     variant_structure_locations,
@@ -573,6 +574,26 @@ def _data_layers(*keys: str) -> dict[str, str]:
     return {key.split(".")[-1]: in_scope_entry(key).layer.value for key in keys}
 
 
+def _conversion_provenance(
+    value, unit, value_as_reported, unit_as_reported
+) -> str:
+    if value_as_reported is None and unit_as_reported is None:
+        return "source-reported pair not recorded for this parameter"
+    source = f"{value_as_reported} {unit_as_reported or ''}".strip()
+    normalized = f"{value} {unit or ''}".strip()
+    try:
+        same_value = value is not None and float(value_as_reported) == float(
+            value
+        )
+    except (TypeError, ValueError):
+        same_value = False
+    source_unit = (unit_as_reported or "").replace(" ", "").casefold()
+    normalized_unit = (unit or "").replace(" ", "").casefold()
+    if same_value and source_unit == normalized_unit:
+        return "none; source value and unit retained"
+    return f"converted {source} to {normalized}; sources and normalized values are retained"
+
+
 def channel_card(
     engine: Engine, gene: str, parameters: list[str] | None = None
 ) -> dict:
@@ -627,6 +648,7 @@ def channel_card(
                 experiment_ids,
             )
             for index, r in enumerate(rows):
+                experiment_id = r.pop("id")
                 # Normalize column names to the card vocabulary: the value
                 # column is always "value", the unit column always "unit"
                 # (plain str — value-stored enum members render as "mmHg").
@@ -640,7 +662,19 @@ def channel_card(
                     "channel_card.unit_as_reported",
                     "channel_card.value",
                 )
-                experiment_id = r.pop("id")
+                r["parameter_provenance"] = {
+                    "value_as_reported": r["value_as_reported"],
+                    "unit_as_reported": r["unit_as_reported"],
+                    "conversion": _conversion_provenance(
+                        r["value"],
+                        r["unit"],
+                        r["value_as_reported"],
+                        r["unit_as_reported"],
+                    ),
+                    "evidence_ids": [
+                        item["maicdb_id"] for item in evidence[experiment_id]
+                    ],
+                }
                 r["evidence"] = evidence[experiment_id]
                 r["constructs"] = constructs[experiment_id]
                 if not r["evidence"]:
@@ -702,8 +736,9 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
                     Bioactivity.relation,
                     Bioactivity.source_db,
                     Bioactivity.assay_description,
-                    Compound.id.label("compound_id"),
                     *(getattr(Bioactivity, c) for c in _EVIDENCE_COLUMNS),
+                    Compound.id.label("compound_id"),
+                    Bioactivity.channel_id,
                 )
                 .join(Channel, Bioactivity.channel_id == Channel.id)
                 .join(Compound, Bioactivity.compound_id == Compound.id)
@@ -714,9 +749,19 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
         evidence = normalized_evidence(
             engine, EvidenceSubjectType.BIOACTIVITY, [row["id"] for row in rows]
         )
+        fact_pairs = [(row["compound_id"], row["channel_id"]) for row in rows]
+        relationships = relationships_for_bioactivity(engine, fact_pairs)
         for row in rows:
             row["evidence"] = evidence[row["id"]]
             row["data_layers"] = _data_layers("bioactivity_card.activity_value")
+            row["parameter_provenance"] = {
+                "activity_value_as_reported": row["activity_value"],
+                "activity_units_as_reported": row["activity_units"],
+                "conversion": "none; source units retained",
+                "evidence_ids": [
+                    item["maicdb_id"] for item in row["evidence"]
+                ],
+            }
             row.pop("id")
             if not row["evidence"]:
                 row["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
@@ -724,6 +769,8 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
             r["activity_type"] = _enum_name(r["activity_type"])
             r["source_db"] = _enum_name(r["source_db"])
             compound_id = r.pop("compound_id")
+            channel_id = r.pop("channel_id")
+            r["relationship"] = relationships[(compound_id, channel_id)]
             r["external_references"] = external_references_for_subject(
                 conn, "compound", compound_id
             )
@@ -932,6 +979,14 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     "data_layer": in_scope_entry(
                         "parameter_comparison.value_statistics"
                     ).layer.value,
+                    "parameter_provenance": {
+                        "conversion": (
+                            "aggregates combine normalization-stable "
+                            "values; per-row conversion provenance is "
+                            "exposed by channel_card"
+                        ),
+                    "evidence_ids": sum((pair[3] for pair in pairs), []),
+                    },
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)
@@ -953,6 +1008,13 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "data_layer": in_scope_entry(
                     "parameter_comparison.value_statistics"
                 ).layer.value,
+                "parameter_provenance": {
+                    "conversion": (
+                        "no normalized parameter rows underlie this entity "
+                        "and parameter"
+                    ),
+                    "evidence_ids": [],
+                },
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -1044,6 +1106,7 @@ _EXPORT_COLUMNS = (
     "structure_ids",
     "external_references",
     "data_layer",
+    "parameter_provenance",
     "note",
 )
 

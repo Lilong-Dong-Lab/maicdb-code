@@ -145,6 +145,12 @@
             {% endif %}
             {{ evidence_dl(r) }}
             {{ external_reference_table(r.external_references) }}
+            {% if r.parameter_provenance is defined %}
+            <dl class="parameter-provenance">
+              <dt>{{ strings.card_conversion_provenance }}</dt><dd>{{ r.parameter_provenance.conversion }}</dd>
+              <dt>{{ strings.card_ev_item }}</dt><dd>{{ r.parameter_provenance.evidence_ids | join(", ") or strings.card_not_recorded }}</dd>
+            </dl>
+            {% endif %}
           </details>
         </li>
         {% endfor %}
@@ -171,6 +177,24 @@
             <span class="compound">{{ r.compound_name }}</span>
             <span class="val">{{ r.activity_type }}{% if r.relation %} {{ r.relation }}{% endif %}{% if r.activity_value is not none %} {{ r.activity_value }}{% endif %}{% if r.activity_units %} {{ r.activity_units }}{% endif %}</span>
           </summary>
+          {% if r.relationship is defined and r.relationship %}
+          <dl class="compound-relationship">
+            <dt>{{ strings.card_relationship_role }}</dt><dd>{{ r.relationship.role }}</dd>
+            <dt>{{ strings.card_relationship_direction }}</dt><dd>{{ r.relationship.direction }}</dd>
+            <dt>{{ strings.card_relationship_assay }}</dt><dd>{{ r.relationship.assay_context or strings.card_not_recorded }}</dd>
+            <dt>{{ strings.card_relationship_concentration }}</dt><dd>{{ r.relationship.concentration_response }}</dd>
+            {% if r.relationship.disclosure %}
+            <dt>{{ strings.card_relationship_disclosure }}</dt><dd>{{ r.relationship.disclosure }}</dd>
+            {% endif %}
+          </dl>
+          {% endif %}
+          {% if r.parameter_provenance is defined %}
+          <dl class="parameter-provenance">
+            <dt>{{ strings.card_as_reported_prefix }}</dt><dd>{{ r.parameter_provenance.activity_value_as_reported if r.parameter_provenance.activity_value_as_reported is not none else strings.card_not_recorded }} {{ r.parameter_provenance.activity_units_as_reported or '' }}</dd>
+            <dt>{{ strings.card_conversion_provenance }}</dt><dd>{{ r.parameter_provenance.conversion }}</dd>
+            <dt>{{ strings.card_ev_item }}</dt><dd>{{ r.parameter_provenance.evidence_ids | join(", ") or strings.card_not_recorded }}</dd>
+          </dl>
+          {% endif %}
           {{ evidence_dl(r, assay=true) }}
           {{ external_reference_table(r.external_references) }}
         </details>

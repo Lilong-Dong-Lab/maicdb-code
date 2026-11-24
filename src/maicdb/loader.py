@@ -60,6 +60,10 @@ from maicdb.constructs import (
     migrate_construct_links,
 )
 from maicdb.data_layers import seed_data_layer_contract
+from maicdb.parameter_provenance import (
+    COMPOUND_RELATIONSHIP_DISCLOSURE,
+    migrate_compound_relationships,
+)
 from maicdb.structure_function import (
     STRUCTURE_FUNCTION_DISCLOSURE,
     migrate_structure_function,
@@ -747,6 +751,10 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         }
         construct_counts = migrate_construct_links(s)
         structure_function_counts = migrate_structure_function(s)
+        s.flush()
+        compound_relationship_counts = migrate_compound_relationships(
+            s.get_bind()
+        )
         manifest["counts"]["variant"] += structure_function_counts[
             "variants_created"
         ]
@@ -787,9 +795,16 @@ def load_vault(vault: Path, out_sqlite: Path, require_tag: str | None = FREEZE_T
         manifest["counts"]["data_layer_inventory"] = data_layer_counts[
             "inventory_rows"
         ]
+        manifest["counts"]["compound_channel_relationship"] = (
+            compound_relationship_counts["relationships_created"]
+        )
+        manifest["counts"]["compound_relationship_migration"] = (
+            compound_relationship_counts
+        )
         manifest["disclosures"].append(AUTHORITATIVE_EVIDENCE_DISCLOSURE)
         manifest["disclosures"].append(SCHEMA_TRANSITION_DISCLOSURE)
         manifest["disclosures"].append(STRUCTURE_FUNCTION_DISCLOSURE)
+        manifest["disclosures"].append(COMPOUND_RELATIONSHIP_DISCLOSURE)
         s.commit()
 
     # ---- conservation asserts (spec §4) ------------------------------------
