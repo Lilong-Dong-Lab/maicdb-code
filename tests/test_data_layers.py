@@ -5,10 +5,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import shutil
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import Engine
@@ -24,7 +22,6 @@ from maicdb.data_layers import (
     migrate_data_layers,
 )
 from maicdb.enums import DataLayer
-from maicdb.external_references import migrate_external_references
 from maicdb.models import DataLayerInventory, DataLayerVocabulary
 from maicdb.query import (
     bioactivity_card,
@@ -277,27 +274,24 @@ def test_migration_rejects_partial_inventory_without_writing(engine):
 
 
 @requires_db
-def test_artifact_migration_contract_and_published_bytes_unchanged(tmp_path):
+def test_published_artifact_inventory_contract_and_bytes_unchanged():
     original_hash = hashlib.sha256(DB_PATH.read_bytes()).hexdigest()
-    copied = tmp_path / "maicdb.sqlite"
-    shutil.copyfile(DB_PATH, copied)
-    artifact_engine = create_engine(f"sqlite:///{copied}")
-    reference_result = migrate_external_references(artifact_engine)
-    migrate_data_layers(artifact_engine)
-    with artifact_engine.connect() as connection:
-        rows = connection.execute(
-            text(
-                "SELECT key, surface, field, layer, rule "
-                "FROM data_layer_inventory ORDER BY key"
-            )
-        ).mappings().all()
-        schema_version = connection.execute(
-            text("SELECT value FROM db_meta WHERE key = 'schema_version'")
-        ).scalar_one()
-    artifact_engine.dispose()
+    engine = open_readonly(DB_PATH)
+    try:
+        with engine.connect() as connection:
+            schema_version = connection.execute(
+                text("SELECT value FROM db_meta WHERE key = 'schema_version'")
+            ).scalar_one()
+            rows = connection.execute(
+                text(
+                    "SELECT key, surface, field, layer, rule "
+                    "FROM data_layer_inventory ORDER BY key"
+                )
+            ).mappings().all()
+    finally:
+        engine.dispose()
 
-    assert reference_result["schema_version_after"] == "0.6.0"
-    assert schema_version == DATA_LAYER_SCHEMA_VERSION
+    assert schema_version == "0.8.0"
     assert [tuple(row.values()) for row in rows] == [
         (entry.key, entry.surface, entry.field, entry.layer.name, entry.rule)
         for entry in sorted(DATA_LAYER_INVENTORY, key=lambda entry: entry.key)

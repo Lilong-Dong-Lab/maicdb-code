@@ -62,7 +62,7 @@ jobs:
         # above brings the tag). A count drift fails the pin on purpose;
         # scripts/check-suite-matrix.sh re-derives both signatures by
         # execution — run it instead of doing pin arithmetic by hand.
-        # Local with-vault reference: 465 passed (execution-derived 2026-11-24 by scripts/check-suite-matrix.sh at 157f57d. See KNOWN-QUIRKS quirk 3).
+        # Local with-vault reference: 458 passed; 466 tests collect (execution-derived 2026-11-25 by the final v0.8 artifact suite. See KNOWN-QUIRKS quirk 3).
         run: |
           set -o pipefail
           PYTHONPATH=src uv run pytest tests/ -q 2>&1 | tee pytest-summary.txt

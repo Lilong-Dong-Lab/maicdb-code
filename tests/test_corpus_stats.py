@@ -134,7 +134,7 @@ def test_corpus_counts_and_scale(tmp_path):
         "publication": 216,
         "compound": 86,
         "variant": 135,
-        "external_reference": 6,
+        "external_reference": 987,
     }
     assert stats["year_range"] == [1986, 2026]
 

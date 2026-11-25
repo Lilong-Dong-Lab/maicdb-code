@@ -113,7 +113,7 @@ Every number is a query result; no value is transcribed by hand.
 | biophysics_experiment | 960 |
 | channel | 12 |
 | compound | 86 |
-| external_reference | 6 |
+| external_reference | 987 |
 | publication | 216 |
 | unmapped_measurement | 28 |
 | variant | 135 |

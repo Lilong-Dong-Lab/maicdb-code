@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 from pathlib import Path
 
 import pytest
@@ -422,17 +421,27 @@ def test_migration_reuses_global_record_for_shared_semantic_reference(engine):
 
 
 @pytest.mark.skipif(not ARTIFACT.exists(), reason="published artifact missing")
-def test_artifact_migration_counts_disclosure_and_published_bytes_unchanged(tmp_path):
+def test_published_artifact_semantic_rows_and_bytes_unchanged():
     original_hash = hashlib.sha256(ARTIFACT.read_bytes()).hexdigest()
-    copied = tmp_path / "maicdb.sqlite"
-    shutil.copyfile(ARTIFACT, copied)
     from maicdb.database import make_engine
 
-    engine = make_engine(f"sqlite:///{copied}")
-    result = migrate_external_references(engine)
-    assert result["legacy_rows_examined"] == 6
-    assert result["semantic_rows_created"] == 6
-    assert result["missing_applicable_versions"] == 2
+    engine = make_engine(f"sqlite:///{ARTIFACT}")
+    try:
+        with engine.connect() as connection:
+            semantic_links = connection.execute(
+                text("SELECT COUNT(*) FROM external_reference")
+            ).scalar_one()
+            versioned_missing = connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM external_reference "
+                    "WHERE resource IN ('CHEMBL_TARGET', 'CHEMBL_MOLECULE', "
+                    "'PUBCHEM') AND external_version IS NULL"
+                )
+            ).scalar_one()
+    finally:
+        engine.dispose()
+    assert semantic_links == 987
+    assert versioned_missing == 2
     assert hashlib.sha256(ARTIFACT.read_bytes()).hexdigest() == original_hash
 
 

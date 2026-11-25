@@ -139,4 +139,4 @@ def test_frozen_corpus_structure_function_census():
         "evidence_subject": 4,
     }
     assert pdb_evidence == 4
-    assert schema_version == "0.5.0"
+    assert schema_version == "0.8.0"

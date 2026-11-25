@@ -7,6 +7,8 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+from tests.test_site_build import requires_db
+
 from maicdb.analysis.coverage import coverage_payload
 from maicdb.enums import EvidenceReviewState, EvidenceSubjectType, EvidenceType
 from maicdb.models import (
@@ -159,38 +161,13 @@ def test_coverage_build_is_deterministic(tmp_path):
     assert first == second
 
 
-def test_artifact_census_covers_migrated_dependent_tables(tmp_path):
-    import shutil
-
-    from sqlalchemy.orm import Session
-
-    from maicdb.constructs import migrate_construct_links
-    from maicdb.database import make_engine
-    from maicdb.data_layers import migrate_data_layers
-    from maicdb.evidence import (
-        migrate_bioactivity_evidence,
-        migrate_biophysics_evidence,
-        migrate_unmapped_evidence,
-    )
-    from maicdb.external_references import migrate_external_references
-    from maicdb.parameter_provenance import migrate_compound_relationships
-    from maicdb.structure_function import migrate_structure_function
+@requires_db
+def test_artifact_census_covers_migrated_dependent_tables():
     from maicdb.analysis.coverage import NO_CORE_SCHEMA_CHANGE_DISCLOSURE
+    from maicdb.query import open_readonly
 
-    copied = tmp_path / "maicdb.sqlite"
-    shutil.copyfile(DB_PATH, copied)
-    engine = make_engine(f"sqlite:///{copied}")
+    engine = open_readonly(DB_PATH)
     try:
-        with Session(engine) as session:
-            migrate_bioactivity_evidence(session)
-            migrate_biophysics_evidence(session)
-            migrate_unmapped_evidence(session)
-            migrate_construct_links(session)
-            migrate_structure_function(session)
-        migrate_external_references(engine)
-        migrate_data_layers(engine)
-        migrate_compound_relationships(engine)
-
         payload = coverage_payload(engine)
     finally:
         engine.dispose()
@@ -207,7 +184,7 @@ def test_artifact_census_covers_migrated_dependent_tables(tmp_path):
         "variants": 135,
         "structures": 12,
         "evidence_items": 1129,
-        "external_references": 6,
+        "external_references": 987,
     }
     assert payload["all"]["review"]["total"] == 1125
     assert payload["all"]["linkage"]["experiments_to_variants"] == 200

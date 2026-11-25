@@ -1404,6 +1404,34 @@ INSERT INTO "channel" VALUES(9,'MAIC:CH:00009','TRESK','["tresk", "kcnk18", "k2p
 INSERT INTO "channel" VALUES(10,'MAIC:CH:00010','TRAAK','["traak", "kcnk4", "k2p4.1", "tandem pore domain potassium channel"]','Q9NYG8',NULL,'Homo sapiens',9606,NULL,NULL,NULL,'K2P','FORCE_FROM_LIPIDS',NULL,'TRAAK',NULL,'UNIPROT','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "channel" VALUES(11,'MAIC:CH:00011','TREK-1','["trek-1", "trek1", "kcnk2", "k2p2.1", "tandem pore domain potassium channel"]','O95069',NULL,'Homo sapiens',9606,NULL,NULL,NULL,'K2P','FORCE_FROM_LIPIDS',NULL,'TREK-1',NULL,'UNIPROT','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "channel" VALUES(12,'MAIC:CH:00012','TREK-2','["trek-2", "trek2", "kcnk10", "k2p10.1", "tandem pore domain potassium channel"]','P57789',NULL,'Homo sapiens',9606,NULL,NULL,NULL,'K2P','FORCE_FROM_LIPIDS',NULL,'TREK-2',NULL,'UNIPROT','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
+CREATE TABLE channel_external_reference (
+	id INTEGER NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, channel_id), 
+	CONSTRAINT uq_channel_external_reference_semantics UNIQUE (resource, external_id, relationship, channel_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+);
+INSERT INTO "channel_external_reference" VALUES(1,1,'UNIPROT','Q92508','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(2,1,'CHEMBL_TARGET','CHEMBL5169186','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(3,1,'CHEMBL_TARGET','CHEMBL5169095','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(4,2,'UNIPROT','Q9H5J5','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(5,3,'UNIPROT','Q9HBA0','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(6,5,'UNIPROT','P0C0S1','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(7,6,'UNIPROT','P0A742','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(8,7,'UNIPROT','O94886','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(9,7,'UNIPROT','Q5T3F8','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(10,7,'UNIPROT','Q9P1W3','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(11,7,'UNIPROT','Q9XEA1','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(12,9,'UNIPROT','Q7Z418','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(13,10,'UNIPROT','Q9NYG8','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(14,11,'UNIPROT','O95069','SAME_AS');
+INSERT INTO "channel_external_reference" VALUES(15,12,'UNIPROT','P57789','SAME_AS');
 CREATE TABLE compound (
 	id INTEGER NOT NULL, 
 	maicdb_id VARCHAR(24) NOT NULL, 
@@ -1526,6 +1554,114 @@ INSERT INTO "compound" VALUES(83,'MAIC:CP:00083','sipatrigine',NULL,NULL,NULL,NU
 INSERT INTO "compound" VALUES(84,'MAIC:CP:00084','spermine (extracellular polyamine)',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'POTENTIATOR',NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "compound" VALUES(85,'MAIC:CP:00085','trehalose',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'ANTAGONIST',NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "compound" VALUES(86,'MAIC:CP:00086','verapamil',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'INHIBITOR_BLOCKER',NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
+CREATE TABLE compound_channel_relationship (
+	id INTEGER NOT NULL, 
+	maicdb_id VARCHAR(24) NOT NULL, 
+	compound_id INTEGER NOT NULL, 
+	channel_id INTEGER NOT NULL, 
+	role VARCHAR(17) NOT NULL, 
+	direction VARCHAR(19) NOT NULL, 
+	assay_context TEXT, 
+	concentration_response VARCHAR(16) NOT NULL, 
+	disclosure TEXT, 
+	created_at DATETIME NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_compound_channel_relationship_semantics UNIQUE (compound_id, channel_id, role, direction), 
+	CONSTRAINT ck_compound_relationship_assay_context CHECK (assay_context IS NOT NULL OR concentration_response = 'NOT_APPLICABLE' OR disclosure IS NOT NULL), 
+	CONSTRAINT ck_compound_relationship_conflict_disclosure CHECK (role != 'CONFLICT' OR disclosure IS NOT NULL), 
+	UNIQUE (maicdb_id), 
+	FOREIGN KEY(compound_id) REFERENCES compound (id) ON DELETE CASCADE, 
+	FOREIGN KEY(channel_id) REFERENCES channel (id) ON DELETE CASCADE, 
+	CONSTRAINT compoundchannelrole CHECK (role IN ('ACTIVATOR', 'INHIBITOR_BLOCKER', 'POTENTIATOR', 'ANTAGONIST', 'UNCLASSIFIED', 'CONFLICT')), 
+	CONSTRAINT compoundchanneldirection CHECK (direction IN ('COMPOUND_TO_CHANNEL', 'CHANNEL_TO_COMPOUND')), 
+	CONSTRAINT concentrationresponsesemantics CHECK (concentration_response IN ('FULL_CURVE', 'SINGLE_POINT', 'ENSEMBLE_AVERAGE', 'NOT_APPLICABLE'))
+);
+INSERT INTO "compound_channel_relationship" VALUES(1,'MAIC:CR:00001',1,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','(R)-(+)-WIN 55,212–2 mesylate IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(2,'MAIC:CR:00002',2,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','(Z)-Gugglesterone IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(3,'MAIC:CR:00003',3,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','(±)-Octoclothepin maleate IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(4,'MAIC:CR:00004',4,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 of compound 16-18 against GSK101-induced Ca2+ influx (rat TRPV4, N2a) | GSK1016790A (5 nM) TRPV4 activation challenge; antagonist concentration series','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(5,'MAIC:CR:00005',5,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 of compound 16-19 against GSK101-induced Ca2+ influx (rat TRPV4, N2a) | GSK1016790A (5 nM) TRPV4 activation challenge; antagonist concentration series','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(6,'MAIC:CR:00006',6,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 of compound 16-8 against GSK101-induced Ca2+ influx (rat TRPV4, N2a) | GSK1016790A (5 nM) TRPV4 activation challenge; antagonist concentration series','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(7,'MAIC:CR:00007',8,3,'ACTIVATOR','COMPOUND_TO_CHANNEL','pEC50 (4α-PDD, Ca2+ influx) | pEC50 (4α-PDD, current activation)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(8,'MAIC:CR:00008',9,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','8-(3-chlorostyryl)caffeine IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(9,'MAIC:CR:00009',10,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 of A2 (bithiazole) inhibiting endogenous mTRPV4 (primary mouse keratinocytes, Ca2+ imaging) | A2 concentration series inhibiting 300 nM GSK101-evoked endogenous TRPV4 current; Fura-2 Ca2+ imaging | IC50 of A2 (bithiazole) inhibiting hTRPV4 (CHO, whole-cell patch-clamp) | A2 concentration series inhibiting 10 nM GSK101-evoked hTRPV4 current; whole-cell patch-clamp, +60 mV step | IC50 of A2 (bithiazole) inhibiting mTRPV4 (CHO, whole-cell patch-clamp) | A2 concentration series inhibiting 10 nM GSK101-evoked mTRPV4 current; whole-cell patch-clamp, +60 mV step','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(10,'MAIC:CR:00010',11,4,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','APETx2 IC50 for endogenous ASIC3-like current in rat DRG sensory neurons (mean of per-neuron fits) | APETx2 applied before pH drop; activation at pH 6.3 or pH 5 (same effect, not shown) | APETx2 IC50 for inhibition of heteromeric ASIC1a+3 peak current (COS, n_H=0.9) | APETx2 perfused 30 s before pH drop from 7.4 to 6.0 | APETx2 IC50 for inhibition of heteromeric ASIC1b+3 peak current (COS, n_H=0.9) | APETx2 perfused 30 s before pH drop from 7.4 to 6.0 | APETx2 IC50 for inhibition of heteromeric ASIC2b+3 peak current (COS, n_H=1) | APETx2 perfused 30 s before pH drop from 7.4 to 6.0; peak component inhibited (plateau at +30 mV unaffected) | APETx2 IC50 for inhibition of human ASIC3 peak current (COS cells, n_H=1) | APETx2 perfused 30 s before pH drop (standard protocol, pH 7.4→6) | APETx2 IC50 for inhibition of rat ASIC3 peak current (oocytes + COS, Hill fit n_H=1) | APETx2 perfused 30 s before pH drop from 7.4 to 6.0','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(11,'MAIC:CR:00011',12,4,'POTENTIATOR','COMPOUND_TO_CHANNEL','Big Dynorphin EC50 (mASIC2a/1a heteromer, Hill fit per cell) | peptide applied 2 min before conditioning pH and 2 min at conditioning pH; pH 4.5 test pulses from basal pH 7.9 | Big Dynorphin EC50 (mASIC2b/1a heteromer, Hill fit per cell) | peptide applied 2 min before conditioning pH and 2 min at conditioning pH; pH 4.5 test pulses from basal pH 7.9 | Big Dynorphin EC50 for limiting steady-state desensitization (mASIC1a homomer, Hill fit per cell) | peptide applied 2 min before conditioning pH and 2 min at conditioning pH; pH 4.5 test pulses from basal pH 7.9','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(12,'MAIC:CR:00012',13,3,'ACTIVATOR','COMPOUND_TO_CHANNEL','EC50 of DMAPP-induced Ca2+ response (mouse TRPV4 in HEK293T) | DMAPP (dimethylallyl pyrophosphate) concentration series; sigmoidal dose-response fit (Hill coefficient 2.0)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(13,'MAIC:CR:00013',15,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Dihydro-beta-erythroidine hydrobromide IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(14,'MAIC:CR:00014',16,11,'ACTIVATOR','COMPOUND_TO_CHANNEL','FCCP EC50 (protonophore activation of TREK-1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(15,'MAIC:CR:00015',18,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','GBR-12909 dihydrochloride IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(16,'MAIC:CR:00016',19,3,'ACTIVATOR','COMPOUND_TO_CHANNEL','EC50 of GSK1016790A activating hTRPV4 (CHO, whole-cell patch-clamp, ±60 mV) | GSK1016790A concentration series activating hTRPV4; whole-cell patch-clamp, ±60 mV steps | EC50 of GSK1016790A-induced Ca2+ influx (WT mouse lung fibroblasts) | GSK1016790A (TRPV4-selective agonist) concentration series | EC50 of GSK1016790A-induced Ca2+ influx (mouse TRPV4 in HeLa) | GSK1016790A concentration series (1, 3, 5, 10, 20, 100 nM); sigmoidal dose-response fit (SigmaPlot) | EC50 of GSK1016790A-induced Ca2+ response (mouse MC3T3-E1 osteoblasts) | GSK1016790A concentration series; Fura-2 ratiometric Ca2+ imaging dose-response | EC50 of GSK1016790A-induced Ca2+ response (mouse ciliary NPE) | GSK1016790A concentration series; Ca2+ response dose-response fit | EC50 of GSK1016790A-induced TRPV4 Ca2+ whole-cell event frequency (primary human microvascular endothelial cells, TIRFM) | GSK1016790A concentration series (0.1 nM-1 µM); TIRFM Fluo-4 Ca2+ whole-cell event-frequency readout; four-parameter logistic fit (Fig. 2d) | EC50 of GSK1016790A-induced TRPV4 cytoplasmic aggregation (TRPV4-Venus, HEK293 T-REx) | GSK1016790A concentration series; BRET readout of TRPV4-Venus cytoplasmic aggregation | GSK101 EC50 for [Ca2+]MC elevation (Müller glia) | GSK101 dose-response (sigmoidal fit); EC50 reported as ~16 nM | GSK1016790A EC50 on endogenous human TRPV4 in HaCaT keratinocytes | Fura-2 ratiometric Ca2+ imaging; GSK1016790A added at 20 s; readings every 6 s for 240 s | pD2 of GSK1016790A-induced dilation (WT PCA segments) | cumulative GSK1016790A concentration-response (10^-11 to 10^-5 M) on pre-constricted PCA','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(17,'MAIC:CR:00017',20,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 of GSK205 (parent) against GSK101-induced Ca2+ influx (rat TRPV4, N2a) | GSK1016790A (5 nM) TRPV4 activation challenge; antagonist concentration series','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(18,'MAIC:CR:00018',21,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','GSK2193874 IC50 against GSK1016790A-evoked Ca2+ influx in NCI-H292 cells (FLIPR Calcium 6 assay) | TRPV4 agonist GSK1016790A (2 nM) calcium influx challenge','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(19,'MAIC:CR:00019',22,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 of GSK3527497 (A1) inhibiting endogenous mTRPV4 (primary mouse keratinocytes, Ca2+ imaging) | GSK3527497 (A1) concentration series inhibiting 300 nM GSK101-evoked endogenous TRPV4 current; Fura-2 Ca2+ imaging | IC50 of GSK3527497 (A1) inhibiting hTRPV4 (CHO, whole-cell patch-clamp) | GSK3527497 (A1) concentration series inhibiting 10 nM GSK101-evoked hTRPV4 current; whole-cell patch-clamp, +60 mV step | IC50 of GSK3527497 (A1) inhibiting mTRPV4 (CHO, whole-cell patch-clamp) | GSK3527497 (A1) concentration series inhibiting 10 nM GSK101-evoked mTRPV4 current; whole-cell patch-clamp, +60 mV step','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(20,'MAIC:CR:00020',23,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','GW2974 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(21,'MAIC:CR:00021',25,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','GsMTx4 half-blocking concentration IC50 (WT OHC, cochlear apex) | hair bundles driven by a glass stylus on a piezoelectric stack actuator (rise ~100 µs; 30 nm/V calibration) or by a 40-Hz sinusoidal fluid jet; bundle motion monitored on a photodiode pair; experiments at 21-24°C | GsMTx4 half-blocking concentration IC50 (WT OHC, cochlear base) | hair bundles driven by a glass stylus on a piezoelectric stack actuator (rise ~100 µs; 30 nm/V calibration) or by a 40-Hz sinusoidal fluid jet; bundle motion monitored on a photodiode pair; experiments at 21-24°C','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(22,'MAIC:CR:00022',26,5,'POTENTIATOR','COMPOUND_TO_CHANNEL','effective Kd of GsMTx4 (midpoint-shift dose-response) | 1-s linear pressure ramps + 30-s pressure steps from a high-speed pressure clamp (ALA HSPC-1); GsMTx4 applied to the cytoplasmic (bath) side in 5 uM steps, 5 min equilibration','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(23,'MAIC:CR:00023',27,1,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','equilibrium binding constant of GsMTx4 on Piezo1 | steady 40 mmHg pressure at depolarized potentials (minimize inactivation); GsMTx4 perfusion step (rise time ~100 ms)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(24,'MAIC:CR:00024',28,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','HC-067047 IC50 (endogenous TRPV4, mouse urothelial cells) | 4alpha-PDH 1 uM Ca2+ response | HC-067047 IC50 (human TRPV4) | 4α-PDD-activated inward current (-80 mV) | HC-067047 IC50 (mouse TRPV4) | 4α-PDD-activated inward current (-80 mV) | HC-067047 IC50 (rat TRPV4) | 4α-PDD-activated inward current (-80 mV) | HC-067047 IC50 against 100 nM GSK1016790A on endogenous human TRPV4 in HaCaT | 15-min pretreatment with HC-067047 before GSK1016790A challenge; antagonist retained throughout | IC50 of HC-067047 against hypotonicity-induced ATP release (porcine lens epithelium) | HC-067047 concentration series against hypotonicity-evoked ATP release | IC50 of HC-067047 against swelling-/GSK101-evoked Ca2+ (mouse ciliary NPE) | HC-067047 concentration series against hypotonic- or GSK101-evoked Ca2+ response | IC50 of HC-067047 blocking GSK-induced Ca2+ influx (WT mouse lung fibroblasts) | HC-067047 concentration series against GSK1016790A (10 nM)-evoked Ca2+ influx','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(25,'MAIC:CR:00025',29,4,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Hi1a inhibition of homomeric hASIC1a (peak pH 6.0 current) | pH drop from 7.45 to 6.00 every 60 s (microperfusion); toxin applied at pH 7.45 | Hi1a inhibition of homomeric rASIC1a (peak pH 6.0 current) | pH drop from 7.45 to 6.00 every 60 s (microperfusion); toxin applied at pH 7.45','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(26,'MAIC:CR:00026',30,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','JWH-015 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(27,'MAIC:CR:00027',31,1,'ACTIVATOR','COMPOUND_TO_CHANNEL','EC50 (Jedi1, mPiezo1 Ca2+ dose-response) | FLIPR 96-well GCAMP6s Ca2+ imaging dose-response; curve fitted with Boltzmann equation; vector-transfected signal subtracted; n=4 wells per dose point (recording_mode/stimulus_type = OTHER: non-electrophysiological Ca2+ imaging) | Kd (Jedi1 binding to purified mPiezo1, SPR) | surface plasmon resonance (SPR) affinity-mode binding assay, series of compound concentrations; total-binding equation fit (recording_mode/stimulus_type = OTHER: binding assay, no cell/patch)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(28,'MAIC:CR:00028',32,1,'ACTIVATOR','COMPOUND_TO_CHANNEL','EC50 (Jedi2, mPiezo1 Ca2+ dose-response) | FLIPR 96-well GCAMP6s Ca2+ imaging dose-response; curve fitted with Boltzmann equation; vector-transfected signal subtracted; n=4 wells per dose point (recording_mode/stimulus_type = OTHER: non-electrophysiological Ca2+ imaging) | Kd (Jedi2 binding to purified mPiezo1, SPR) | surface plasmon resonance (SPR) affinity-mode binding assay, series of compound concentrations; total-binding equation fit (recording_mode/stimulus_type = OTHER: binding assay, no cell/patch)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(29,'MAIC:CR:00029',33,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','K185 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(30,'MAIC:CR:00030',34,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','L-162,313 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(31,'MAIC:CR:00031',35,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','L-655,240 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(32,'MAIC:CR:00032',36,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','L-703,606 oxalate IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(33,'MAIC:CR:00033',38,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','MK-886 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(34,'MAIC:CR:00034',39,4,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Mambalgin1 IC50 for inhibition of chicken ASIC1 ortholog (cASIC1, CHO, Hill fit) | Mamba1 added at stable current; pH 6.0 activation from holding pH 8.0 | Mambalgin1 IC50 for inhibition of full-length hASIC1a (CHO, Hill fit) | Mamba1 added at stable current; pH 6.0 activation from holding pH 8.0 | Mambalgin1 IC50 for inhibition of hASIC1a-ΔC construct (C-terminal 60 residues removed; CHO, Hill fit) | Mamba1 added at stable current; pH 6.0 activation from holding pH 8.0','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(35,'MAIC:CR:00035',40,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Mevastatin IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(36,'MAIC:CR:00036',41,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Mibefradil dihydrochloride IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(37,'MAIC:CR:00037',42,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','NiCl2 IC50 for inhibition of mTRESK whole-cell current (lower bound) | ramp -120 to +60 mV (865 ms); currents analyzed at +60 mV','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(38,'MAIC:CR:00038',43,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Nimodipine IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(39,'MAIC:CR:00039',44,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','PD98,059 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(40,'MAIC:CR:00040',47,4,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','PcTx1-Hi1a:C chimeric double-knot peptide inhibition of rASIC1a | pH drop from 7.45 to 6.00 every 60 s (microperfusion); toxin applied at pH 7.45','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(41,'MAIC:CR:00041',48,4,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','engineered PcTx1-PcTx1 double-knot peptide inhibition of rASIC1a | pH drop from 7.45 to 6.00 every 60 s (microperfusion); toxin applied at pH 7.45','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(42,'MAIC:CR:00042',49,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Podophyllotoxin IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(43,'MAIC:CR:00043',50,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Rottlerin IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(44,'MAIC:CR:00044',52,3,'UNCLASSIFIED','COMPOUND_TO_CHANNEL','SiNPs (Ludox SM30) IC50 on recombinant mouse TRPV4 (Ca2+ imaging, HEK293T) | SiNPs applied 10 min before TRPV4 agonist; Ca2+ response amplitude measured 2 min after 10 nM GSK1016790A | SiNPs IC50 on endogenous human TRPV4 in 16HBE (Ca2+ imaging) | SiNPs applied 10 min before TRPV4 agonist; response amplitude at 2 min of 10 nM GSK1016790A | SiNPs IC50 on endogenous mouse TRPV4 in mTEC (Ca2+ imaging) | SiNPs applied 10 min before TRPV4 agonist; response amplitude at 2 min of 10 nM GSK1016790A | SiNPs IC50 on recombinant mouse TRPV4 (whole-cell patch clamp, HEK293T) | 600 ms voltage ramps from -100 mV to +100 mV every 5 s; holding 0 mV; current readout at -75 mV','FULL_CURVE','Legacy relationship semantics were not recorded; the relationship is explicitly unclassified.','2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(45,'MAIC:CR:00045',53,11,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','intracellular TEA IC50 (pore block)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(46,'MAIC:CR:00046',54,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','Trequinsin hydrochloride IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(47,'MAIC:CR:00047',55,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','YC-1 IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(48,'MAIC:CR:00048',56,1,'ACTIVATOR','COMPOUND_TO_CHANNEL','Kd (Yoda1 binding to purified mPiezo1, SPR) | surface plasmon resonance (SPR) affinity-mode binding assay, series of compound concentrations; total-binding equation fit (recording_mode/stimulus_type = OTHER: binding assay, no cell/patch) | Yoda1 apparent EC50 (calcium influx, hPiezo1) | Yoda1 concentration-response (sigmoidal dose-response, variable slope, GraphPad Prism) | Yoda1 apparent EC50 (calcium influx, mPiezo1) | Yoda1 concentration-response (sigmoidal dose-response, variable slope, GraphPad Prism) | apparent Yoda1 affinity from ΔP50 binding fit (WT:Chim=1:1 hybrid) | HSPC-1; negative pressure pulses; P50 across Yoda1 concentrations (2-100 µM) for ΔP50 binding fit; single-channel recordings at low pressures | apparent Yoda1 affinity from ΔP50-vs-concentration binding fit (WT) | HSPC-1; brief negative pressure pulses (2-3 µm tip pipettes); Boltzmann I/Imax vs pressure; τ from -70 mmHg pulses; settings as Syeda et al. 2015; Yoda1 applied via patch pipette','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(49,'MAIC:CR:00049',57,4,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','amiloride IC50 for inhibition of sustained acid-sensing current I_s (Ppk1, class IV md neurons) | bath pH 7.4 → 4.5 fast perfusion; amiloride dose-response on sustained current I_s | amiloride IC50, whole-cell Na+ current dose-response (ASIC2aG430V and ASIC2aG430V+βγENaC, blocked to a similar extent) | perfusion-rate steps 0.5 -> 5 ml/min (NaCl-110 buffer, whole-cell Na+ current); ion-selectivity I-V −140 to +40 mV in 20-mV steps with Na+/Li+/K+-conducting buffers (NaCl replaced by equal-molar LiCl/KCl, pH 8); amiloride dose-response 10^-7-10^-3 M, 30 s per concentration | amiloride K0.5 for block of the ASIC/MDEG H+-gated current (pH 7.4→4) | pH drops from 7.4 (conductance from pH 7.4→5 pulse; amiloride K0.5 from pH 7.4→4 current) | amiloride K0.5 for inhibition of the transient DRASIC current (pH 7.3→4) | rapid pH drop from 7.3 to 4; I–V of peak and sustained components | amiloride Ki for DELM-1 + DELM-2 coexpressed current (Xenopus oocytes) | amiloride dose-response at -160 mV (sigmoid fit) | amiloride Ki for DELM-1 current (Xenopus oocytes, -160 mV) | amiloride dose-response on DELM-1 current at -160 mV (voltage steps -160 to +60 mV from holding -30 mV) | apparent K(i)amil lower bound under hydrostatic pressure gradient (stretch condition) | amiloride affinity measured in the presence of a hydrostatic (stretch) pressure gradient across the bilayer | apparent inhibitory constant K(i)amil for amiloride block of alpha-bENaC (non-stretched)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(50,'MAIC:CR:00050',57,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','amiloride half-blocking concentration IC50 (MET-channel side, wild-type OHC) | 10-Hz train of 800-nm step bundle deflections by a glass probe to evoke MET currents; paired MET (I_MET) vs background/leak (I_BG) dose-response; external solution 1.3 mM Ca2+ | amiloride half-blocking concentration IC50 (WT OHC MET current) | hair bundles driven by a glass stylus on a piezoelectric stack actuator (rise ~100 µs; 30 nm/V calibration) or by a 40-Hz sinusoidal fluid jet; bundle motion monitored on a photodiode pair; experiments at 21-24°C','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(51,'MAIC:CR:00051',58,9,'ACTIVATOR','COMPOUND_TO_CHANNEL','arachidonic acid apparent K1/2 for inhibition of human TRESK (Hill fit)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(52,'MAIC:CR:00052',58,11,'ACTIVATOR','COMPOUND_TO_CHANNEL','arachidonic acid EC50 (I267T) | arachidonic acid EC50 (WT)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(53,'MAIC:CR:00053',59,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','calmidazolium chloride IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(54,'MAIC:CR:00054',61,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','curare (d-tubocurarine) half-blocking concentration IC50 (WT OHC MET current) | hair bundles driven by a glass stylus on a piezoelectric stack actuator (rise ~100 µs; 30 nm/V calibration) or by a 40-Hz sinusoidal fluid jet; bundle motion monitored on a photodiode pair; experiments at 21-24°C','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(55,'MAIC:CR:00055',62,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','d-tubocurarine (dTC) half-blocking concentration IC50 (MET-channel side, wild-type OHC) | 10-Hz train of 800-nm step bundle deflections by a glass probe to evoke MET currents; paired MET (I_MET) vs background/leak (I_BG) dose-response; external solution 1.3 mM Ca2+','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(56,'MAIC:CR:00056',64,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','DHS half-blocking concentration K_I (Tmc1 p.D528N/D528N;Tmc2−/−) | stereociliary bundle vibration via a fluid jet (~10 µm tip) or a piezoactuator-driven glass probe; bundle motion monitored on a photodiode; extracellular 1.5 mM Ca2+ saline or endolymph-like 0.04 mM Ca2+ | DHS half-blocking concentration K_I (Tmc1 p.T416K/T416K;Tmc2−/−) | stereociliary bundle vibration via a fluid jet (~10 µm tip) or a piezoactuator-driven glass probe; bundle motion monitored on a photodiode; extracellular 1.5 mM Ca2+ saline or endolymph-like 0.04 mM Ca2+ | DHS half-blocking concentration K_I (control Tmc1+/+;Tmc2−/−) | stereociliary bundle vibration via a fluid jet (~10 µm tip) or a piezoactuator-driven glass probe; bundle motion monitored on a photodiode; extracellular 1.5 mM Ca2+ saline or endolymph-like 0.04 mM Ca2+ | dihydrostreptomycin (DHS) half-blocking concentration IC50 (MET-channel side, wild-type OHC) | 10-Hz train of 800-nm step bundle deflections by a glass probe to evoke MET currents; paired MET (I_MET) vs background/leak (I_BG) dose-response; external solution 1.3 mM Ca2+ | dihydrostreptomycin (DHS) half-blocking concentration IC50 (WT OHC MET current) | hair bundles driven by a glass stylus on a piezoelectric stack actuator (rise ~100 µs; 30 nm/V calibration) or by a 40-Hz sinusoidal fluid jet; bundle motion monitored on a photodiode pair; experiments at 21-24°C | extracellular DHS half-blocking concentration K_D (Tmc1 Bth/Bth apical OHC) | fluid-jet bundle stimulation at three extracellular Ca2+ concentrations (1.3, 0.1, 0.04 mM); I-X fitted with a second-order Boltzmann | extracellular DHS half-blocking concentration K_D (Tmc1+/+ apical OHC) | fluid-jet bundle stimulation at three extracellular Ca2+ concentrations (1.3, 0.1, 0.04 mM); I-X fitted with a second-order Boltzmann | extracellular DHS half-blocking concentration K_D (Tmc2+/- apical OHC) | 25-mm piezoelectric disc driving a fluid jet onto the stereociliary bundle (step and sinusoidal stimuli); I-V by voltage ramps for reversal measurements; ''All values are quoted as mean ± SEM'' | extracellular DHS half-blocking concentration K_D (Tmc2-/- apical OHC) | 25-mm piezoelectric disc driving a fluid jet onto the stereociliary bundle (step and sinusoidal stimuli); I-V by voltage ramps for reversal measurements; ''All values are quoted as mean ± SEM'' | intracellular DHS half-blocking concentration K_D (Tmc2+/- apical OHC) | 25-mm piezoelectric disc driving a fluid jet onto the stereociliary bundle (step and sinusoidal stimuli); I-V by voltage ramps for reversal measurements; ''All values are quoted as mean ± SEM'' | intracellular DHS half-blocking concentration K_D (Tmc2-/- apical OHC) | 25-mm piezoelectric disc driving a fluid jet onto the stereociliary bundle (step and sinusoidal stimuli); I-V by voltage ramps for reversal measurements; ''All values are quoted as mean ± SEM''','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(57,'MAIC:CR:00057',68,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','gadolinium (Gd3+) half-blocking concentration IC50 (MET-channel side, wild-type OHC) | 10-Hz train of 800-nm step bundle deflections by a glass probe to evoke MET currents; paired MET (I_MET) vs background/leak (I_BG) dose-response; external solution 1.3 mM Ca2+','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(58,'MAIC:CR:00058',68,10,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','IC50 of Gd3+ inhibition of AA-activated TRAAK (86Rb+ efflux)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(59,'MAIC:CR:00059',70,3,'ANTAGONIST','COMPOUND_TO_CHANNEL','IC50 (intracellular Ca2+ inhibition of TRPV4)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(60,'MAIC:CR:00060',71,7,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','lanthanum (La3+) half-inhibitory concentration IC50 (hypo-osmolarity-activated TMEM63B currents) | extracellular osmolarity stepped from 300 to 170 mOsm/L (mannitol-free hypotonic Na-gluconate solution) with simultaneous GCaMP6f Ca2+ monitoring; 100-ms voltage ramps -80 to +80 mV every 1 s; isotonic solution restored when currents at -70 mV reached ~500 pA','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(61,'MAIC:CR:00061',71,8,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','lanthanum (La3+) half-blocking concentration IC50 (MET-channel side, wild-type OHC) | 10-Hz train of 800-nm step bundle deflections by a glass probe to evoke MET currents; paired MET (I_MET) vs background/leak (I_BG) dose-response; external solution 1.3 mM Ca2+','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(62,'MAIC:CR:00062',72,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','lidocaine IC50 against K2P18.1 (FluxOR Tl+ flux, with carbachol) | lidocaine IC50 against K2P18.1 (FluxOR Tl+ flux, without carbachol)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(63,'MAIC:CR:00063',73,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','loratadine IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1) | loratadine IC50 against K2P18.1/TRESK (manual patch-clamp) | ramp -120 to +60 mV (500 ms) + step to +60 mV; currents quantified per Methods','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(64,'MAIC:CR:00064',75,1,'ANTAGONIST','COMPOUND_TO_CHANNEL','margaric acid inhibition of Piezo1 currents (IC50) | blunt glass probe (3-4 um), 1-um incremental steps, 200-ms pulses, 2-ms ramp, 10-s intervals','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(65,'MAIC:CR:00065',76,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','nicardipine hydrochloride IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(66,'MAIC:CR:00066',77,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','nifedipine IC50 for inhibition of mTRESK whole-cell current | ramp -120 to +60 mV (865 ms); currents analyzed at +60 mV','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(67,'MAIC:CR:00067',78,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','nitrendipine IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(68,'MAIC:CR:00068',79,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','oligomycin A IC50 against K2P18.1 (FluxOR Tl+ flux HTS, Table 1)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(69,'MAIC:CR:00069',81,1,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','ruthenium red IC50 (E2133D, whole-cell MA currents) | poking (probe displacements 4.5-8 µm); RR dose-response at −80 mV (n = 2-10 per data point) | ruthenium red IC50 (E2133Q, whole-cell MA currents) | poking (probe displacements 4.5-8 µm); RR dose-response at −80 mV (n = 2-10 per data point) | ruthenium red IC50 (WT mPiezo1, whole-cell MA currents) | poking (probe displacements 4.5-8 µm); RR dose-response at −80 mV (n = 2-10 per data point)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(70,'MAIC:CR:00070',82,7,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','ruthenium red (RR) half-inhibitory concentration IC50 (hypo-osmolarity-activated TMEM63B currents) | extracellular osmolarity stepped from 300 to 170 mOsm/L (mannitol-free hypotonic Na-gluconate solution) with simultaneous GCaMP6f Ca2+ monitoring; 100-ms voltage ramps -80 to +80 mV every 1 s; isotonic solution restored when currents at -70 mV reached ~500 pA','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(71,'MAIC:CR:00071',83,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','sipatrigine IC50 for inhibition of human TRESK (printed as EC50)','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(72,'MAIC:CR:00072',84,4,'POTENTIATOR','COMPOUND_TO_CHANNEL','spermine EC50 for enhancement of peak pH 6.0 ASIC current (rat hippocampal neurons) | pH drop from 7.2 to 6.0 (I6.0); spermine dose–response for enhancement of peak I6.0','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "compound_channel_relationship" VALUES(73,'MAIC:CR:00073',86,9,'INHIBITOR_BLOCKER','COMPOUND_TO_CHANNEL','verapamil IC50 for inhibition of mTRESK whole-cell current | ramp -120 to +60 mV (865 ms); currents analyzed at +60 mV','FULL_CURVE',NULL,'2026-11-08 00:00:00.000000');
+CREATE TABLE compound_external_reference (
+	id INTEGER NOT NULL, 
+	compound_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, compound_id), 
+	CONSTRAINT uq_compound_external_reference_semantics UNIQUE (resource, external_id, relationship, compound_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(compound_id) REFERENCES compound (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+);
 CREATE TABLE construct (
 	id INTEGER NOT NULL, 
 	maicdb_id VARCHAR(24) NOT NULL, 
@@ -1751,12 +1887,51 @@ INSERT INTO "construct_variant" VALUES(139,51,130);
 INSERT INTO "construct_variant" VALUES(140,51,131);
 INSERT INTO "construct_variant" VALUES(141,52,132);
 INSERT INTO "construct_variant" VALUES(142,52,133);
+CREATE TABLE data_layer (
+	name VARCHAR(32) NOT NULL, 
+	value VARCHAR(32) NOT NULL, 
+	definition TEXT NOT NULL, 
+	PRIMARY KEY (name), 
+	CONSTRAINT uq_data_layer UNIQUE (name, value), 
+	CONSTRAINT uq_data_layer_value UNIQUE (value), 
+	CONSTRAINT ck_data_layer_value CHECK (value IN ('source_reported', 'curated', 'computed')), 
+	CONSTRAINT ck_data_layer_name CHECK (name IN ('SOURCE_REPORTED', 'CURATED', 'COMPUTED'))
+);
+INSERT INTO "data_layer" VALUES('SOURCE_REPORTED','source_reported','A value or unit serialized verbatim from its frozen source.');
+INSERT INTO "data_layer" VALUES('CURATED','curated','A value normalized by the formal schema''s curation rules.');
+INSERT INTO "data_layer" VALUES('COMPUTED','computed','A value derived by a documented deterministic analysis rule.');
+CREATE TABLE data_layer_inventory (
+	"key" VARCHAR(128) NOT NULL, 
+	surface VARCHAR(64) NOT NULL, 
+	field VARCHAR(128) NOT NULL, 
+	layer VARCHAR(15) NOT NULL, 
+	rule TEXT NOT NULL, 
+	PRIMARY KEY ("key"), 
+	CONSTRAINT ck_data_layer_inventory_trimmed CHECK (key = trim(key) AND surface = trim(surface) AND field = trim(field) AND rule = trim(rule)), 
+	CONSTRAINT fk_data_layer_inventory_layer FOREIGN KEY(layer) REFERENCES data_layer (name), 
+	CONSTRAINT datalayer CHECK (layer IN ('SOURCE_REPORTED', 'CURATED', 'COMPUTED'))
+);
+INSERT INTO "data_layer_inventory" VALUES('channel_card.value_as_reported','channel_card','value_as_reported','SOURCE_REPORTED','Serialized from the frozen value reported by the source paper.');
+INSERT INTO "data_layer_inventory" VALUES('channel_card.unit_as_reported','channel_card','unit_as_reported','SOURCE_REPORTED','Serialized from the frozen unit reported by the source paper.');
+INSERT INTO "data_layer_inventory" VALUES('channel_card.value','channel_card','value','CURATED','The formal schema''s normalized parameter value after curation.');
+INSERT INTO "data_layer_inventory" VALUES('parameter_comparison.value_statistics','parameter_comparison','min, median, max','COMPUTED','Statistics calculated from measured parameter values per gene and unit bucket.');
+INSERT INTO "data_layer_inventory" VALUES('bioactivity_card.activity_value','bioactivity_card','activity_value','CURATED','The formal schema''s normalized bioactivity value after curation.');
+INSERT INTO "data_layer_inventory" VALUES('bioactivity_card.activity_value_as_reported','bioactivity_card','activity_value_as_reported','SOURCE_REPORTED','Serialized from the activity value reported by the frozen source, falling back to the curated activity value when no distinct source cell exists.');
+INSERT INTO "data_layer_inventory" VALUES('channel_card.conversion_provenance','channel_card','conversion_provenance','CURATED','A documented no-conversion or unit-conversion statement derived from the parameter''s as-reported pair and normalized value.');
+INSERT INTO "data_layer_inventory" VALUES('compound_channel_relationship.assay_context','compound_channel_relationship','assay_context','CURATED','Normalized from the relationship''s legacy compound signal and joined bioactivity assay contexts without silent conflict resolution.');
+INSERT INTO "data_layer_inventory" VALUES('provenance.value','provenance','value','CURATED','The measurement''s formal-schema value returned by the provenance lookup.');
+INSERT INTO "data_layer_inventory" VALUES('analysis.audit.scores','analysis','compliance and score values','COMPUTED','Derived by the MIMIC field-status scoring and aggregation rules.');
+INSERT INTO "data_layer_inventory" VALUES('analysis.biophysics.statistics','analysis','meta-analysis and spread outputs','COMPUTED','Calculated from the harmonized biophysics corpus by P4 modules.');
+INSERT INTO "data_layer_inventory" VALUES('analysis.atlas.p_activity','analysis','p_activity','COMPUTED','p_activity = -log10 of the activity value converted to molar units.');
+INSERT INTO "data_layer_inventory" VALUES('analysis.atlas.selectivity','analysis','selectivity gap values','COMPUTED','Calculated as the difference between two computed p_activity values.');
+INSERT INTO "data_layer_inventory" VALUES('analysis.coverage.counts','analysis','total, coverage, linkage, and review counts','COMPUTED','Aggregated from the frozen database by deterministic SQL grouped over whole database, family, and channel slices.');
+INSERT INTO "data_layer_inventory" VALUES('analysis.trends.counts','analysis','publication and parameter trend counts','COMPUTED','Aggregated by the year-series and drift modules from the frozen corpus.');
 CREATE TABLE db_meta (
 	"key" VARCHAR(64) NOT NULL, 
 	value TEXT NOT NULL, 
 	PRIMARY KEY ("key")
 );
-INSERT INTO "db_meta" VALUES('schema_version','0.5.0');
+INSERT INTO "db_meta" VALUES('schema_version','0.8.0');
 INSERT INTO "db_meta" VALUES('license','CC-BY-4.0');
 INSERT INTO "db_meta" VALUES('release_date','2026-11-08');
 INSERT INTO "db_meta" VALUES('mimic_standard_version','v0.1-draft (MAICDB_Schema_Design §4.3)');
@@ -4405,25 +4580,1213 @@ INSERT INTO "experiment_construct" VALUES(197,931,51);
 INSERT INTO "experiment_construct" VALUES(198,932,51);
 INSERT INTO "experiment_construct" VALUES(199,934,52);
 INSERT INTO "experiment_construct" VALUES(200,935,52);
-CREATE TABLE external_reference (
+CREATE TABLE experiment_external_reference (
 	id INTEGER NOT NULL, 
-	entity_type VARCHAR(21) NOT NULL, 
-	entity_id INTEGER NOT NULL, 
-	source_db VARCHAR(15) NOT NULL, 
+	experiment_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
 	external_id TEXT NOT NULL, 
-	url TEXT, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, experiment_id), 
+	CONSTRAINT uq_experiment_external_reference_semantics UNIQUE (resource, external_id, relationship, experiment_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(experiment_id) REFERENCES biophysics_experiment (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+);
+INSERT INTO "experiment_external_reference" VALUES(28,1,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,2,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,3,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,4,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,5,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,6,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,7,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,8,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,9,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,10,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,11,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,12,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,13,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,14,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,15,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,16,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,17,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,18,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,19,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,20,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,21,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(28,22,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(29,23,'DOI','10.1073/pnas.1614728114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(29,24,'DOI','10.1073/pnas.1614728114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(29,25,'DOI','10.1073/pnas.1614728114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(29,26,'DOI','10.1073/pnas.1614728114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,27,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,28,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,29,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,30,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,31,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,32,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,33,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,34,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,35,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(30,36,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,37,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,38,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,39,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,40,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,41,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,42,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,43,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,44,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,45,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,46,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,47,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,48,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,49,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,50,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,51,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,52,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,53,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,54,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,55,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(31,56,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(32,57,'DOI','10.1523/jneurosci.4351-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(32,58,'DOI','10.1523/jneurosci.4351-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(32,59,'DOI','10.1523/jneurosci.4351-10.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(33,60,'DOI','10.1074/jbc.m116.718031','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(33,61,'DOI','10.1074/jbc.m116.718031','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(33,62,'DOI','10.1074/jbc.m116.718031','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(33,63,'DOI','10.1074/jbc.m116.718031','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(34,64,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(34,65,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(34,66,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(34,67,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(34,68,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(34,69,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(35,70,'DOI','10.1074/jbc.272.34.20975','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(35,71,'DOI','10.1074/jbc.272.34.20975','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(35,72,'DOI','10.1074/jbc.272.34.20975','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(35,73,'DOI','10.1074/jbc.272.34.20975','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(36,74,'DOI','10.1073/pnas.83.8.2767','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(36,75,'DOI','10.1073/pnas.83.8.2767','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(36,76,'DOI','10.1073/pnas.83.8.2767','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,77,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,78,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,79,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,80,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,81,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,82,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,83,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,84,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(37,85,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(38,86,'DOI','10.1152/ajpcell.1995.268.6.c1450','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(38,87,'DOI','10.1152/ajpcell.1995.268.6.c1450','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(38,88,'DOI','10.1152/ajpcell.1995.268.6.c1450','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(39,89,'DOI','10.1038/sj.emboj.7600177','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(39,90,'DOI','10.1038/sj.emboj.7600177','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(39,91,'DOI','10.1038/sj.emboj.7600177','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(40,92,'DOI','10.7554/elife.57096','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(40,93,'DOI','10.7554/elife.57096','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(41,94,'DOI','10.1523/jneurosci.2749-12.2013','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(42,95,'DOI','10.1096/fj.13-230680','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(42,96,'DOI','10.1096/fj.13-230680','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(42,97,'DOI','10.1096/fj.13-230680','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(43,98,'DOI','10.1085/jgp.112.2.97','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(44,99,'DOI','10.1074/jbc.ra118.002499','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(44,100,'DOI','10.1074/jbc.ra118.002499','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,101,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,102,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,103,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,104,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,105,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,106,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(45,107,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(46,108,'DOI','10.7554/elife.24630','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(47,109,'DOI','10.1016/j.jbc.2026.113151','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(48,110,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(48,111,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(48,112,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(48,113,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(48,114,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(48,115,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(49,116,'DOI','10.1073/pnas.1503202112','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(49,117,'DOI','10.1073/pnas.1503202112','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(49,118,'DOI','10.1073/pnas.1503202112','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(50,119,'DOI','10.1016/j.celrep.2013.01.018','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(50,120,'DOI','10.1016/j.celrep.2013.01.018','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,121,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,122,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,123,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,124,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(52,125,'DOI','10.1002/pro.4965','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,126,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,127,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,128,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,129,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,130,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,131,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,132,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,133,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,134,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,135,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,136,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,137,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,138,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,139,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(53,140,'DOI','10.1096/fj.14-251579','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(54,141,'DOI','10.1085/jgp.200409118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(54,142,'DOI','10.1085/jgp.200409118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(54,143,'DOI','10.1085/jgp.200409118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(54,144,'DOI','10.1085/jgp.200409118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(54,145,'DOI','10.1085/jgp.200409118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(55,146,'DOI','10.1073/pnas.0305693101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(55,147,'DOI','10.1073/pnas.0305693101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(55,148,'DOI','10.1073/pnas.0305693101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(55,149,'DOI','10.1073/pnas.0305693101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(55,150,'DOI','10.1073/pnas.0305693101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(56,151,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(56,152,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(56,153,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(56,154,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(56,155,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(56,156,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(57,157,'DOI','10.1038/srep13726','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(57,158,'DOI','10.1038/srep13726','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(58,159,'DOI','10.1016/s0006-3495(04)74337-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(58,160,'DOI','10.1016/s0006-3495(04)74337-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(59,161,'DOI','10.1016/s0006-3495(03)75041-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(59,162,'DOI','10.1016/s0006-3495(03)75041-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(59,163,'DOI','10.1016/s0006-3495(03)75041-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(60,164,'DOI','10.1038/s41598-018-32536-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(60,165,'DOI','10.1038/s41598-018-32536-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(60,166,'DOI','10.1038/s41598-018-32536-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,167,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,168,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,169,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(62,170,'DOI','10.1085/jgp.202213168','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(62,171,'DOI','10.1085/jgp.202213168','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(62,172,'DOI','10.1085/jgp.202213168','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,173,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,174,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,175,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,176,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,177,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,178,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,179,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,180,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,181,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,182,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,183,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,184,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,185,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,186,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,187,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(63,188,'DOI','10.1085/jgp.20028768','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(64,189,'DOI','10.1529/biophysj.104.049833','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(64,190,'DOI','10.1529/biophysj.104.049833','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,191,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,192,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,193,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,194,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,195,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,196,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,197,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(65,198,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,199,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,200,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,201,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,202,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,203,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,204,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,205,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(66,206,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,207,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,208,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,209,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,210,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,211,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,212,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,213,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,214,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,215,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,216,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,217,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,218,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,219,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(67,220,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(68,221,'DOI','10.1085/jgp.200409198','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(68,222,'DOI','10.1085/jgp.200409198','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(69,223,'DOI','10.1085/jgp.201110606','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(69,224,'DOI','10.1085/jgp.201110606','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(69,225,'DOI','10.1085/jgp.201110606','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(70,226,'DOI','10.1021/bi1019435','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(70,227,'DOI','10.1021/bi1019435','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,228,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,229,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,230,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,231,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,232,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,233,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,234,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,235,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,236,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(71,237,'DOI','10.1085/jgp.201611699','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(72,238,'DOI','10.1093/emboj/20.8.1888','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(73,239,'DOI','10.1529/biophysj.106.095232','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(73,240,'DOI','10.1529/biophysj.106.095232','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(73,241,'DOI','10.1529/biophysj.106.095232','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(73,242,'DOI','10.1529/biophysj.106.095232','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(74,243,'DOI','10.1085/jgp.201311114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(74,244,'DOI','10.1085/jgp.201311114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(74,245,'DOI','10.1085/jgp.201311114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(74,246,'DOI','10.1085/jgp.201311114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(74,247,'DOI','10.1085/jgp.201311114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(74,248,'DOI','10.1085/jgp.201311114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,249,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,250,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,251,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,252,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,253,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,254,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(75,255,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,256,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,257,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,258,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,259,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,260,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,261,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,262,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,263,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(76,264,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,265,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,266,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,267,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(51,268,'DOI','10.1085/jgp.200910371','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(77,269,'DOI','10.1529/biophysj.107.123448','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(77,270,'DOI','10.1529/biophysj.107.123448','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,271,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,272,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,273,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(61,274,'DOI','10.1085/jgp.201310985','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,275,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,276,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,277,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,278,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,279,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,280,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,281,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(78,282,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(79,283,'DOI','10.7554/elife.67449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(79,284,'DOI','10.7554/elife.67449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(79,285,'DOI','10.7554/elife.67449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(79,286,'DOI','10.7554/elife.67449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(79,287,'DOI','10.7554/elife.67449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(80,288,'DOI','10.1021/acs.biochem.5b00294','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(80,289,'DOI','10.1021/acs.biochem.5b00294','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(81,290,'DOI','10.1085/jgp.201110723','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(81,291,'DOI','10.1085/jgp.201110723','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(81,292,'DOI','10.1085/jgp.201110723','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(81,293,'DOI','10.1085/jgp.201110723','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(62,294,'DOI','10.1085/jgp.202213168','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(62,295,'DOI','10.1085/jgp.202213168','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(62,296,'DOI','10.1085/jgp.202213168','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(82,297,'DOI','10.1016/s0006-3495(02)75169-2','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,298,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,299,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,300,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,301,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,302,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,303,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(83,304,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(84,305,'DOI','10.1016/s0006-3495(93)81044-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(85,306,'DOI','10.1085/jgp.200810000','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(86,307,'DOI','10.1073/pnas.1200051109','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(86,308,'DOI','10.1073/pnas.1200051109','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(86,309,'DOI','10.1073/pnas.1200051109','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,310,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,311,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,312,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,313,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,314,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,315,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,316,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,317,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,318,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,319,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,320,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,321,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,322,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,323,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,324,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,325,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,326,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,327,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,328,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,329,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,330,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,331,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,332,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,333,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,334,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,335,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,336,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,337,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,338,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,339,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,340,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(87,341,'DOI','10.7554/elife.41844','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,342,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,343,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,344,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,345,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,346,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,347,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,348,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(88,349,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(89,350,'DOI','10.1016/j.neuron.2025.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(89,351,'DOI','10.1016/j.neuron.2025.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(89,352,'DOI','10.1016/j.neuron.2025.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,353,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,354,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,355,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,356,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,357,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,358,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,359,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(90,360,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,361,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,362,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,363,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,364,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,365,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,366,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,367,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,368,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(91,369,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,370,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,371,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,372,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,373,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,374,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,375,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,376,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,377,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,378,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,379,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,380,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(92,381,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(93,382,'DOI','10.1038/s41467-022-31253-z','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(94,383,'DOI','10.1073/pnas.1900774116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(94,384,'DOI','10.1073/pnas.1900774116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(94,385,'DOI','10.1073/pnas.1900774116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(95,386,'DOI','10.7554/elife.41845','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(95,387,'DOI','10.7554/elife.41845','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(95,388,'DOI','10.7554/elife.41845','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(95,389,'DOI','10.7554/elife.41845','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,390,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,391,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,392,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,393,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,394,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,395,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,396,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(96,397,'DOI','10.7554/elife.93147','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(97,398,'DOI','10.1038/s41556-024-01353-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(98,399,'DOI','10.7554/elife.96957','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(98,400,'DOI','10.7554/elife.96957','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(98,401,'DOI','10.7554/elife.96957','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(99,402,'DOI','10.1016/j.jbc.2026.113700','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(99,403,'DOI','10.1016/j.jbc.2026.113700','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(100,404,'DOI','10.1085/jgp.202614003','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(101,405,'DOI','10.1073/pnas.1219777110','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(101,406,'DOI','10.1073/pnas.1219777110','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(101,407,'DOI','10.1073/pnas.1219777110','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(101,408,'DOI','10.1073/pnas.1219777110','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(102,409,'DOI','10.1126/science.1193270','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(102,410,'DOI','10.1126/science.1193270','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(102,411,'DOI','10.1126/science.1193270','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(102,412,'DOI','10.1126/science.1193270','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(102,413,'DOI','10.1126/science.1193270','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(102,414,'DOI','10.1126/science.1193270','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,415,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,416,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,417,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,418,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,419,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,420,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,421,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(103,422,'DOI','10.1038/ncomms10366','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(104,423,'DOI','10.1038/s41467-018-03570-9','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(104,424,'DOI','10.1038/s41467-018-03570-9','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(104,425,'DOI','10.1038/s41467-018-03570-9','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(104,426,'DOI','10.1038/s41467-018-03570-9','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(104,427,'DOI','10.1038/s41467-018-03570-9','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,428,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,429,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,430,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,431,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,432,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,433,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,434,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,435,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,436,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,437,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,438,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,439,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,440,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,441,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(105,442,'DOI','10.7554/elife.12088','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(106,443,'DOI','10.1016/j.celrep.2020.108225','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(107,444,'DOI','10.7554/elife.33149','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(107,445,'DOI','10.7554/elife.33149','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(107,446,'DOI','10.7554/elife.33149','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(108,447,'DOI','10.1021/bi200770q','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(108,448,'DOI','10.1021/bi200770q','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(108,449,'DOI','10.1021/bi200770q','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,450,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,451,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,452,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,453,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,454,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,455,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(109,456,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(110,457,'DOI','10.1016/j.celrep.2017.05.079','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,458,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,459,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,460,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,461,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,462,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,463,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,464,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(111,465,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,466,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,467,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,468,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,469,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,470,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,471,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(112,472,'DOI','10.7554/elife.70988','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,473,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,474,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,475,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,476,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,477,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,478,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,479,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,480,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(113,481,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,482,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,483,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,484,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,485,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,486,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,487,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(114,488,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,489,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,490,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,491,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,492,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,493,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,494,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,495,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,496,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,497,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,498,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,499,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,500,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,501,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,502,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(115,503,'DOI','10.1085/jgp.201912515','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(116,504,'DOI','10.1085/jgp.202213260','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(116,505,'DOI','10.1085/jgp.202213260','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(116,506,'DOI','10.1085/jgp.202213260','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(116,507,'DOI','10.1085/jgp.202213260','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(116,508,'DOI','10.1085/jgp.202213260','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(116,509,'DOI','10.1085/jgp.202213260','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(117,510,'DOI','10.7554/elife.07369','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(117,511,'DOI','10.7554/elife.07369','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(117,512,'DOI','10.7554/elife.07369','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(118,513,'DOI','10.7554/elife.21074','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(118,514,'DOI','10.7554/elife.21074','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,515,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,516,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,517,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,518,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,519,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,520,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,521,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,522,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,523,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,524,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,525,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,526,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,527,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(119,528,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,529,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,530,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,531,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,532,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,533,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,534,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,535,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(120,536,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(121,537,'DOI','10.1038/nature10812','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(121,538,'DOI','10.1038/nature10812','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(121,539,'DOI','10.1038/nature10812','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(121,540,'DOI','10.1038/nature10812','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(121,541,'DOI','10.1038/nature10812','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,542,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,543,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,544,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,545,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,546,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,547,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,548,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,549,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,550,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,551,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,552,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,553,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,554,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(122,555,'DOI','10.1038/ncomms8223','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,556,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,557,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,558,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,559,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,560,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,561,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,562,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,563,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(123,564,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(124,565,'DOI','10.1038/s41467-022-28974-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(124,566,'DOI','10.1038/s41467-022-28974-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(124,567,'DOI','10.1038/s41467-022-28974-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(124,568,'DOI','10.1038/s41467-022-28974-6','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(125,569,'DOI','10.1073/pnas.1905985116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(125,570,'DOI','10.1073/pnas.1905985116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(125,571,'DOI','10.1073/pnas.1905985116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(125,572,'DOI','10.1073/pnas.1905985116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(126,573,'DOI','10.1073/pnas.1221400110','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(126,574,'DOI','10.1073/pnas.1221400110','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(110,575,'DOI','10.1016/j.celrep.2017.05.079','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(110,576,'DOI','10.1016/j.celrep.2017.05.079','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(127,577,'DOI','10.1038/nature13250','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(127,578,'DOI','10.1038/nature13250','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(127,579,'DOI','10.1038/nature13250','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(127,580,'DOI','10.1038/nature13250','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(128,581,'DOI','10.1038/s41467-024-51181-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,582,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,583,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,584,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,585,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,586,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,587,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,588,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(129,589,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(130,590,'DOI','10.15252/embr.201949124','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(130,591,'DOI','10.15252/embr.201949124','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(130,592,'DOI','10.15252/embr.201949124','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,593,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,594,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,595,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,596,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,597,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,598,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,599,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,600,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,601,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,602,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(131,603,'DOI','10.1085/jgp.201311068','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,604,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,605,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,606,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,607,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,608,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,609,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,610,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,611,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(132,612,'DOI','10.1085/jgp.201411173','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,613,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,614,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,615,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,616,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,617,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,618,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,619,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,620,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,621,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,622,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,623,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,624,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,625,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,626,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,627,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,628,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,629,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,630,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,631,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,632,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,633,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,634,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,635,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(134,636,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,637,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,638,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,639,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,640,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,641,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,642,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,643,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,644,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,645,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,646,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,647,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(136,648,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(136,649,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(136,650,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(136,651,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(136,652,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(136,653,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(137,654,'DOI','10.1016/j.neuron.2013.06.019','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(137,655,'DOI','10.1016/j.neuron.2013.06.019','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(137,656,'DOI','10.1016/j.neuron.2013.06.019','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,657,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,658,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,659,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,660,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,661,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,662,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,663,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,664,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,665,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(138,666,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,667,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,668,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,669,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,670,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,671,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,672,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(139,673,'DOI','10.1085/jgp.201511458','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(140,674,'DOI','10.1113/jp278799','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(140,675,'DOI','10.1113/jp278799','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(140,676,'DOI','10.1113/jp278799','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(140,677,'DOI','10.1113/jp278799','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(140,678,'DOI','10.1113/jp278799','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(141,679,'DOI','10.1073/pnas.1601067113','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(142,680,'DOI','10.1016/j.neuron.2021.05.007','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(142,681,'DOI','10.1016/j.neuron.2021.05.007','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,682,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,683,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,684,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,685,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(144,686,'DOI','10.1085/jgp.202112959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(144,687,'DOI','10.1085/jgp.202112959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(144,688,'DOI','10.1085/jgp.202112959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(144,689,'DOI','10.1085/jgp.202112959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(144,690,'DOI','10.1085/jgp.202112959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(144,691,'DOI','10.1085/jgp.202112959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(145,692,'DOI','10.1016/j.neuron.2020.03.033','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(145,693,'DOI','10.1016/j.neuron.2020.03.033','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(145,694,'DOI','10.1016/j.neuron.2020.03.033','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(145,695,'DOI','10.1016/j.neuron.2020.03.033','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(146,696,'DOI','10.1085/jgp.201210913','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(146,697,'DOI','10.1085/jgp.201210913','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(146,698,'DOI','10.1085/jgp.201210913','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(146,699,'DOI','10.1085/jgp.201210913','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(147,700,'DOI','10.1073/pnas.1908058116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(147,701,'DOI','10.1073/pnas.1908058116','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,702,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,703,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,704,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,705,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,706,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,707,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,708,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,709,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,710,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(149,711,'DOI','10.1038/s41467-018-04589-8','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(149,712,'DOI','10.1038/s41467-018-04589-8','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(149,713,'DOI','10.1038/s41467-018-04589-8','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(150,714,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(150,715,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(150,716,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(150,717,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(150,718,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(150,719,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(151,720,'DOI','10.1073/pnas.1409920111','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(151,721,'DOI','10.1073/pnas.1409920111','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(151,722,'DOI','10.1073/pnas.1409920111','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(151,723,'DOI','10.1073/pnas.1409920111','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(151,724,'DOI','10.1073/pnas.1409920111','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(152,725,'DOI','10.1073/pnas.2318270121','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(152,726,'DOI','10.1073/pnas.2318270121','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(152,727,'DOI','10.1073/pnas.2318270121','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(152,728,'DOI','10.1073/pnas.2318270121','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(152,729,'DOI','10.1073/pnas.2318270121','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(153,730,'DOI','10.1016/j.cub.2026.02.059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(153,731,'DOI','10.1016/j.cub.2026.02.059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(153,732,'DOI','10.1016/j.cub.2026.02.059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(153,733,'DOI','10.1016/j.cub.2026.02.059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(153,734,'DOI','10.1016/j.cub.2026.02.059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(140,735,'DOI','10.1113/jp278799','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,736,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,737,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(143,738,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(148,739,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(154,740,'DOI','10.7554/elife.47441','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(154,741,'DOI','10.7554/elife.47441','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,742,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(135,743,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,744,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(133,745,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,746,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,747,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,748,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,749,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,750,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,751,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,752,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,753,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,754,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,755,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(155,756,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(156,757,'DOI','10.1074/jbc.274.3.1381','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(156,758,'DOI','10.1074/jbc.274.3.1381','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(156,759,'DOI','10.1074/jbc.274.3.1381','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,760,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,761,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,762,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,763,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(158,764,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(158,765,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(159,766,'DOI','10.1074/jbc.274.38.26691','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(160,767,'DOI','10.1093/emboj/17.12.3297','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,768,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,769,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,770,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(162,771,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(162,772,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(162,773,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(162,774,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(162,775,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(162,776,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(163,777,'DOI','10.1073/pnas.1522748113','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(163,778,'DOI','10.1073/pnas.1522748113','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(163,779,'DOI','10.1073/pnas.1522748113','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(163,780,'DOI','10.1073/pnas.1522748113','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(164,781,'DOI','10.3389/fnmol.2018.00301','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(164,782,'DOI','10.3389/fnmol.2018.00301','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(164,783,'DOI','10.3389/fnmol.2018.00301','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(164,784,'DOI','10.3389/fnmol.2018.00301','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(165,785,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(165,786,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(165,787,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(165,788,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(165,789,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(165,790,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(166,791,'DOI','10.1093/emboj/cdf288','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(166,792,'DOI','10.1093/emboj/cdf288','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(166,793,'DOI','10.1093/emboj/cdf288','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(166,794,'DOI','10.1093/emboj/cdf288','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(166,795,'DOI','10.1093/emboj/cdf288','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,796,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,797,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,798,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,799,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,800,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,801,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,802,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,803,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(158,804,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(158,805,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(167,806,'DOI','10.1038/emboj.2011.268','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(168,807,'DOI','10.1074/jbc.m113.478321','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(168,808,'DOI','10.1074/jbc.m113.478321','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(168,809,'DOI','10.1074/jbc.m113.478321','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(168,810,'DOI','10.1074/jbc.m113.478321','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,811,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,812,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,813,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,814,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,815,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,816,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,817,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(169,818,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(170,819,'DOI','10.1038/sj.emboj.7600234','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(171,820,'DOI','10.15252/emmm.201606690','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(171,821,'DOI','10.15252/emmm.201606690','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(171,822,'DOI','10.15252/emmm.201606690','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(171,823,'DOI','10.15252/emmm.201606690','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(171,824,'DOI','10.15252/emmm.201606690','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(171,825,'DOI','10.15252/emmm.201606690','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(172,826,'DOI','10.1074/jbc.m108125200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(173,827,'DOI','10.1016/j.cardiores.2005.08.018','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(173,828,'DOI','10.1016/j.cardiores.2005.08.018','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(174,829,'DOI','10.1161/hh1601.094979','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(175,830,'DOI','10.1002/j.1460-2075.1996.tb01077.x','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(176,831,'DOI','10.1073/pnas.1708990114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(176,832,'DOI','10.1073/pnas.1708990114','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(177,833,'DOI','10.1113/jphysiol.2007.136150','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(177,834,'DOI','10.1113/jphysiol.2007.136150','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(158,835,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(158,836,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(178,837,'DOI','10.1074/jbc.m116.719039','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,838,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(157,839,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,840,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,841,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,842,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,843,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,844,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,845,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,846,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,847,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,848,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,849,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,850,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(179,851,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(180,852,'DOI','10.1016/s0006-8993(02)02261-8','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(181,853,'DOI','10.1152/ajpcell.00629.2005','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(182,854,'DOI','10.4196/kjpp.2013.17.6.511','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(182,855,'DOI','10.4196/kjpp.2013.17.6.511','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(183,856,'DOI','10.1113/jphysiol.2001.013432','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(183,857,'DOI','10.1113/jphysiol.2001.013432','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(184,858,'DOI','10.3390/biology10111119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(184,859,'DOI','10.3390/biology10111119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(184,860,'DOI','10.3390/biology10111119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(184,861,'DOI','10.3390/biology10111119','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(185,862,'DOI','10.1371/journal.pone.0258275','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(186,863,'DOI','10.1074/jbc.m000445200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(186,864,'DOI','10.1074/jbc.m000445200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(187,865,'DOI','10.1007/s00424-021-02526-1','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,866,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,867,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,868,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,869,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(161,870,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,871,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,872,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(189,873,'DOI','10.1074/jbc.m312229200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(190,874,'DOI','10.1371/journal.pone.0064471','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(190,875,'DOI','10.1371/journal.pone.0064471','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(181,876,'DOI','10.1152/ajpcell.00629.2005','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,877,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,878,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,879,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,880,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,881,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,882,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,883,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,884,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,885,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(188,886,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(191,887,'DOI','10.3390/ijms19071961','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(191,888,'DOI','10.3390/ijms19071961','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(192,889,'DOI','10.3390/ijms21238997','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(192,890,'DOI','10.3390/ijms21238997','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(193,891,'DOI','10.1016/s0092-8674(00)00143-4','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(194,892,'DOI','10.1038/35036318','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(195,893,'DOI','10.1074/jbc.m200062200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(195,894,'DOI','10.1074/jbc.m200062200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(195,895,'DOI','10.1074/jbc.m200062200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(195,896,'DOI','10.1074/jbc.m200062200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(195,897,'DOI','10.1074/jbc.m200062200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,898,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,899,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,900,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,901,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,902,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,903,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(196,904,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(197,905,'DOI','10.1523/jneurosci.22-15-06408.2002','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(197,906,'DOI','10.1523/jneurosci.22-15-06408.2002','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(197,907,'DOI','10.1523/jneurosci.22-15-06408.2002','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(198,908,'DOI','10.1073/pnas.0303329101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(198,909,'DOI','10.1073/pnas.0303329101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(198,910,'DOI','10.1073/pnas.0303329101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(198,911,'DOI','10.1073/pnas.0303329101','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(199,912,'DOI','10.1074/jbc.m401872200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(199,913,'DOI','10.1074/jbc.m401872200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(199,914,'DOI','10.1074/jbc.m401872200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(200,915,'DOI','10.1074/jbc.m302561200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(200,916,'DOI','10.1074/jbc.m302561200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(200,917,'DOI','10.1074/jbc.m302561200','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(201,918,'DOI','10.1523/jneurosci.1987-15.2015','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(201,919,'DOI','10.1523/jneurosci.1987-15.2015','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(202,920,'DOI','10.1038/s41594-018-0037-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(202,921,'DOI','10.1038/s41594-018-0037-5','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(203,922,'DOI','10.1371/journal.pone.0039959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(203,923,'DOI','10.1371/journal.pone.0039959','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(204,924,'DOI','10.1523/jneurosci.0359-11.2011','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,925,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,926,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,927,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,928,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,929,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,930,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,931,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(205,932,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(206,933,'DOI','10.1073/pnas.1502366112','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(206,934,'DOI','10.1073/pnas.1502366112','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(206,935,'DOI','10.1073/pnas.1502366112','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(207,936,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(207,937,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(207,938,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(207,939,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(207,940,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(207,941,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(208,942,'DOI','10.1016/j.jlr.2021.100145','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(208,943,'DOI','10.1016/j.jlr.2021.100145','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(209,944,'DOI','10.1038/s41419-019-1576-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(209,945,'DOI','10.1038/s41419-019-1576-3','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(210,946,'DOI','10.1113/jp275052','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(210,947,'DOI','10.1113/jp275052','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(211,948,'DOI','10.1161/jaha.113.000080','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(211,949,'DOI','10.1161/jaha.113.000080','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(211,950,'DOI','10.1161/jaha.113.000080','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(211,951,'DOI','10.1161/jaha.113.000080','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(212,952,'DOI','10.1111/bph.13023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(212,953,'DOI','10.1111/bph.13023','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(213,954,'DOI','10.1038/s41598-017-12561-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(213,955,'DOI','10.1038/s41598-017-12561-7','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(214,956,'DOI','10.4196/kjpp.2010.14.6.419','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(214,957,'DOI','10.4196/kjpp.2010.14.6.419','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(214,958,'DOI','10.4196/kjpp.2010.14.6.419','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(214,959,'DOI','10.4196/kjpp.2010.14.6.419','PUBLISHED_IN');
+INSERT INTO "experiment_external_reference" VALUES(215,960,'DOI','10.1002/jcp.25187','PUBLISHED_IN');
+CREATE TABLE external_reference_record (
+	id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	url TEXT NOT NULL, 
+	external_version TEXT, 
+	legacy_version_disclosed BOOLEAN DEFAULT 0 NOT NULL, 
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, 
 	PRIMARY KEY (id), 
-	CONSTRAINT uq_xref_entity_source_id UNIQUE (entity_type, entity_id, source_db, external_id), 
-	CONSTRAINT entitytype CHECK (entity_type IN ('CHANNEL', 'STRUCTURE', 'COMPOUND', 'VARIANT', 'BIOPHYSICS_EXPERIMENT')), 
-	CONSTRAINT sourcedb CHECK (source_db IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE'))
+	CONSTRAINT uq_external_reference_semantics UNIQUE (resource, external_id, relationship), 
+	CONSTRAINT ck_external_reference_url_present CHECK (url IS NOT NULL), 
+	CONSTRAINT ck_external_reference_id_trimmed CHECK (external_id = trim(external_id)), 
+	CONSTRAINT ck_external_reference_version_applicable CHECK (external_version IS NULL OR resource IN ('CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM')), 
+	CONSTRAINT ck_external_reference_version_required CHECK (external_version IS NOT NULL OR resource NOT IN ('CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM') OR legacy_version_disclosed = 1), 
+	CONSTRAINT ck_external_reference_version_explicit CHECK (external_version IS NULL OR (trim(external_version) != '' AND external_version != 'unknown')), 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
 );
-INSERT INTO "external_reference" VALUES(1,'CHANNEL',1,'CHEMBL_TARGET','CHEMBL5169186',NULL,'2026-11-08 00:00:00.000000');
-INSERT INTO "external_reference" VALUES(2,'CHANNEL',1,'CHEMBL_TARGET','CHEMBL5169095',NULL,'2026-11-08 00:00:00.000000');
-INSERT INTO "external_reference" VALUES(3,'CHANNEL',7,'UNIPROT','O94886',NULL,'2026-11-08 00:00:00.000000');
-INSERT INTO "external_reference" VALUES(4,'CHANNEL',7,'UNIPROT','Q5T3F8',NULL,'2026-11-08 00:00:00.000000');
-INSERT INTO "external_reference" VALUES(5,'CHANNEL',7,'UNIPROT','Q9P1W3',NULL,'2026-11-08 00:00:00.000000');
-INSERT INTO "external_reference" VALUES(6,'CHANNEL',7,'UNIPROT','Q9XEA1',NULL,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(1,'UNIPROT','Q92508','SAME_AS','https://www.uniprot.org/uniprotkb/Q92508',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(2,'CHEMBL_TARGET','CHEMBL5169186','SAME_AS','https://www.ebi.ac.uk/chembl/gcov/CHEMBL5169186',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(3,'CHEMBL_TARGET','CHEMBL5169095','SAME_AS','https://www.ebi.ac.uk/chembl/gcov/CHEMBL5169095',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(4,'UNIPROT','Q9H5J5','SAME_AS','https://www.uniprot.org/uniprotkb/Q9H5J5',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(5,'UNIPROT','Q9HBA0','SAME_AS','https://www.uniprot.org/uniprotkb/Q9HBA0',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(6,'UNIPROT','P0C0S1','SAME_AS','https://www.uniprot.org/uniprotkb/P0C0S1',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(7,'UNIPROT','P0A742','SAME_AS','https://www.uniprot.org/uniprotkb/P0A742',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(8,'UNIPROT','O94886','SAME_AS','https://www.uniprot.org/uniprotkb/O94886',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(9,'UNIPROT','Q5T3F8','SAME_AS','https://www.uniprot.org/uniprotkb/Q5T3F8',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(10,'UNIPROT','Q9P1W3','SAME_AS','https://www.uniprot.org/uniprotkb/Q9P1W3',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(11,'UNIPROT','Q9XEA1','SAME_AS','https://www.uniprot.org/uniprotkb/Q9XEA1',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(12,'UNIPROT','Q7Z418','SAME_AS','https://www.uniprot.org/uniprotkb/Q7Z418',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(13,'UNIPROT','Q9NYG8','SAME_AS','https://www.uniprot.org/uniprotkb/Q9NYG8',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(14,'UNIPROT','O95069','SAME_AS','https://www.uniprot.org/uniprotkb/O95069',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(15,'UNIPROT','P57789','SAME_AS','https://www.uniprot.org/uniprotkb/P57789',NULL,1,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(16,'PDB','8ZU3','SAME_AS','https://www.rcsb.org/structure/8ZU3',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(17,'PDB','8YFC','SAME_AS','https://www.rcsb.org/structure/8YFC',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(18,'PDB','9VMX','SAME_AS','https://www.rcsb.org/structure/9VMX',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(19,'PDB','8YEZ','SAME_AS','https://www.rcsb.org/structure/8YEZ',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(20,'PDB','9VED','SAME_AS','https://www.rcsb.org/structure/9VED',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(21,'PDB','8IMZ','SAME_AS','https://www.rcsb.org/structure/8IMZ',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(22,'PDB','6B3R','SAME_AS','https://www.rcsb.org/structure/6B3R',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(23,'PDB','6BPZ','SAME_AS','https://www.rcsb.org/structure/6BPZ',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(24,'PDB','8ZU8','SAME_AS','https://www.rcsb.org/structure/8ZU8',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(25,'PDB','5Z10','SAME_AS','https://www.rcsb.org/structure/5Z10',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(26,'PDB','6LQI','SAME_AS','https://www.rcsb.org/structure/6LQI',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(27,'PDB','8YFG','SAME_AS','https://www.rcsb.org/structure/8YFG',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(28,'DOI','10.1523/jneurosci.4580-10.2011','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.4580-10.2011',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(29,'DOI','10.1073/pnas.1614728114','PUBLISHED_IN','https://doi.org/10.1073/pnas.1614728114',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(30,'DOI','10.1074/jbc.272.47.29778','PUBLISHED_IN','https://doi.org/10.1074/jbc.272.47.29778',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(31,'DOI','10.1074/jbc.m104030200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m104030200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(32,'DOI','10.1523/jneurosci.4351-10.2011','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.4351-10.2011',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(33,'DOI','10.1074/jbc.m116.718031','PUBLISHED_IN','https://doi.org/10.1074/jbc.m116.718031',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(34,'DOI','10.1074/jbc.272.46.28819','PUBLISHED_IN','https://doi.org/10.1074/jbc.272.46.28819',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(35,'DOI','10.1074/jbc.272.34.20975','PUBLISHED_IN','https://doi.org/10.1074/jbc.272.34.20975',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(36,'DOI','10.1073/pnas.83.8.2767','PUBLISHED_IN','https://doi.org/10.1073/pnas.83.8.2767',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(37,'DOI','10.1523/jneurosci.1665-11.2011','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.1665-11.2011',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(38,'DOI','10.1152/ajpcell.1995.268.6.c1450','PUBLISHED_IN','https://doi.org/10.1152/ajpcell.1995.268.6.c1450',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(39,'DOI','10.1038/sj.emboj.7600177','PUBLISHED_IN','https://doi.org/10.1038/sj.emboj.7600177',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(40,'DOI','10.7554/elife.57096','PUBLISHED_IN','https://doi.org/10.7554/elife.57096',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(41,'DOI','10.1523/jneurosci.2749-12.2013','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.2749-12.2013',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(42,'DOI','10.1096/fj.13-230680','PUBLISHED_IN','https://doi.org/10.1096/fj.13-230680',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(43,'DOI','10.1085/jgp.112.2.97','PUBLISHED_IN','https://doi.org/10.1085/jgp.112.2.97',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(44,'DOI','10.1074/jbc.ra118.002499','PUBLISHED_IN','https://doi.org/10.1074/jbc.ra118.002499',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(45,'DOI','10.1152/ajprenal.00455.2006','PUBLISHED_IN','https://doi.org/10.1152/ajprenal.00455.2006',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(46,'DOI','10.7554/elife.24630','PUBLISHED_IN','https://doi.org/10.7554/elife.24630',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(47,'DOI','10.1016/j.jbc.2026.113151','PUBLISHED_IN','https://doi.org/10.1016/j.jbc.2026.113151',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(48,'DOI','10.1085/jgp.113.4.525','PUBLISHED_IN','https://doi.org/10.1085/jgp.113.4.525',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(49,'DOI','10.1073/pnas.1503202112','PUBLISHED_IN','https://doi.org/10.1073/pnas.1503202112',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(50,'DOI','10.1016/j.celrep.2013.01.018','PUBLISHED_IN','https://doi.org/10.1016/j.celrep.2013.01.018',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(51,'DOI','10.1085/jgp.200910371','PUBLISHED_IN','https://doi.org/10.1085/jgp.200910371',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(52,'DOI','10.1002/pro.4965','PUBLISHED_IN','https://doi.org/10.1002/pro.4965',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(53,'DOI','10.1096/fj.14-251579','PUBLISHED_IN','https://doi.org/10.1096/fj.14-251579',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(54,'DOI','10.1085/jgp.200409118','PUBLISHED_IN','https://doi.org/10.1085/jgp.200409118',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(55,'DOI','10.1073/pnas.0305693101','PUBLISHED_IN','https://doi.org/10.1073/pnas.0305693101',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(56,'DOI','10.1038/s41467-019-12591-x','PUBLISHED_IN','https://doi.org/10.1038/s41467-019-12591-x',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(57,'DOI','10.1038/srep13726','PUBLISHED_IN','https://doi.org/10.1038/srep13726',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(58,'DOI','10.1016/s0006-3495(04)74337-4','PUBLISHED_IN','https://doi.org/10.1016/s0006-3495(04)74337-4',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(59,'DOI','10.1016/s0006-3495(03)75041-3','PUBLISHED_IN','https://doi.org/10.1016/s0006-3495(03)75041-3',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(60,'DOI','10.1038/s41598-018-32536-6','PUBLISHED_IN','https://doi.org/10.1038/s41598-018-32536-6',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(61,'DOI','10.1085/jgp.201310985','PUBLISHED_IN','https://doi.org/10.1085/jgp.201310985',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(62,'DOI','10.1085/jgp.202213168','PUBLISHED_IN','https://doi.org/10.1085/jgp.202213168',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(63,'DOI','10.1085/jgp.20028768','PUBLISHED_IN','https://doi.org/10.1085/jgp.20028768',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(64,'DOI','10.1529/biophysj.104.049833','PUBLISHED_IN','https://doi.org/10.1529/biophysj.104.049833',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(65,'DOI','10.1529/biophysj.105.075481','PUBLISHED_IN','https://doi.org/10.1529/biophysj.105.075481',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(66,'DOI','10.1038/s44341-026-00048-4','PUBLISHED_IN','https://doi.org/10.1038/s44341-026-00048-4',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(67,'DOI','10.1016/j.bpj.2010.09.022','PUBLISHED_IN','https://doi.org/10.1016/j.bpj.2010.09.022',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(68,'DOI','10.1085/jgp.200409198','PUBLISHED_IN','https://doi.org/10.1085/jgp.200409198',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(69,'DOI','10.1085/jgp.201110606','PUBLISHED_IN','https://doi.org/10.1085/jgp.201110606',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(70,'DOI','10.1021/bi1019435','PUBLISHED_IN','https://doi.org/10.1021/bi1019435',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(71,'DOI','10.1085/jgp.201611699','PUBLISHED_IN','https://doi.org/10.1085/jgp.201611699',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(72,'DOI','10.1093/emboj/20.8.1888','PUBLISHED_IN','https://doi.org/10.1093/emboj/20.8.1888',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(73,'DOI','10.1529/biophysj.106.095232','PUBLISHED_IN','https://doi.org/10.1529/biophysj.106.095232',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(74,'DOI','10.1085/jgp.201311114','PUBLISHED_IN','https://doi.org/10.1085/jgp.201311114',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(75,'DOI','10.1529/biophysj.106.098715','PUBLISHED_IN','https://doi.org/10.1529/biophysj.106.098715',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(76,'DOI','10.1371/journal.pone.0136756','PUBLISHED_IN','https://doi.org/10.1371/journal.pone.0136756',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(77,'DOI','10.1529/biophysj.107.123448','PUBLISHED_IN','https://doi.org/10.1529/biophysj.107.123448',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(78,'DOI','10.1529/biophysj.104.053546','PUBLISHED_IN','https://doi.org/10.1529/biophysj.104.053546',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(79,'DOI','10.7554/elife.67449','PUBLISHED_IN','https://doi.org/10.7554/elife.67449',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(80,'DOI','10.1021/acs.biochem.5b00294','PUBLISHED_IN','https://doi.org/10.1021/acs.biochem.5b00294',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(81,'DOI','10.1085/jgp.201110723','PUBLISHED_IN','https://doi.org/10.1085/jgp.201110723',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(82,'DOI','10.1016/s0006-3495(02)75169-2','PUBLISHED_IN','https://doi.org/10.1016/s0006-3495(02)75169-2',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(83,'DOI','10.1016/j.bpj.2013.01.055','PUBLISHED_IN','https://doi.org/10.1016/j.bpj.2013.01.055',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(84,'DOI','10.1016/s0006-3495(93)81044-0','PUBLISHED_IN','https://doi.org/10.1016/s0006-3495(93)81044-0',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(85,'DOI','10.1085/jgp.200810000','PUBLISHED_IN','https://doi.org/10.1085/jgp.200810000',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(86,'DOI','10.1073/pnas.1200051109','PUBLISHED_IN','https://doi.org/10.1073/pnas.1200051109',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(87,'DOI','10.7554/elife.41844','PUBLISHED_IN','https://doi.org/10.7554/elife.41844',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(88,'DOI','10.1152/ajpcell.00583.2023','PUBLISHED_IN','https://doi.org/10.1152/ajpcell.00583.2023',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(89,'DOI','10.1016/j.neuron.2025.11.009','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2025.11.009',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(90,'DOI','10.1016/j.celrep.2020.107596','PUBLISHED_IN','https://doi.org/10.1016/j.celrep.2020.107596',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(91,'DOI','10.1038/s41467-024-51800-0','PUBLISHED_IN','https://doi.org/10.1038/s41467-024-51800-0',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(92,'DOI','10.1016/j.neuron.2023.07.006','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2023.07.006',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(93,'DOI','10.1038/s41467-022-31253-z','PUBLISHED_IN','https://doi.org/10.1038/s41467-022-31253-z',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(94,'DOI','10.1073/pnas.1900774116','PUBLISHED_IN','https://doi.org/10.1073/pnas.1900774116',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(95,'DOI','10.7554/elife.41845','PUBLISHED_IN','https://doi.org/10.7554/elife.41845',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(96,'DOI','10.7554/elife.93147','PUBLISHED_IN','https://doi.org/10.7554/elife.93147',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(97,'DOI','10.1038/s41556-024-01353-7','PUBLISHED_IN','https://doi.org/10.1038/s41556-024-01353-7',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(98,'DOI','10.7554/elife.96957','PUBLISHED_IN','https://doi.org/10.7554/elife.96957',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(99,'DOI','10.1016/j.jbc.2026.113700','PUBLISHED_IN','https://doi.org/10.1016/j.jbc.2026.113700',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(100,'DOI','10.1085/jgp.202614003','PUBLISHED_IN','https://doi.org/10.1085/jgp.202614003',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(101,'DOI','10.1073/pnas.1219777110','PUBLISHED_IN','https://doi.org/10.1073/pnas.1219777110',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(102,'DOI','10.1126/science.1193270','PUBLISHED_IN','https://doi.org/10.1126/science.1193270',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(103,'DOI','10.1038/ncomms10366','PUBLISHED_IN','https://doi.org/10.1038/ncomms10366',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(104,'DOI','10.1038/s41467-018-03570-9','PUBLISHED_IN','https://doi.org/10.1038/s41467-018-03570-9',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(105,'DOI','10.7554/elife.12088','PUBLISHED_IN','https://doi.org/10.7554/elife.12088',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(106,'DOI','10.1016/j.celrep.2020.108225','PUBLISHED_IN','https://doi.org/10.1016/j.celrep.2020.108225',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(107,'DOI','10.7554/elife.33149','PUBLISHED_IN','https://doi.org/10.7554/elife.33149',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(108,'DOI','10.1021/bi200770q','PUBLISHED_IN','https://doi.org/10.1021/bi200770q',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(109,'DOI','10.1038/s41467-018-03502-7','PUBLISHED_IN','https://doi.org/10.1038/s41467-018-03502-7',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(110,'DOI','10.1016/j.celrep.2017.05.079','PUBLISHED_IN','https://doi.org/10.1016/j.celrep.2017.05.079',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(111,'DOI','10.1016/j.celrep.2019.12.040','PUBLISHED_IN','https://doi.org/10.1016/j.celrep.2019.12.040',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(112,'DOI','10.7554/elife.70988','PUBLISHED_IN','https://doi.org/10.7554/elife.70988',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(113,'DOI','10.1038/s41467-018-04405-3','PUBLISHED_IN','https://doi.org/10.1038/s41467-018-04405-3',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(114,'DOI','10.1038/s41467-019-09055-7','PUBLISHED_IN','https://doi.org/10.1038/s41467-019-09055-7',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(115,'DOI','10.1085/jgp.201912515','PUBLISHED_IN','https://doi.org/10.1085/jgp.201912515',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(116,'DOI','10.1085/jgp.202213260','PUBLISHED_IN','https://doi.org/10.1085/jgp.202213260',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(117,'DOI','10.7554/elife.07369','PUBLISHED_IN','https://doi.org/10.7554/elife.07369',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(118,'DOI','10.7554/elife.21074','PUBLISHED_IN','https://doi.org/10.7554/elife.21074',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(119,'DOI','10.1371/journal.pone.0125503','PUBLISHED_IN','https://doi.org/10.1371/journal.pone.0125503',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(120,'DOI','10.1016/j.celrep.2023.112837','PUBLISHED_IN','https://doi.org/10.1016/j.celrep.2023.112837',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(121,'DOI','10.1038/nature10812','PUBLISHED_IN','https://doi.org/10.1038/nature10812',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(122,'DOI','10.1038/ncomms8223','PUBLISHED_IN','https://doi.org/10.1038/ncomms8223',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(123,'DOI','10.1182/blood-2017-05-786004','PUBLISHED_IN','https://doi.org/10.1182/blood-2017-05-786004',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(124,'DOI','10.1038/s41467-022-28974-6','PUBLISHED_IN','https://doi.org/10.1038/s41467-022-28974-6',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(125,'DOI','10.1073/pnas.1905985116','PUBLISHED_IN','https://doi.org/10.1073/pnas.1905985116',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(126,'DOI','10.1073/pnas.1221400110','PUBLISHED_IN','https://doi.org/10.1073/pnas.1221400110',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(127,'DOI','10.1038/nature13250','PUBLISHED_IN','https://doi.org/10.1038/nature13250',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(128,'DOI','10.1038/s41467-024-51181-4','PUBLISHED_IN','https://doi.org/10.1038/s41467-024-51181-4',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(129,'DOI','10.1080/19336950.2024.2355123','PUBLISHED_IN','https://doi.org/10.1080/19336950.2024.2355123',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(130,'DOI','10.15252/embr.201949124','PUBLISHED_IN','https://doi.org/10.15252/embr.201949124',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(131,'DOI','10.1085/jgp.201311068','PUBLISHED_IN','https://doi.org/10.1085/jgp.201311068',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(132,'DOI','10.1085/jgp.201411173','PUBLISHED_IN','https://doi.org/10.1085/jgp.201411173',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(133,'DOI','10.1016/j.neuron.2024.11.009','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2024.11.009',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(134,'DOI','10.1523/jneurosci.2537-20.2021','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.2537-20.2021',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(135,'DOI','10.1126/sciadv.abo1126','PUBLISHED_IN','https://doi.org/10.1126/sciadv.abo1126',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(136,'DOI','10.3389/fnmol.2017.00326','PUBLISHED_IN','https://doi.org/10.3389/fnmol.2017.00326',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(137,'DOI','10.1016/j.neuron.2013.06.019','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2013.06.019',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(138,'DOI','10.1523/jneurosci.2439-15.2016','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.2439-15.2016',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(139,'DOI','10.1085/jgp.201511458','PUBLISHED_IN','https://doi.org/10.1085/jgp.201511458',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(140,'DOI','10.1113/jp278799','PUBLISHED_IN','https://doi.org/10.1113/jp278799',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(141,'DOI','10.1073/pnas.1601067113','PUBLISHED_IN','https://doi.org/10.1073/pnas.1601067113',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(142,'DOI','10.1016/j.neuron.2021.05.007','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2021.05.007',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(143,'DOI','10.1523/jneurosci.2188-06.2006','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.2188-06.2006',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(144,'DOI','10.1085/jgp.202112959','PUBLISHED_IN','https://doi.org/10.1085/jgp.202112959',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(145,'DOI','10.1016/j.neuron.2020.03.033','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2020.03.033',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(146,'DOI','10.1085/jgp.201210913','PUBLISHED_IN','https://doi.org/10.1085/jgp.201210913',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(147,'DOI','10.1073/pnas.1908058116','PUBLISHED_IN','https://doi.org/10.1073/pnas.1908058116',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(148,'DOI','10.1073/pnas.2210849119','PUBLISHED_IN','https://doi.org/10.1073/pnas.2210849119',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(149,'DOI','10.1038/s41467-018-04589-8','PUBLISHED_IN','https://doi.org/10.1038/s41467-018-04589-8',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(150,'DOI','10.1073/pnas.2403141122','PUBLISHED_IN','https://doi.org/10.1073/pnas.2403141122',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(151,'DOI','10.1073/pnas.1409920111','PUBLISHED_IN','https://doi.org/10.1073/pnas.1409920111',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(152,'DOI','10.1073/pnas.2318270121','PUBLISHED_IN','https://doi.org/10.1073/pnas.2318270121',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(153,'DOI','10.1016/j.cub.2026.02.059','PUBLISHED_IN','https://doi.org/10.1016/j.cub.2026.02.059',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(154,'DOI','10.7554/elife.47441','PUBLISHED_IN','https://doi.org/10.7554/elife.47441',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(155,'DOI','10.1073/pnas.2006980118','PUBLISHED_IN','https://doi.org/10.1073/pnas.2006980118',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(156,'DOI','10.1074/jbc.274.3.1381','PUBLISHED_IN','https://doi.org/10.1074/jbc.274.3.1381',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(157,'DOI','10.1073/pnas.0600463103','PUBLISHED_IN','https://doi.org/10.1073/pnas.0600463103',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(158,'DOI','10.1038/s41467-024-47208-5','PUBLISHED_IN','https://doi.org/10.1038/s41467-024-47208-5',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(159,'DOI','10.1074/jbc.274.38.26691','PUBLISHED_IN','https://doi.org/10.1074/jbc.274.38.26691',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(160,'DOI','10.1093/emboj/17.12.3297','PUBLISHED_IN','https://doi.org/10.1093/emboj/17.12.3297',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(161,'DOI','10.1113/jphysiol.2004.081059','PUBLISHED_IN','https://doi.org/10.1113/jphysiol.2004.081059',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(162,'DOI','10.1016/j.neuron.2019.08.042','PUBLISHED_IN','https://doi.org/10.1016/j.neuron.2019.08.042',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(163,'DOI','10.1073/pnas.1522748113','PUBLISHED_IN','https://doi.org/10.1073/pnas.1522748113',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(164,'DOI','10.3389/fnmol.2018.00301','PUBLISHED_IN','https://doi.org/10.3389/fnmol.2018.00301',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(165,'DOI','10.1093/emboj/17.15.4283','PUBLISHED_IN','https://doi.org/10.1093/emboj/17.15.4283',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(166,'DOI','10.1093/emboj/cdf288','PUBLISHED_IN','https://doi.org/10.1093/emboj/cdf288',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(167,'DOI','10.1038/emboj.2011.268','PUBLISHED_IN','https://doi.org/10.1038/emboj.2011.268',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(168,'DOI','10.1074/jbc.m113.478321','PUBLISHED_IN','https://doi.org/10.1074/jbc.m113.478321',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(169,'DOI','10.1038/sj.embor.7400449','PUBLISHED_IN','https://doi.org/10.1038/sj.embor.7400449',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(170,'DOI','10.1038/sj.emboj.7600234','PUBLISHED_IN','https://doi.org/10.1038/sj.emboj.7600234',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(171,'DOI','10.15252/emmm.201606690','PUBLISHED_IN','https://doi.org/10.15252/emmm.201606690',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(172,'DOI','10.1074/jbc.m108125200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m108125200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(173,'DOI','10.1016/j.cardiores.2005.08.018','PUBLISHED_IN','https://doi.org/10.1016/j.cardiores.2005.08.018',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(174,'DOI','10.1161/hh1601.094979','PUBLISHED_IN','https://doi.org/10.1161/hh1601.094979',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(175,'DOI','10.1002/j.1460-2075.1996.tb01077.x','PUBLISHED_IN','https://doi.org/10.1002/j.1460-2075.1996.tb01077.x',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(176,'DOI','10.1073/pnas.1708990114','PUBLISHED_IN','https://doi.org/10.1073/pnas.1708990114',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(177,'DOI','10.1113/jphysiol.2007.136150','PUBLISHED_IN','https://doi.org/10.1113/jphysiol.2007.136150',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(178,'DOI','10.1074/jbc.m116.719039','PUBLISHED_IN','https://doi.org/10.1074/jbc.m116.719039',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(179,'DOI','10.1113/jphysiol.2008.161927','PUBLISHED_IN','https://doi.org/10.1113/jphysiol.2008.161927',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(180,'DOI','10.1016/s0006-8993(02)02261-8','PUBLISHED_IN','https://doi.org/10.1016/s0006-8993(02)02261-8',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(181,'DOI','10.1152/ajpcell.00629.2005','PUBLISHED_IN','https://doi.org/10.1152/ajpcell.00629.2005',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(182,'DOI','10.4196/kjpp.2013.17.6.511','PUBLISHED_IN','https://doi.org/10.4196/kjpp.2013.17.6.511',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(183,'DOI','10.1113/jphysiol.2001.013432','PUBLISHED_IN','https://doi.org/10.1113/jphysiol.2001.013432',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(184,'DOI','10.3390/biology10111119','PUBLISHED_IN','https://doi.org/10.3390/biology10111119',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(185,'DOI','10.1371/journal.pone.0258275','PUBLISHED_IN','https://doi.org/10.1371/journal.pone.0258275',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(186,'DOI','10.1074/jbc.m000445200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m000445200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(187,'DOI','10.1007/s00424-021-02526-1','PUBLISHED_IN','https://doi.org/10.1007/s00424-021-02526-1',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(188,'DOI','10.1074/jbc.ra120.014125','PUBLISHED_IN','https://doi.org/10.1074/jbc.ra120.014125',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(189,'DOI','10.1074/jbc.m312229200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m312229200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(190,'DOI','10.1371/journal.pone.0064471','PUBLISHED_IN','https://doi.org/10.1371/journal.pone.0064471',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(191,'DOI','10.3390/ijms19071961','PUBLISHED_IN','https://doi.org/10.3390/ijms19071961',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(192,'DOI','10.3390/ijms21238997','PUBLISHED_IN','https://doi.org/10.3390/ijms21238997',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(193,'DOI','10.1016/s0092-8674(00)00143-4','PUBLISHED_IN','https://doi.org/10.1016/s0092-8674(00)00143-4',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(194,'DOI','10.1038/35036318','PUBLISHED_IN','https://doi.org/10.1038/35036318',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(195,'DOI','10.1074/jbc.m200062200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m200062200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(196,'DOI','10.1074/jbc.m208277200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m208277200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(197,'DOI','10.1523/jneurosci.22-15-06408.2002','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.22-15-06408.2002',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(198,'DOI','10.1073/pnas.0303329101','PUBLISHED_IN','https://doi.org/10.1073/pnas.0303329101',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(199,'DOI','10.1074/jbc.m401872200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m401872200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(200,'DOI','10.1074/jbc.m302561200','PUBLISHED_IN','https://doi.org/10.1074/jbc.m302561200',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(201,'DOI','10.1523/jneurosci.1987-15.2015','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.1987-15.2015',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(202,'DOI','10.1038/s41594-018-0037-5','PUBLISHED_IN','https://doi.org/10.1038/s41594-018-0037-5',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(203,'DOI','10.1371/journal.pone.0039959','PUBLISHED_IN','https://doi.org/10.1371/journal.pone.0039959',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(204,'DOI','10.1523/jneurosci.0359-11.2011','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.0359-11.2011',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(205,'DOI','10.1074/jbc.m110.113936','PUBLISHED_IN','https://doi.org/10.1074/jbc.m110.113936',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(206,'DOI','10.1073/pnas.1502366112','PUBLISHED_IN','https://doi.org/10.1073/pnas.1502366112',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(207,'DOI','10.1523/jneurosci.2540-14.2014','PUBLISHED_IN','https://doi.org/10.1523/jneurosci.2540-14.2014',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(208,'DOI','10.1016/j.jlr.2021.100145','PUBLISHED_IN','https://doi.org/10.1016/j.jlr.2021.100145',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(209,'DOI','10.1038/s41419-019-1576-3','PUBLISHED_IN','https://doi.org/10.1038/s41419-019-1576-3',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(210,'DOI','10.1113/jp275052','PUBLISHED_IN','https://doi.org/10.1113/jp275052',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(211,'DOI','10.1161/jaha.113.000080','PUBLISHED_IN','https://doi.org/10.1161/jaha.113.000080',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(212,'DOI','10.1111/bph.13023','PUBLISHED_IN','https://doi.org/10.1111/bph.13023',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(213,'DOI','10.1038/s41598-017-12561-7','PUBLISHED_IN','https://doi.org/10.1038/s41598-017-12561-7',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(214,'DOI','10.4196/kjpp.2010.14.6.419','PUBLISHED_IN','https://doi.org/10.4196/kjpp.2010.14.6.419',NULL,0,'2026-11-08 00:00:00.000000');
+INSERT INTO "external_reference_record" VALUES(215,'DOI','10.1002/jcp.25187','PUBLISHED_IN','https://doi.org/10.1002/jcp.25187',NULL,0,'2026-11-08 00:00:00.000000');
 CREATE TABLE publication (
 	id INTEGER NOT NULL, 
 	doi TEXT, 
@@ -4699,6 +6062,31 @@ INSERT INTO "structure" VALUES(9,'MAIC:ST:00009',1,'8ZU8','PDB',NULL,NULL,'Human
 INSERT INTO "structure" VALUES(10,'MAIC:ST:00010',1,'5Z10','PDB',NULL,NULL,'Structure of the mechanosensitive Piezo1 channel','E, M',3.97,'Mus musculus',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',215,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(11,'MAIC:ST:00011',1,'6LQI','PDB',NULL,NULL,'Cryo-EM structure of the mouse Piezo1 isoform Piezo1.1','E, M',4.5,'Mus musculus',NULL,NULL,1,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,'PDB','2026-11-08',216,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "structure" VALUES(12,'MAIC:ST:00012',1,'8YFG','PDB',NULL,NULL,'Human PIEZO1-R2456H_MDFIC','E, M',4.5,'Homo sapiens',NULL,NULL,2,NULL,0,NULL,'R2456H',NULL,NULL,NULL,NULL,'PDB','2026-11-08',211,'2026-11-08 00:00:00.000000',NULL);
+CREATE TABLE structure_external_reference (
+	id INTEGER NOT NULL, 
+	structure_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, structure_id), 
+	CONSTRAINT uq_structure_external_reference_semantics UNIQUE (resource, external_id, relationship, structure_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(structure_id) REFERENCES structure (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+);
+INSERT INTO "structure_external_reference" VALUES(16,1,'PDB','8ZU3','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(17,2,'PDB','8YFC','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(18,3,'PDB','9VMX','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(19,4,'PDB','8YEZ','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(20,5,'PDB','9VED','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(21,6,'PDB','8IMZ','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(22,7,'PDB','6B3R','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(23,8,'PDB','6BPZ','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(24,9,'PDB','8ZU8','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(25,10,'PDB','5Z10','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(26,11,'PDB','6LQI','SAME_AS');
+INSERT INTO "structure_external_reference" VALUES(27,12,'PDB','8YFG','SAME_AS');
 CREATE TABLE structure_residue (
 	id INTEGER NOT NULL, 
 	maicdb_id VARCHAR(24) NOT NULL, 
@@ -4977,6 +6365,19 @@ INSERT INTO "variant" VALUES(132,'MAIC:VR:00132',3,NULL,NULL,'p.L596P',NULL,NULL
 INSERT INTO "variant" VALUES(133,'MAIC:VR:00133',3,NULL,NULL,'p.W733R',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'LITERATURE','2026-11-08',NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "variant" VALUES(134,'MAIC:VR:00134',1,NULL,NULL,'A1988V',1988,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'PDB',NULL,NULL,'2026-11-08 00:00:00.000000',NULL);
 INSERT INTO "variant" VALUES(135,'MAIC:VR:00135',1,NULL,NULL,'E756Del',756,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'PDB',NULL,NULL,'2026-11-08 00:00:00.000000',NULL);
+CREATE TABLE variant_external_reference (
+	id INTEGER NOT NULL, 
+	variant_id INTEGER NOT NULL, 
+	resource VARCHAR(15) NOT NULL, 
+	external_id TEXT NOT NULL, 
+	relationship VARCHAR(12) NOT NULL, 
+	PRIMARY KEY (id, variant_id), 
+	CONSTRAINT uq_variant_external_reference_semantics UNIQUE (resource, external_id, relationship, variant_id), 
+	FOREIGN KEY(id) REFERENCES external_reference_record (id) ON DELETE CASCADE, 
+	FOREIGN KEY(variant_id) REFERENCES variant (id) ON DELETE CASCADE, 
+	CONSTRAINT sourcedb CHECK (resource IN ('UNIPROT', 'PDB', 'ALPHAFOLD', 'HGNC', 'NCBI_GENE', 'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM', 'BINDINGDB', 'IUPHAR', 'CLINVAR', 'OMIM', 'MECHANOBASE', 'MECHANOPRODB', 'ICG', 'CHANNELPEDIA', 'TRIP', 'GO', 'DOI', 'LITERATURE')), 
+	CONSTRAINT externalreferencerelationship CHECK (relationship IN ('SAME_AS', 'DERIVED_FROM', 'RELATED_TO', 'PUBLISHED_IN'))
+);
 CREATE INDEX ix_bioactivity_activity_type ON bioactivity (activity_type);
 CREATE INDEX ix_bioactivity_assay_format ON bioactivity (assay_format);
 CREATE INDEX ix_bioactivity_channel_id ON bioactivity (channel_id);
@@ -5000,6 +6401,9 @@ CREATE INDEX ix_channel_ncbi_gene_id ON channel (ncbi_gene_id);
 CREATE INDEX ix_channel_organism_taxid ON channel (organism_taxid);
 CREATE INDEX ix_channel_ortholog_group ON channel (ortholog_group);
 CREATE INDEX ix_channel_source_db ON channel (source_db);
+CREATE INDEX ix_compound_channel_relationship_channel_id ON compound_channel_relationship (channel_id);
+CREATE INDEX ix_compound_channel_relationship_compound_id ON compound_channel_relationship (compound_id);
+CREATE INDEX ix_compound_channel_relationship_role ON compound_channel_relationship (role);
 CREATE INDEX ix_compound_chembl_id ON compound (chembl_id);
 CREATE INDEX ix_compound_compound_type ON compound (compound_type);
 CREATE INDEX ix_compound_name ON compound (name);
@@ -5018,9 +6422,8 @@ CREATE INDEX ix_evidence_subject_subject_id ON evidence_subject (subject_id);
 CREATE INDEX ix_evidence_subject_subject_type ON evidence_subject (subject_type);
 CREATE INDEX ix_experiment_construct_construct_id ON experiment_construct (construct_id);
 CREATE INDEX ix_experiment_construct_experiment_id ON experiment_construct (experiment_id);
-CREATE INDEX ix_external_reference_entity_id ON external_reference (entity_id);
-CREATE INDEX ix_external_reference_entity_type ON external_reference (entity_type);
-CREATE INDEX ix_external_reference_source_db ON external_reference (source_db);
+CREATE INDEX ix_external_reference_record_relationship ON external_reference_record (relationship);
+CREATE INDEX ix_external_reference_record_resource ON external_reference_record (resource);
 CREATE INDEX ix_publication_pmid ON publication (pmid);
 CREATE INDEX ix_structure_channel_id ON structure (channel_id);
 CREATE INDEX ix_structure_conformational_state ON structure (conformational_state);
@@ -5048,8 +6451,6 @@ CREATE INDEX ix_variant_mutation_short ON variant (mutation_short);
 CREATE INDEX ix_variant_organism_taxid ON variant (organism_taxid);
 CREATE INDEX ix_variant_source_db ON variant (source_db);
 CREATE INDEX ix_variant_variant_type ON variant (variant_type);
-CREATE INDEX ix_xref_entity ON external_reference (entity_type, entity_id);
-CREATE INDEX ix_xref_reverse ON external_reference (source_db, external_id);
 CREATE UNIQUE INDEX ix_bioactivity_measurement_id ON bioactivity (measurement_id);
 CREATE UNIQUE INDEX ix_biophysics_experiment_measurement_id ON biophysics_experiment (measurement_id);
 CREATE UNIQUE INDEX ix_channel_uniprot_accession ON channel (uniprot_accession);
@@ -5059,4 +6460,14 @@ CREATE UNIQUE INDEX ix_structure_pdb_id ON structure (pdb_id);
 CREATE UNIQUE INDEX ix_unmapped_measurement_measurement_id ON unmapped_measurement (measurement_id);
 CREATE UNIQUE INDEX uq_pdb_residue ON structure_variant_location (pdb_residue_id);
 CREATE UNIQUE INDEX uq_uniprot_residue ON structure_variant_location (uniprot_residue_id);
+CREATE VIEW external_reference AS
+SELECT r.id, c.channel_id, cp.compound_id, v.variant_id,
+       st.structure_id, e.experiment_id, r.resource, r.external_id,
+       r.relationship, r.url, r.external_version, r.created_at
+FROM external_reference_record r
+LEFT JOIN channel_external_reference c ON c.id = r.id
+LEFT JOIN compound_external_reference cp ON cp.id = r.id
+LEFT JOIN variant_external_reference v ON v.id = r.id
+LEFT JOIN structure_external_reference st ON st.id = r.id
+LEFT JOIN experiment_external_reference e ON e.id = r.id;
 COMMIT;

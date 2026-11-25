@@ -11,7 +11,7 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 
 | File | Content | Regenerate |
 |---|---|---|
-| `maicdb.sqlite` | The database (schema v0.7, 24 tables + compatibility view) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
+| `maicdb.sqlite` | The database (schema v0.8, 26 tables + compatibility view) | `maicdb-load --vault <vault> -o db/maicdb.sqlite --manifest db/load-manifest.json` |
 | `maicdb.sql` | Byte-stable SQL dump (the determinism contract — two loads of the same vault state are byte-identical) | Same command (written alongside) |
 | `load-manifest.json` | Row counts, disclosures, vault HEAD | Written by the loader |
 
@@ -25,11 +25,12 @@ The formal-schema database loaded from the vault's frozen curation corpus.
 - **Freeze enforcement**: the loader verifies the tag is an ancestor of the
   vault HEAD and that `data/` + configs are unchanged since the tag
   (docs churn on the rolling repo is legal).
-- **Schema**: v0.7 (v0.3 normalized Evidence authority; v0.4 Construct
-experiment/variant linkage; v0.5 structure-function residue and variant-location
-mapping; v0.6 subject-specific semantic external-reference matrix; v0.7 native
-Data-layer vocabulary and inventory; see
-  `docs/loader-mapping.md` and ADR-0007 for mapping decisions).
+- **Schema**: v0.8 (v0.3 normalized Evidence authority; v0.4 Construct
+  experiment/variant linkage; v0.5 structure-function residue and
+  variant-location mapping; v0.6 subject-specific semantic external-reference
+  matrix; v0.7 native Data-layer vocabulary and inventory; v0.8
+  compound-channel provenance; see `docs/loader-mapping.md` and ADR-0007 for
+  mapping decisions).
 
 ## Contents (from the load manifest)
 

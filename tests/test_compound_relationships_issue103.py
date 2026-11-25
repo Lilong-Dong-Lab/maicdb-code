@@ -30,8 +30,6 @@ from maicdb.parameter_provenance import (
     migrate_compound_relationships,
     relationships_for_bioactivity,
 )
-from maicdb.data_layers import migrate_data_layers
-from maicdb.external_references import migrate_external_references
 from maicdb.query import bioactivity_card, channel_card, open_readonly
 from tests.test_site_build import BUILD_SCRIPT, REPO_ROOT, requires_db
 
@@ -240,32 +238,26 @@ def test_relationship_lookup_accepts_unmigrated_artifacts(engine: Engine):
 
 
 @requires_db
-def test_artifact_migration_and_bioactivity_query_expose_relationships(tmp_path: Path):
-    import shutil
-
+def test_artifact_bioactivity_query_exposes_relationships():
     original_hash = _file_hash(DB_PATH)
-    copied = tmp_path / "maicdb.sqlite"
-    shutil.copyfile(DB_PATH, copied)
-    engine = create_engine_for_test(copied)
-    migrate_external_references(engine)
-    migrate_data_layers(engine)
-    result = migrate_compound_relationships(engine)
-    assert result["relationships_created"] > 0
-    assert result["bioactivity_rows_covered"] == result["rows_examined"]
-
-    card = bioactivity_card(engine, "PIEZO1")
-    assert card["n_rows"] > 0
-    row = card["rows"][0]
-    assert row["relationship"]["role"] in {
-        member.name for member in CompoundChannelRole
-    }
-    assert row["relationship"]["direction"] in {
-        member.name for member in CompoundChannelDirection
-    }
-    assert row["parameter_provenance"]["activity_value_as_reported"] is not None
-    assert row["parameter_provenance"]["conversion"] == "none; source units retained"
-    assert row["evidence"]
-    engine.dispose()
+    engine = open_readonly(DB_PATH)
+    try:
+        card = bioactivity_card(engine, "PIEZO1")
+        row = card["rows"][0]
+        assert row["relationship"]["role"] in {
+            member.name for member in CompoundChannelRole
+        }
+        assert row["relationship"]["direction"] in {
+            member.name for member in CompoundChannelDirection
+        }
+        assert row["parameter_provenance"]["activity_value_as_reported"] is not None
+        assert (
+            row["parameter_provenance"]["conversion"]
+            == "none; source units retained"
+        )
+        assert row["evidence"]
+    finally:
+        engine.dispose()
     assert _file_hash(DB_PATH) == original_hash
 
 
@@ -311,11 +303,6 @@ def test_exports_and_pages_expose_issue_103_fields(tmp_path: Path):
 
     copied_db = tmp_path / "maicdb.sqlite"
     shutil.copyfile(DB_PATH, copied_db)
-    migrated_engine = create_engine_for_test(copied_db)
-    migrate_external_references(migrated_engine)
-    migrate_data_layers(migrated_engine)
-    migrate_compound_relationships(migrated_engine)
-    migrated_engine.dispose()
     subprocess.run(
         [
             sys.executable,

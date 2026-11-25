@@ -415,7 +415,7 @@
         "construct_links": 10,
         "denominator": 12,
         "evidence_links": 12,
-        "external_references": 2,
+        "external_references": 12,
         "required_fields": 12,
         "residue_maps": 0,
         "review_state": 12
@@ -424,7 +424,7 @@
         "experiments_to_variants": 200,
         "records_to_publications": 1125,
         "structures_to_functional_residues": 0,
-        "subjects_to_external_references": 6,
+        "subjects_to_external_references": 987,
         "variants_to_structures": 3
       },
       "review": {
@@ -444,7 +444,7 @@
         "compounds": 86,
         "evidence_items": 1129,
         "experiments": 960,
-        "external_references": 6,
+        "external_references": 987,
         "families": 7,
         "ortholog_groups": 12,
         "publications": 216,
@@ -459,7 +459,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -468,7 +468,7 @@
           "experiments_to_variants": 39,
           "records_to_publications": 139,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -488,7 +488,7 @@
           "compounds": 8,
           "evidence_items": 109,
           "experiments": 109,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -502,7 +502,7 @@
           "construct_links": 0,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -511,7 +511,7 @@
           "experiments_to_variants": 0,
           "records_to_publications": 40,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -531,7 +531,7 @@
           "compounds": 1,
           "evidence_items": 39,
           "experiments": 39,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -545,7 +545,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -554,7 +554,7 @@
           "experiments_to_variants": 8,
           "records_to_publications": 52,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -574,7 +574,7 @@
           "compounds": 3,
           "evidence_items": 46,
           "experiments": 46,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -588,7 +588,7 @@
           "construct_links": 0,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -597,7 +597,7 @@
           "experiments_to_variants": 0,
           "records_to_publications": 42,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -617,7 +617,7 @@
           "compounds": 0,
           "evidence_items": 42,
           "experiments": 42,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -631,7 +631,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -640,7 +640,7 @@
           "experiments_to_variants": 4,
           "records_to_publications": 52,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -660,7 +660,7 @@
           "compounds": 32,
           "evidence_items": 18,
           "experiments": 18,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -674,7 +674,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -683,7 +683,7 @@
           "experiments_to_variants": 31,
           "records_to_publications": 104,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -703,7 +703,7 @@
           "compounds": 0,
           "evidence_items": 97,
           "experiments": 97,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -717,7 +717,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -726,7 +726,7 @@
           "experiments_to_variants": 16,
           "records_to_publications": 104,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -746,7 +746,7 @@
           "compounds": 1,
           "evidence_items": 103,
           "experiments": 103,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -769,7 +769,7 @@
           "experiments_to_variants": 15,
           "records_to_publications": 97,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -789,7 +789,7 @@
           "compounds": 2,
           "evidence_items": 95,
           "experiments": 95,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -812,7 +812,7 @@
           "experiments_to_variants": 27,
           "records_to_publications": 174,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 3
         },
         "review": {
@@ -832,7 +832,7 @@
           "compounds": 6,
           "evidence_items": 160,
           "experiments": 160,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -846,7 +846,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -855,7 +855,7 @@
           "experiments_to_variants": 6,
           "records_to_publications": 29,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -875,7 +875,7 @@
           "compounds": 0,
           "evidence_items": 28,
           "experiments": 28,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -889,7 +889,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -898,7 +898,7 @@
           "experiments_to_variants": 48,
           "records_to_publications": 177,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -918,7 +918,7 @@
           "compounds": 7,
           "evidence_items": 153,
           "experiments": 153,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -932,7 +932,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -941,7 +941,7 @@
           "experiments_to_variants": 6,
           "records_to_publications": 115,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -961,7 +961,7 @@
           "compounds": 13,
           "evidence_items": 70,
           "experiments": 70,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -983,7 +983,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -992,7 +992,7 @@
           "experiments_to_variants": 39,
           "records_to_publications": 139,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -1012,7 +1012,7 @@
           "compounds": 8,
           "evidence_items": 109,
           "experiments": 109,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -1032,7 +1032,7 @@
           "construct_links": 2,
           "denominator": 4,
           "evidence_links": 4,
-          "external_references": 0,
+          "external_references": 4,
           "required_fields": 4,
           "residue_maps": 0,
           "review_state": 4
@@ -1041,7 +1041,7 @@
           "experiments_to_variants": 12,
           "records_to_publications": 186,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -1061,7 +1061,7 @@
           "compounds": 35,
           "evidence_items": 145,
           "experiments": 145,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 4,
           "publications": 210,
@@ -1079,7 +1079,7 @@
           "construct_links": 2,
           "denominator": 2,
           "evidence_links": 2,
-          "external_references": 0,
+          "external_references": 2,
           "required_fields": 2,
           "residue_maps": 0,
           "review_state": 2
@@ -1088,7 +1088,7 @@
           "experiments_to_variants": 47,
           "records_to_publications": 208,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -1108,7 +1108,7 @@
           "compounds": 1,
           "evidence_items": 200,
           "experiments": 200,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 2,
           "publications": 210,
@@ -1134,7 +1134,7 @@
           "experiments_to_variants": 15,
           "records_to_publications": 97,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -1154,7 +1154,7 @@
           "compounds": 2,
           "evidence_items": 95,
           "experiments": 95,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -1172,7 +1172,7 @@
           "construct_links": 2,
           "denominator": 2,
           "evidence_links": 2,
-          "external_references": 1,
+          "external_references": 2,
           "required_fields": 2,
           "residue_maps": 0,
           "review_state": 2
@@ -1181,7 +1181,7 @@
           "experiments_to_variants": 33,
           "records_to_publications": 203,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 3
         },
         "review": {
@@ -1201,7 +1201,7 @@
           "compounds": 6,
           "evidence_items": 188,
           "experiments": 188,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 2,
           "publications": 210,
@@ -1218,7 +1218,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -1227,7 +1227,7 @@
           "experiments_to_variants": 48,
           "records_to_publications": 177,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -1247,7 +1247,7 @@
           "compounds": 7,
           "evidence_items": 153,
           "experiments": 153,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
@@ -1264,7 +1264,7 @@
           "construct_links": 1,
           "denominator": 1,
           "evidence_links": 1,
-          "external_references": 0,
+          "external_references": 1,
           "required_fields": 1,
           "residue_maps": 0,
           "review_state": 1
@@ -1273,7 +1273,7 @@
           "experiments_to_variants": 6,
           "records_to_publications": 115,
           "structures_to_functional_residues": 0,
-          "subjects_to_external_references": 6,
+          "subjects_to_external_references": 987,
           "variants_to_structures": 0
         },
         "review": {
@@ -1293,7 +1293,7 @@
           "compounds": 13,
           "evidence_items": 70,
           "experiments": 70,
-          "external_references": 6,
+          "external_references": 987,
           "families": 1,
           "ortholog_groups": 1,
           "publications": 210,
