@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # check-suite-matrix.sh — derive the three suite-state signatures by
 # EXECUTION and compare them against the pins declared in
-# .github/workflows/ci.yml (the single source of truth), the local
-# reference comment in the same file, and the human-facing mirror of the
-# pins in KNOWN-QUIRKS.md quirk 3.
+# tests/suite-signatures.json (the single source of truth). The
+# historical ci.yml/KNOWN-QUIRKS copies are prose only; pin changes edit
+# the JSON once.
 #
 # Born 2026-10-24 (retro): the no-tag signature was once extrapolated
 # from a stale test count (62/12 vs the real 61/13) — this script makes
 # the pin discipline observational, not arithmetical.
 #
 # States:
-#   local    full suite, vault if present            (must match ci.yml's
-#            "Local with-vault reference" comment)
-#   novault  MAICDB_VAULT=/nonexistent               (must match a ci.yml pin)
+#   local    full suite, vault if present            (must match the JSON
+#            local reference)
+#   novault  MAICDB_VAULT=/nonexistent               (must match a JSON pin)
 #   notag    shallow --no-tags clone of this HEAD    (must match the other pin;
-#            more skips than novault — the signature ci.yml's error names)
+#            more skips than novault — the signature CI's error names)
 #
 # Usage: scripts/check-suite-matrix.sh            full: execute + compare (the verdict)
 #       scripts/check-suite-matrix.sh --pins      static declared-pin sanity only
@@ -44,43 +44,38 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
-CI_FILE=".github/workflows/ci.yml"
+PIN_FILE="tests/suite-signatures.json"
+READ_PIN=("$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/read-suite-pin.py")
+
+skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
 
 fail() { echo "check-suite-matrix: $*" >&2; exit 1; }
 note() { printf '  %s\n' "$1"; }
 
-# --- declared signatures: the numbers inside ci.yml's grep anchors ------
-DECLARED=()
-while IFS= read -r line; do DECLARED+=("$line"); done < <(
-    grep -oE '[0-9]+ passed, [0-9]+ skipped, 1 warning' "$CI_FILE" | sort -u
-)
-[ "${#DECLARED[@]}" -eq 2 ] ||
-    fail "expected exactly 2 declared signatures in $CI_FILE, found ${#DECLARED[@]}: ${DECLARED[*]}"
-
-# Shorthand copies (no ", 1 warning" suffix) inside quoted error strings
-# must be a declared signature's prefix (gate NIT-2, PR #31: a re-pin that
-# forgets the shorthand copy leaves a stale operator-facing error message
-# the full-form detector cannot see).
-while IFS= read -r sh; do
-    [ -n "$sh" ] || continue
-    printf '%s\n' "${DECLARED[@]}" | grep -qF "$sh," ||
-        fail "$CI_FILE: shorthand literal '$sh' matches no declared signature — re-pin the error-message literals too"
-done < <(grep -oE "'[0-9]+ passed, [0-9]+ skipped'" "$CI_FILE" | tr -d "'" | sort -u)
-
-# --- pin copies: KNOWN-QUIRKS quirk 3 mirrors the pins for humans ------
-# ci.yml is authoritative, but its pins are re-stated in quirk 3 and a
-# drifted copy is how that line went stale once already. Anchored to the
-# quirk-3 table row (CODING_STANDARDS rule 1: structure, not a whole-file
-# substring).
-QUIRK3_ROW="$(grep -E '^\| 3 \|' KNOWN-QUIRKS.md)" ||
-    fail "KNOWN-QUIRKS.md: no '| 3 |' table row found"
-for d in "${DECLARED[@]}"; do
-    printf '%s' "$QUIRK3_ROW" | grep -qF "$d" ||
-        fail "KNOWN-QUIRKS.md quirk 3 drifted from $CI_FILE: missing '$d'"
-done
+# --- declared signatures: the JSON file is the only source of truth ------
+DECLARED=("$("${READ_PIN[@]}" novault)" "$("${READ_PIN[@]}" notag)")
+local_signature="$("${READ_PIN[@]}" local passed)"
+local_collected="$("${READ_PIN[@]}" local collected)"
+case "$local_signature" in
+    ''|*[!0-9]*) fail "$PIN_FILE: local.passed must be a positive integer" ;;
+esac
+case "$local_collected" in
+    *[!0-9]*) local_collected="${local_collected%% tests collected}" ;;
+esac
+case "$local_collected" in
+    ''|*[!0-9]*) fail "$PIN_FILE: local.collected must be a positive integer" ;;
+esac
+[ "$local_collected" -gt 0 ] || fail "$PIN_FILE: local.collected must be positive"
+[ "$local_signature" -gt 0 ] || fail "$PIN_FILE: local.passed must be positive"
+[ "$local_collected" -ge "$local_signature" ] ||
+    fail "$PIN_FILE: local.collected must be at least local.passed"
+[ "$(skips_of "${DECLARED[0]}")" -gt 0 ] ||
+    fail "$PIN_FILE: novault.skipped must be positive"
+[ "$(skips_of "${DECLARED[1]}")" -gt "$(skips_of "${DECLARED[0]}")" ] ||
+    fail "$PIN_FILE: notag must skip more tests than novault"
 
 matches_declared() { # summary -> success if it contains an ANCHORED signature
-    # Digit-boundary anchored, mirroring ci.yml's own grep: "178 passed"
+    # Digit-boundary anchored, mirroring CI's own grep: "178 passed"
     # must NOT match a "78 passed" pin (vacuous-pass guard).
     local s="$1" d
     for d in "${DECLARED[@]}"; do
@@ -108,32 +103,22 @@ self_test
 
 # --- static mode (--pins): declared-pin sanity only, no suite execution --
 # Wired into .githooks/run-suite.sh and CI. Catches stray signature-shaped
-# literals anywhere in ci.yml — including copies inside error-message
-# strings, which the execution states never read (found live 2026-10-26,
-# census-pin PR: a re-pin missed the drift-error literal; only a manual
-# full run of this script caught it, so the guard now runs on every
-# commit). Needs no venv and no git objects (gate NIT-1, PR #31: the
-# env checks sit below this block on purpose — a fresh clone's first
-# commit checks pins without blocking on uv sync).
+# literals is obsolete because the JSON file is the only source. Needs no
+# venv and no git objects: a fresh clone's first commit checks pins
+# without blocking on uv sync.
 # 2026-10-26 retro.
 if [ "${1:-}" = "--pins" ]; then
-    echo "pins OK — exactly 2 declared signatures in $CI_FILE, quirk-3 mirror matches: ${DECLARED[*]}"
+    echo "pins OK — suite signatures single-sourced in $PIN_FILE: ${DECLARED[*]}"
     exit 0
 fi
 
 [ -x "$REPO_ROOT/.venv/bin/python" ] || fail ".venv missing — run uv sync first"
 command -v git >/dev/null 2>&1 || fail "git not found"
 
-skips_of() { sed -E 's/.*[^0-9]([0-9]+) skipped.*/\1/' <<<"$1"; }
-
 # The bare signature only — the executed line carries pytest's ====
 # decoration and wall-clock duration, which must never enter a grep
 # anchor (the next run's timing would fail it forever).
 bare_of() { grep -oE '[0-9]+ passed, [0-9]+ skipped, [0-9]+ warning' <<<"$1" | head -1; }
-
-# The shorthand signature (no ", 1 warning") — the form the drift-error
-# message quotes inside ci.yml.
-short_of() { sed -E 's/, [0-9]+ warning$//' <<<"$1"; }
 
 # Dirty tree = no verdict, so fail up front instead of warning after the
 # runs: the notag state (below) clones HEAD, so uncommitted test/pin
@@ -223,27 +208,14 @@ if [ "${1:-}" = "--derive" ]; then
             continue
         fi
         changed=1
-        # two expressions per pin: the full signature covers the grep
-        # anchors + the drift-error literal + the quirk-3 mirror; the
-        # shorthand form (no ", 1 warning" suffix) covers the error
-        # message's quoted copy — a full-signature-only replacement
-        # leaves it stale and --pins then blocks the commit (found live
-        # 2026-11-02 verifying --derive against a rewound-pin tree; PR
-        # #31 gate NIT-2 is the same shape). Order matters: the full
-        # form first, so the shorthand pass sees only true copies.
-        old_short="$(short_of "$old_pin")" new_short="$(short_of "$new_pin")"
-        echo "  sed -i 's|$old_pin|$new_pin|g; s|$old_short|$new_short|g' .github/workflows/ci.yml KNOWN-QUIRKS.md   # $state pin"
+        echo "  update $PIN_FILE: $state.passed $(sed -E 's/.* ([0-9]+) passed.*/\1/' <<<"$old_pin") -> $(sed -E 's/.* ([0-9]+) passed.*/\1/' <<<"$new_pin")   # $state pin"
     done
-    old_ref="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$CI_FILE")"
     new_ref="$(sed -E 's/.*[^0-9]([0-9]+) passed.*/\1/' <<<"$LOCAL_SUMMARY")"
-    if [ -z "$old_ref" ]; then
-        note "local reference: no 'Local with-vault reference: N passed' comment in $CI_FILE — the full mode fails loudly on this; nothing derivable"
-    elif [ "$new_ref" = "$old_ref" ]; then
-        note "local reference: in sync ($old_ref passed)"
+    if [ "$new_ref" = "$local_signature" ]; then
+        note "local reference: in sync ($local_signature passed; $local_collected collected)"
     else
         changed=1
-        echo "  sed -i 's|Local with-vault reference: $old_ref passed|Local with-vault reference: $new_ref passed|g' $CI_FILE   # local reference comment"
-        echo "  hand edits (no safe sed): the reference comment's attribution parenthetical; quirk 3's local-run sentence; append BOTH quirk-3 history chains"
+        echo "  update $PIN_FILE: local.passed $local_signature -> $new_ref; re-derive local.collected with pytest --collect-only -q"
     fi
     [ "$changed" -eq 0 ] && echo "  (all in sync — nothing to re-pin)"
     echo
@@ -251,19 +223,14 @@ if [ "${1:-}" = "--derive" ]; then
     exit 0
 fi
 
-echo "Running the three suite states (each against the pins in $CI_FILE):"
+echo "Running the three suite states (each against the pins in $PIN_FILE):"
 
-# --- state 1: local (vault if present) — pinned to ci.yml's reference ---
+# --- state 1: local (vault if present) — pinned to the JSON reference ---
 LOCAL_SUMMARY="$(run_local_state)"
 note "local   : $LOCAL_SUMMARY"
-LOCAL_REF="$(sed -nE 's/.*Local with-vault reference: ([0-9]+) passed.*/\1/p' "$CI_FILE")"
-[ -n "$LOCAL_REF" ] ||
-    fail "$CI_FILE: no 'Local with-vault reference: N passed' comment found"
 LOCAL_PASSED="$(sed -E 's/.*[^0-9]([0-9]+) passed.*/\1/' <<<"$LOCAL_SUMMARY")"
-if [ "$LOCAL_PASSED" != "$LOCAL_REF" ]; then
-    note "suggested re-pin:"
-    note "  sed -i 's/Local with-vault reference: $LOCAL_REF passed/Local with-vault reference: $LOCAL_PASSED passed/' $CI_FILE"
-    fail "local run says $LOCAL_PASSED passed but $CI_FILE's reference comment pins $LOCAL_REF — if the run is genuine, re-pin the comment and KNOWN-QUIRKS quirk 3 together (bash scripts/check-suite-matrix.sh derives, never arithmetic)"
+if [ "$LOCAL_PASSED" != "$local_signature" ]; then
+    fail "local run says $LOCAL_PASSED passed but $PIN_FILE pins $local_signature — if the run is genuine, update local.passed (bash scripts/check-suite-matrix.sh derives, never arithmetic)"
 fi
 
 # --- state 2: no vault (the CI condition, tags present) ------------------
@@ -272,11 +239,11 @@ suggest_repin() { # executed-summary -> echo which declared pin it should replac
     bare="$(bare_of "$executed")"
     for d in "${DECLARED[@]}"; do
         if [ "$(skips_of "$d")" = "$(skips_of "$executed")" ]; then
-            note "suggested re-pin: replace '$d' with '$bare' in $CI_FILE (grep anchors + the shorthand copy inside the drift-error message) and mirror both in KNOWN-QUIRKS quirk 3"
+            note "suggested re-pin: replace '$d' with '$bare' in $PIN_FILE"
             return 0
         fi
     done
-    note "suggested re-pin: no declared pin shares this skip count — add the signature to $CI_FILE as a third state only if a state was genuinely added; otherwise investigate the drift"
+    note "suggested re-pin: no declared pin shares this skip count — add a third state only if one was genuinely added; otherwise investigate the drift"
 }
 
 NOVAULT_SUMMARY="$(run_novault_state)"
@@ -300,4 +267,4 @@ matches_declared "$NOTAG_SUMMARY" || {
 
 echo
 echo "matrix OK — both executed signatures match the declared pins and differ,"
-echo "the local reference matches ci.yml, and quirk 3 mirrors the pins."
+echo "the local reference matches the JSON pin file."

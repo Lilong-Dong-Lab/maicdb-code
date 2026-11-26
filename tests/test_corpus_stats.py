@@ -17,7 +17,7 @@ against ``db/maicdb.sqlite``:
     SELECT COUNT(*) FROM biophysics_experiment;    -- 960
     SELECT COUNT(*) FROM bioactivity;              -- 137
     SELECT COUNT(*) FROM unmapped_measurement;     --  28
-    SELECT COUNT(*) FROM variant;                  -- 133
+    SELECT COUNT(*) FROM variant;                  -- 135
     SELECT COUNT(*) FROM compound;                 --  86
     SELECT COUNT(*) FROM external_reference;       --   6
     SELECT confidence, COUNT(*) FROM biophysics_experiment GROUP BY 1;
@@ -133,8 +133,8 @@ def test_corpus_counts_and_scale(tmp_path):
         "channel": 12,
         "publication": 216,
         "compound": 86,
-        "variant": 133,
-        "external_reference": 6,
+        "variant": 135,
+        "external_reference": 987,
     }
     assert stats["year_range"] == [1986, 2026]
 

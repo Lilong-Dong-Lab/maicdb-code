@@ -1,8 +1,8 @@
 """Tests for :mod:`maicdb.query` — the M1 read-only query library + CLI.
 
 Real-data provenance: every fixture value below is pinned against the
-published artifact ``db/maicdb.sqlite`` (schema 0.2.0, data freeze
-``data-v1.0``, vault head ``5a8ff0e``) or the vault data notes
+published artifact ``db/maicdb.sqlite`` (schema 0.6.0, freeze provenance
+in ``db/load-manifest.json``) or the vault data notes
 (``shared/assignments/data/MAICDB_data_notes.md`` — §2 counts, §6.3 small
 families, §6.7 frozen wording). Census SQL for each pinned number is quoted
 in the test docstring so any drift is re-derivable.
@@ -394,6 +394,10 @@ def test_provenance_full_evidence_row(engine):
     assert ev["confidence"] == "high"
     assert ev["n"] == "21"
     assert ev["extractor_note"]
+    assert ev["evidence"][0]["maicdb_id"] == "MAIC:EV:00409"
+    assert ev["evidence"][0]["claim"]
+    assert ev["evidence"][0]["publication"]["id"]
+    assert "doi" in ev["evidence"][0]["publication"]
 
     # Nullable evidence fields stay None in the payload and render
     # explicitly: 445 biophysics rows have n IS NULL (census
@@ -420,6 +424,13 @@ def test_provenance_frozen_layer_disclosure(engine):
     assert not [k for k in ev_msc if k.lower().startswith("verif")]
 
 
+def test_provenance_resolves_authoritative_evidence_for_bioactivity(engine):
+    bioactivity = provenance(engine, "ASIC-00025")
+    assert bioactivity is not None
+    assert bioactivity["evidence"][0]["maicdb_id"] == "MAIC:EV:00961"
+    assert "unmigrated_evidence_disclosure" not in bioactivity
+
+
 def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     """CSV export: pure data on stdout, §6.7 boilerplate + sign-convention
     note on stderr (p50 is a threshold parameter and includes PIEZO1 rows),
@@ -434,18 +445,24 @@ def test_export_csv_deterministic_with_stderr_disclosure(engine, capsys):
     assert csv_a == csv_b  # byte-identical (rule 6)
     lines = csv_a.splitlines()
     assert lines[0] == (
-        "gene,family,parameter,unit,count,min,median,max,measurement_ids,note"
+        "gene,family,parameter,unit,count,min,median,max,"
+        "measurement_ids,evidence_ids,construct_ids,structure_ids,"
+        "external_references,data_layer,parameter_provenance,note"
     )
     assert len(lines) == 14  # header + 13 data rows
     assert FROZEN_LAYER_DISCLOSURE in err_a
     assert "sign convention" in err_a and "as recorded" in err_a
 
     rows = list(csv.reader(lines[1:]))
-    assert all(len(r) == 10 for r in rows)
+    assert all(len(r) == 16 for r in rows)
+    assert all(r[13] == "computed" for r in rows)
     # Every counted aggregate row is traceable: ids listed, ;-joined.
     msc_psi = next(r for r in rows if r[0] == "MscL" and r[3] == "psi")
     assert msc_psi[8].count(";") == 3  # 4 ids
     assert "MSCL-EX-00037" in msc_psi[8]
+    assert msc_psi[9].count(";") == 3
+    assert msc_psi[9].startswith("MAIC:EV:")
+    assert "MAIC:EV:" in msc_psi[9]
 
 
 def test_export_json_round_trip_and_disclosure(engine):
@@ -463,6 +480,8 @@ def test_export_json_round_trip_and_disclosure(engine):
     assert "as recorded" in doc["sign_convention"]
     assert sum(r["count"] for r in doc["rows"]) == 159
     assert all(isinstance(r["measurement_ids"], list) for r in doc["rows"])
+    counted = [r for r in doc["rows"] if r["count"] > 0]
+    assert all(len(r["evidence_ids"]) == r["count"] for r in counted)
 
 
 def test_export_discloses_frozen_even_on_zero_count_piezo_rows(engine, capsys):
@@ -692,6 +711,10 @@ def test_cli_provenance(capsys):
     assert "PIEZO1-EX-00005" in out
     assert "Results (Fig. 1F)" in out
     assert "The current-pressure relationship is characterized" in out
+    assert "evidence_item: MAIC:EV:00409" in out
+    assert "evidence_type: measurement" in out
+    assert "confidence: high" in out
+    assert "review_state: unreviewed" in out
     assert "not been re-verified" in out  # §6.7 boilerplate on this path too
 
     rc = main(["provenance", "NO-SUCH-MEASUREMENT", *CLI_ARGS])
