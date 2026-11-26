@@ -49,11 +49,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from maicdb.analysis.activity import p_activity
-from maicdb.analysis.atlas import (
-    compound_channel_matrix,
-    delta_p50_table,
-    selectivity_index,
-)
+from maicdb.analysis.atlas import compound_channel_matrix, delta_p50_table, selectivity_index
 from maicdb.analysis.audit import (
     MANDATED_FIELDS,
     breakdown,
@@ -71,15 +67,10 @@ from maicdb.analysis.biophysics import (
     load_p50_records,
     threshold_meta,
 )
-from maicdb.analysis.coverage import coverage_payload
 from maicdb.analysis.joins import same_fit_candidates, same_fit_marker_hits
 from maicdb.analysis.mimic import score_all
 from maicdb.analysis.replicates import coalesce_replicates
-from maicdb.analysis.site_payloads import (
-    analysis_payloads,
-    channel_mimic_blocks,
-    data_freeze_tag,
-)
+from maicdb.analysis.site_payloads import analysis_payloads, channel_mimic_blocks, data_freeze_tag
 from maicdb.analysis.trends import (
     PARAMETERS,
     assay_drift,
@@ -102,14 +93,9 @@ _MANIFEST_TABLES = (
     ("compound", "compound"),
     ("variant", "variant"),
     ("structure", "structure"),
-    ("construct", "construct"),
-    ("construct_variant_link", "construct_variant"),
-    ("experiment_construct_link", "experiment_construct"),
     ("biophysics", "biophysics_experiment"),
     ("bioactivity", "bioactivity"),
     ("unmapped", "unmapped_measurement"),
-    ("structure_residue", "structure_residue"),
-    ("structure_variant_location", "structure_variant_location"),
 )
 
 
@@ -132,7 +118,6 @@ def compute_census(engine: Engine) -> dict:
         "trends": _trends_track(engine),
         "mimic": _mimic_track(engine),
         "site_payloads": _site_payloads_track(engine),
-        "coverage": coverage_payload(engine),
     }
 
 
@@ -155,9 +140,7 @@ def manifest_anchor_problems(engine: Engine, repo_root: Path = _REPO_ROOT) -> li
     for key, table in _MANIFEST_TABLES:
         n = _scalar(engine, f"SELECT COUNT(*) FROM {table}")
         if counts.get(key) != n:
-            problems.append(
-                f"count mismatch for {key}: manifest {counts.get(key)} != db {n}"
-            )
+            problems.append(f"count mismatch for {key}: manifest {counts.get(key)} != db {n}")
     return problems
 
 
@@ -183,9 +166,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     repo_root = _REPO_ROOT
-    db_path = (
-        Path(args.database) if args.database else repo_root / "db" / "maicdb.sqlite"
-    )
+    db_path = Path(args.database) if args.database else repo_root / "db" / "maicdb.sqlite"
     engine = open_readonly(db_path)
     census = compute_census(engine)
     problems = manifest_anchor_problems(engine, repo_root)
@@ -202,23 +183,15 @@ def main(argv: list[str] | None = None) -> int:
     fresh = render_snapshot(census)
     if args.write:
         snapshot_path.write_text(fresh, encoding="utf-8")
-        print(
-            f"wrote {snapshot_path} ({len(fresh)} bytes, freeze {census['freeze_tag']})"
-        )
+        print(f"wrote {snapshot_path} ({len(fresh)} bytes, freeze {census['freeze_tag']})")
         return 0
     if not snapshot_path.exists():
-        print(
-            f"no snapshot at {snapshot_path}; run `maicdb-census --write` first",
-            file=sys.stderr,
-        )
+        print(f"no snapshot at {snapshot_path}; run `maicdb-census --write` first", file=sys.stderr)
         return 2
     if snapshot_path.read_text(encoding="utf-8") == fresh:
         print(f"census matches {snapshot_path} (freeze {census['freeze_tag']})")
         return 0
-    print(
-        f"census DRIFT vs {snapshot_path} (freeze {census['freeze_tag']}):",
-        file=sys.stderr,
-    )
+    print(f"census DRIFT vs {snapshot_path} (freeze {census['freeze_tag']}):", file=sys.stderr)
     current = json.loads(snapshot_path.read_text(encoding="utf-8"))
     for track in sorted(set(current) | set(census)):
         old, new = current.get(track), census.get(track)
@@ -227,10 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         if isinstance(old, dict) and isinstance(new, dict):
             for key in sorted(set(old) | set(new)):
                 if old.get(key) != new.get(key):
-                    print(
-                        f"  {track}.{key}: snapshot {old.get(key)!r} -> computed {new.get(key)!r}",
-                        file=sys.stderr,
-                    )
+                    print(f"  {track}.{key}: snapshot {old.get(key)!r} -> computed {new.get(key)!r}", file=sys.stderr)
         else:
             print(f"  {track}: snapshot {old!r} -> computed {new!r}", file=sys.stderr)
     return 1
@@ -263,9 +233,7 @@ def _records(engine: Engine) -> list[Mapping[str, object]]:
 
 def _condition_key_map(engine: Engine) -> dict[str, str]:
     with engine.connect() as conn:
-        rows = conn.execute(
-            text("SELECT maicdb_id, condition_key FROM biophysics_experiment")
-        ).all()
+        rows = conn.execute(text("SELECT maicdb_id, condition_key FROM biophysics_experiment")).all()
     return {row[0]: (row[1] or "") for row in rows}
 
 
@@ -274,61 +242,11 @@ def _corpus_track(engine: Engine) -> dict:
         "experiment_count": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment"
         ),
-        "bioactivity_count": _scalar(engine, "SELECT COUNT(*) FROM bioactivity"),
-        "unmapped_count": _scalar(engine, "SELECT COUNT(*) FROM unmapped_measurement"),
-        "evidence_item_count": _scalar(engine, "SELECT COUNT(*) FROM evidence_item"),
-        "evidence_subject_count": _scalar(
-            engine, "SELECT COUNT(*) FROM evidence_subject"
-        ),
-        "evidence_unresolved_count": _scalar(
-            engine,
-            """
-            SELECT (
-                (SELECT COUNT(*) FROM biophysics_experiment)
-                + (SELECT COUNT(*) FROM bioactivity)
-                + (SELECT COUNT(*) FROM unmapped_measurement)
-            ) - (
-                SELECT COUNT(DISTINCT subject_type || ':' || subject_id)
-                FROM evidence_subject
-                WHERE subject_type IN (
-                    'BIOPHYSICS_EXPERIMENT', 'BIOACTIVITY', 'UNMAPPED_MEASUREMENT'
-                )
-            )
-            """,
-        ),
-        "construct_count": _scalar(engine, "SELECT COUNT(*) FROM construct"),
-        "construct_variant_link_count": _scalar(
-            engine, "SELECT COUNT(*) FROM construct_variant"
-        ),
-        "experiment_construct_link_count": _scalar(
-            engine, "SELECT COUNT(*) FROM experiment_construct"
-        ),
-        "legacy_variant_experiment_link_count": _scalar(
-            engine,
-            "SELECT COUNT(*) FROM biophysics_experiment WHERE variant_id IS NOT NULL",
-        ),
-        "legacy_structure_experiment_link_count": _scalar(
-            engine,
-            "SELECT COUNT(*) FROM biophysics_experiment WHERE structure_id IS NOT NULL",
-        ),
-        "structure_residue_count": _scalar(
-            engine,
-            "SELECT COUNT(*) FROM structure_residue "
-            "WHERE 1 = (SELECT COUNT(*) FROM sqlite_master "
-            "WHERE type='table' AND name='structure_residue')",
-        ),
-        "structure_variant_location_count": _scalar(
-            engine,
-            "SELECT COUNT(*) FROM structure_variant_location "
-            "WHERE 1 = (SELECT COUNT(*) FROM sqlite_master "
-            "WHERE type='table' AND name='structure_variant_location')",
-        ),
         "p50_psi_rows": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment WHERE p50_unit = 'psi'"
         ),
         "t50_dyncm_rows": _scalar(
-            engine,
-            "SELECT COUNT(*) FROM biophysics_experiment WHERE t50_unit = 'dyn/cm'",
+            engine, "SELECT COUNT(*) FROM biophysics_experiment WHERE t50_unit = 'dyn/cm'"
         ),
         "x50_nm_rows": _scalar(
             engine, "SELECT COUNT(*) FROM biophysics_experiment WHERE x50_unit = 'nm'"
@@ -395,50 +313,25 @@ def _audit_track(engine: Engine) -> dict:
             for f in ("family", "year", "journal")
         },
         "family_slice_counts": dict(Counter(families[s.channel_id] for s in scores)),
-        "era_split": {
-            "pre": era.pre_k,
-            "post": era.post_k,
-            "unassigned": era.unassigned_k,
-        },
+        "era_split": {"pre": era.pre_k, "post": era.post_k, "unassigned": era.unassigned_k},
         "era_year_k": [[y.year, y.k] for y in era.years],
-        "field_total_temperature_c": [
-            temperature.reported,
-            temperature.not_extracted,
-            temperature.applicable,
-        ],
+        "field_total_temperature_c": [temperature.reported, temperature.not_extracted, temperature.applicable],
         "field_total_ph": [ph.reported, ph.applicable],
-        "field_total_recording_mode": [
-            recording_mode.reported,
-            recording_mode.not_extracted,
-            recording_mode.applicable,
-        ],
+        "field_total_recording_mode": [recording_mode.reported, recording_mode.not_extracted, recording_mode.applicable],
         "field_total_stimulus_velocity": [velocity.reported, velocity.applicable],
-        "field_total_cell_type": [
-            cell_type.reported,
-            cell_type.not_extracted,
-            cell_type.applicable,
-        ],
+        "field_total_cell_type": [cell_type.reported, cell_type.not_extracted, cell_type.applicable],
         "heatmap_family_keys": len(hm),
-        "heatmap_temperature_reported": {
-            f: hm[f]["temperature_c"].reported for f in hm
-        },
-        "as_written_missing": {
-            name: audit.fields[name].missing_as_written for name in MANDATED_FIELDS
-        },
+        "heatmap_temperature_reported": {f: hm[f]["temperature_c"].reported for f in hm},
+        "as_written_missing": {name: audit.fields[name].missing_as_written for name in MANDATED_FIELDS},
         "failing_any_as_written": list(audit.failing_any_as_written),
         "adr_missing": {
-            name: [
-                audit.fields[name].applicable,
-                audit.fields[name].missing_when_applicable,
-            ]
+            name: [audit.fields[name].applicable, audit.fields[name].missing_when_applicable]
             for name in MANDATED_FIELDS
         },
         "failing_any_adr": list(audit.failing_any_adr),
         "adr_clean_records": audit.failing_any_adr[1] - audit.failing_any_adr[0],
         "breakdown_mode_crossfoot_k": sum(g.k for g in mode_groups),
-        "breakdown_cell_attached_k": next(
-            g.k for g in mode_groups if g.group == "CELL_ATTACHED"
-        ),
+        "breakdown_cell_attached_k": next(g.k for g in mode_groups if g.group == "CELL_ATTACHED"),
         "breakdown_family_rows": len(family_groups),
         "breakdown_family_crossfoot_k": sum(g.k for g in family_groups),
         "breakdown_mscl_k": next(g.k for g in family_groups if g.group == "MSCL_MSCS"),
@@ -460,17 +353,9 @@ def _biophysics_track(engine: Engine) -> dict:
         n_by_cell[key] += 1
         pubs_by_cell[key].add(r.publication_id)
     piezo_pc = cells[("PIEZO", "PRESSURE_CLAMP")]
-    asic_inact = next(
-        c for c in kinetics if c.gene_symbol == "ASIC" and c.kind == "tau_inact"
-    )
-    piezo1_pc = next(
-        c
-        for c in spread
-        if c.gene_symbol == "PIEZO1" and c.stimulus_type == "PRESSURE_CLAMP"
-    )
-    mscl_suction = next(
-        c for c in spread if c.gene_symbol == "MscL" and c.stimulus_type == "SUCTION"
-    )
+    asic_inact = next(c for c in kinetics if c.gene_symbol == "ASIC" and c.kind == "tau_inact")
+    piezo1_pc = next(c for c in spread if c.gene_symbol == "PIEZO1" and c.stimulus_type == "PRESSURE_CLAMP")
+    mscl_suction = next(c for c in spread if c.gene_symbol == "MscL" and c.stimulus_type == "SUCTION")
     return {
         "p50_records": len(records),
         "p50_unit_split": dict(Counter(r.p50_unit for r in records)),
@@ -485,8 +370,7 @@ def _biophysics_track(engine: Engine) -> dict:
             "WHERE p50_value IS NOT NULL AND condition_key IS NOT NULL",
         ),
         "p50_cell_census": {
-            f"{f}/{s}": [n_by_cell[(f, s)], len(pubs_by_cell[(f, s)])]
-            for f, s in n_by_cell
+            f"{f}/{s}": [n_by_cell[(f, s)], len(pubs_by_cell[(f, s)])] for f, s in n_by_cell
         },
         "threshold_meta_cells": len(cells),
         "meta_piezo_pc": {"k": piezo_pc.k, "n": piezo_pc.n},
@@ -497,9 +381,7 @@ def _biophysics_track(engine: Engine) -> dict:
         },
         "cell_negative_n": {
             f"{c.family}/{c.stimulus_type}": c.negative_n
-            for c in sorted(
-                cells.values(), key=lambda c: (c.family, c.stimulus_type or "")
-            )
+            for c in sorted(cells.values(), key=lambda c: (c.family, c.stimulus_type or ""))
         },
         "kinetics_cells": len(kinetics),
         "kinetics_totals": {
@@ -519,9 +401,7 @@ def _biophysics_track(engine: Engine) -> dict:
         "lab_spread_piezo1_pc": {"k": piezo1_pc.k, "n": piezo1_pc.n},
         "lab_spread_mscl_suction": {"k": mscl_suction.k, "n": mscl_suction.n},
         "boltzmann_pairs": len(demos),
-        "boltzmann_top_token_overlap": max(
-            cast("int", d["token_overlap"]) for d in demos
-        ),
+        "boltzmann_top_token_overlap": max(cast("int", d["token_overlap"]) for d in demos),
     }
 
 
@@ -552,12 +432,8 @@ def _atlas_track(engine: Engine) -> dict:
         "delta_p50_units": dict(unit_rows),
         "variant_linked_rows": sum(1 for r in effects if r.variant_linked),
         "variant_hgvs_nonnull": sum(1 for r in effects if r.variant is not None),
-        "variant_effect_nonnull": sum(
-            1 for r in effects if r.functional_effect is not None
-        ),
-        "variant_positions": sorted(
-            r.variant_position for r in effects if r.variant_position is not None
-        ),
+        "variant_effect_nonnull": sum(1 for r in effects if r.functional_effect is not None),
+        "variant_positions": sorted(r.variant_position for r in effects if r.variant_position is not None),
         "domain_covered_total": sum(len(r.domains) for r in effects),
         "delta_p50_gene_split": dict(gene_rows),
         "matrix_cells": len(matrix),
@@ -567,9 +443,7 @@ def _atlas_track(engine: Engine) -> dict:
         "matrix_basis_totals": basis_totals,
         "matrix_family_split": dict(Counter(c.family for c in matrix)),
         "selectivity_rows": len(selectivity),
-        "selectivity_gapped_rows": sum(
-            1 for r in selectivity if r.selectivity_gap is not None
-        ),
+        "selectivity_gapped_rows": sum(1 for r in selectivity if r.selectivity_gap is not None),
     }
 
 
@@ -583,14 +457,11 @@ def _trends_track(engine: Engine) -> dict:
     year_k = {t.year: t.k for t in total}
     adoption_cells = {(r.parameter, r.year): r.k for r in adoption}
     adoption_years = {r.year for r in adoption}
-    none_2011 = next(
-        r.k for r in model if r.year == 2011 and r.expression_system is None
-    )
+    none_2011 = next(r.k for r in model if r.year == 2011 and r.expression_system is None)
     return {
         "record_count": len(records),
         "join_vacuity": {
-            f: sum(1 for r in records if getattr(r, f) is None)
-            for f in ("year", "family")
+            f: sum(1 for r in records if getattr(r, f) is None) for f in ("year", "family")
         },
         "parameter_census": {
             label: sum(1 for r in records if label in r.parameters)
@@ -602,17 +473,11 @@ def _trends_track(engine: Engine) -> dict:
         "pubs_total_k": sum(t.k for t in total),
         "pub_year_anchors": {str(y): year_k[y] for y in (2010, 2015, 2020, 2023)},
         "pub_2010_family_split": [
-            [r.family, r.k]
-            for r in sorted(by_family, key=lambda r: r.family)
-            if r.year == 2010
+            [r.family, r.k] for r in sorted(by_family, key=lambda r: r.family) if r.year == 2010
         ],
         "parameter_adoption_rows": len(adoption),
         "parameter_label_count": len(PARAMETERS),
-        "parameter_adoption_year_span": [
-            min(adoption_years),
-            max(adoption_years),
-            len(adoption_years),
-        ],
+        "parameter_adoption_year_span": [min(adoption_years), max(adoption_years), len(adoption_years)],
         "of_year_2010": next(r.of_year for r in adoption if r.year == 2010),
         "adoption_cell_anchors": {
             "conductance@1986": adoption_cells[("conductance", 1986)],
@@ -631,9 +496,7 @@ def _trends_track(engine: Engine) -> dict:
         },
         "model_drift_rows": len(model),
         "expression_system_count": len({r.expression_system for r in model}),
-        "expression_none_bucket_k": sum(
-            r.k for r in model if r.expression_system is None
-        ),
+        "expression_none_bucket_k": sum(r.k for r in model if r.expression_system is None),
         "expression_none_2011": none_2011,
     }
 
@@ -647,8 +510,7 @@ def _mimic_track(engine: Engine) -> dict:
             if st.status == "reported":
                 reported[st.field_name] += 1
     categories = {
-        cat: [0, 0]
-        for cat in ("stimulus", "recording", "cell_context", "environment", "analysis")
+        cat: [0, 0] for cat in ("stimulus", "recording", "cell_context", "environment", "analysis")
     }
     for s in scores:
         for cat, (rep, app) in s.categories.items():
@@ -678,8 +540,7 @@ def _mimic_track(engine: Engine) -> dict:
             ),
         ],
         "field_reported_counts": {
-            name: reported[name]
-            for name in ("recording_mode", "stimulus_type", "temperature_c", "n_cells")
+            name: reported[name] for name in ("recording_mode", "stimulus_type", "temperature_c", "n_cells")
         },
         "score_count": len(scores),
         "score_threshold_counts": {
@@ -705,9 +566,7 @@ def _site_payloads_track(engine: Engine) -> dict:
     trends = payloads["trends"]
     total = trends["pubs_per_year_total"]
     with engine.connect() as conn:
-        cid = conn.execute(
-            text("SELECT id FROM channel WHERE gene_symbol = 'PIEZO1'")
-        ).scalar_one()
+        cid = conn.execute(text("SELECT id FROM channel WHERE gene_symbol = 'PIEZO1'")).scalar_one()
         n_stim_raw = conn.execute(
             text(
                 "SELECT COUNT(*) FROM biophysics_experiment "
@@ -730,11 +589,7 @@ def _site_payloads_track(engine: Engine) -> dict:
             "stimulus_type_reported": stim["reported"],
             "stimulus_type_applicable": stim["applicable"],
         },
-        "atlas_header_counts": [
-            atlas["n_cells"],
-            atlas["n_compounds"],
-            atlas["n_channels"],
-        ],
+        "atlas_header_counts": [atlas["n_cells"], atlas["n_compounds"], atlas["n_channels"]],
         "atlas_list_lengths": {
             "matrix": len(atlas["matrix"]),
             "selectivity": len(atlas["selectivity"]),
@@ -751,9 +606,7 @@ def _site_payloads_track(engine: Engine) -> dict:
         "trends_first_year": [total[0]["year"], total[0]["k"]],
         "trends_last_year": [total[-1]["year"], total[-1]["k"]],
         "parameter_adoption_rows": len(trends["parameter_adoption"]),
-        "parameter_label_count": len(
-            {r["parameter"] for r in trends["parameter_adoption"]}
-        ),
+        "parameter_label_count": len({r["parameter"] for r in trends["parameter_adoption"]}),
         "assay_drift_rows": len(trends["assay_drift"]),
         "model_drift_rows": len(trends["model_system_drift"]),
     }

@@ -62,7 +62,6 @@ from maicdb.analysis.trends import (
     pubs_per_year_by_family,
     pubs_per_year_total,
 )
-from maicdb.data_layers import in_scope_entry
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -80,13 +79,11 @@ def data_freeze_tag(engine: Engine) -> str:
     ``data_freeze_tag``)."""
     with engine.connect() as conn:
         tag = conn.execute(
-            sql_text("SELECT value FROM db_meta WHERE key = 'data_freeze_tag'")
+            sql_text(
+                "SELECT value FROM db_meta WHERE key = 'data_freeze_tag'"
+            )
         ).scalar()
     return str(tag) if tag is not None else ""
-
-
-def _computed_layer(key: str) -> str:
-    return in_scope_entry(key).layer.value
 
 
 def _rows(objs) -> list[dict]:
@@ -106,31 +103,39 @@ def audit_payload(engine: Engine) -> dict:
     scores = score_all(engine)
     meta = load_meta(engine)
     families = load_families(engine)
-    era = compliance_by_year(scores, {mid: m.year for mid, m in meta.items()})
+    era = compliance_by_year(
+        scores, {mid: m.year for mid, m in meta.items()}
+    )
     with engine.connect() as conn:
         records = [
             dict(r)
             for r in conn.execute(
-                sql_text("SELECT * FROM biophysics_experiment ORDER BY maicdb_id")
+                sql_text(
+                    "SELECT * FROM biophysics_experiment ORDER BY maicdb_id"
+                )
             ).mappings()
         ]
     return {
         "data_freeze_tag": data_freeze_tag(engine),
-        "data_layer": _computed_layer("analysis.audit.scores"),
         "provenance": (
             "maicdb.analysis.audit (P3, spec §5.1) — tri-state MIMIC "
             "counts, census-anchored; ADR-0005 applicability"
         ),
         "n_records": len(scores),
-        "mean_score": (sum(s.score for s in scores) / len(scores) if scores else None),
-        "field_totals": {k: _cell_payload(v) for k, v in field_totals(scores).items()},
+        "mean_score": (
+            sum(s.score for s in scores) / len(scores) if scores else None
+        ),
+        "field_totals": {
+            k: _cell_payload(v) for k, v in field_totals(scores).items()
+        },
         "heatmap": {
             fam: {k: _cell_payload(c) for k, c in fields.items()}
             for fam, fields in heatmap(scores, families).items()
         },
         "compliance_by_year": {**asdict(era), "piezo_year": PIEZO_YEAR},
         "breakdowns": {
-            key: _rows(breakdown(scores, meta, key)) for key in BREAKDOWN_KEYS
+            key: _rows(breakdown(scores, meta, key))
+            for key in BREAKDOWN_KEYS
         },
         "four_field_audit": asdict(four_field_audit(records)),
     }
@@ -144,12 +149,14 @@ def biophysics_payload(engine: Engine) -> dict:
         ck = {
             str(r["maicdb_id"]): (r["condition_key"] or "")
             for r in conn.execute(
-                sql_text("SELECT maicdb_id, condition_key FROM biophysics_experiment")
+                sql_text(
+                    "SELECT maicdb_id, condition_key FROM "
+                    "biophysics_experiment"
+                )
             ).mappings()
         }
     return {
         "data_freeze_tag": data_freeze_tag(engine),
-        "data_layer": _computed_layer("analysis.biophysics.statistics"),
         "provenance": (
             "maicdb.analysis.biophysics (P4, spec §5.2) — "
             "DerSimonian–Laird on log10 |P50|, publication-level "
@@ -168,7 +175,6 @@ def atlas_payload(engine: Engine) -> dict:
     matrix = compound_channel_matrix(engine)
     return {
         "data_freeze_tag": data_freeze_tag(engine),
-        "data_layer": _computed_layer("analysis.atlas.p_activity"),
         "provenance": (
             "maicdb.analysis.atlas (P5, spec §5.3) — variant and "
             "compound surfaces on P1's p_activity axis; structural "
@@ -189,7 +195,6 @@ def trends_payload(engine: Engine) -> dict:
     records = load_trend_records(engine)
     return {
         "data_freeze_tag": data_freeze_tag(engine),
-        "data_layer": _computed_layer("analysis.trends.counts"),
         "provenance": (
             "maicdb.analysis.trends (P6, spec §5.4) — corpus growth and "
             "field-adoption views; per-family year cells are NOT "
@@ -205,10 +210,7 @@ def trends_payload(engine: Engine) -> dict:
 
 def analysis_payloads(engine: Engine) -> dict[str, dict]:
     """All four track payloads in one call (the site build's entry)."""
-    from maicdb.analysis.coverage import coverage_payload
-
     return {
-        "coverage": coverage_payload(engine),
         "audit": audit_payload(engine),
         "biophysics": biophysics_payload(engine),
         "atlas": atlas_payload(engine),

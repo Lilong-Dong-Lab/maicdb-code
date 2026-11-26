@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ card.gene.gene_symbol }} · {{ strings.site_name }}{% endblock %}
 
-{# The per-row evidence chain renders exact legacy compatibility fields plus
-   the authoritative normalized Evidence item for every fact family. #}
+{# The per-row evidence chain: six fields rendered identically for every
+   row kind; bioactivity rows lead with the verbatim assay description.
+   Hidden until expanded — this dl lives inside the row's <details>. #}
 {% macro evidence_dl(r, assay=false) %}
 <dl class="evidence">
   {% if assay %}
@@ -14,55 +15,7 @@
   <dt>{{ strings.card_ev_note }}</dt><dd>{{ r.extractor_note or strings.card_not_recorded }}</dd>
   <dt>{{ strings.card_ev_condition }}</dt><dd>{{ r.condition_key or strings.card_not_recorded }}</dd>
   <dt>{{ strings.card_ev_n }}</dt><dd>{{ r.n or strings.card_not_recorded }}</dd>
-  {% if r.unresolved_evidence_disclosure is defined %}
-  <dt>{{ strings.card_ev_migration }}</dt><dd>{{ r.unresolved_evidence_disclosure }}</dd>
-  {% endif %}
-  {% if r.evidence is defined %}
-  {% for item in r.evidence %}
-  <dt>{{ strings.card_ev_item }}</dt><dd>{{ item.maicdb_id }}</dd>
-  <dt>{{ strings.card_ev_claim }}</dt><dd>{{ item.claim or strings.card_not_recorded }}</dd>
-  <dt>{{ strings.card_ev_source }}</dt><dd>{{ item.source or strings.card_not_recorded }}</dd>
-  <dt>{{ strings.card_ev_publication }}</dt>
-  <dd>
-    {% if item.publication %}
-      {% if item.publication.doi %}{{ item.publication.doi }}{% elif item.publication.id %}#{{ item.publication.id }}{% else %}{{ strings.card_not_recorded }}{% endif %}
-    {% else %}{{ strings.card_not_recorded }}{% endif %}
-  </dd>
-  <dt>{{ strings.card_ev_type }}</dt><dd>{{ item.evidence_type }}</dd>
-  <dt>{{ strings.card_ev_review_state }}</dt><dd>{{ item.review_state }}</dd>
-  <dt>{{ strings.card_ev_review_timestamp }}</dt><dd>{{ item.review_timestamp or strings.card_not_recorded }}</dd>
-  <dt>{{ strings.card_ev_claim }}</dt><dd>{{ item.quote or strings.card_not_recorded }}</dd>
-  <dt>{{ strings.card_ev_location }}</dt><dd>{{ item.location or strings.card_not_recorded }}</dd>
-  <dt>{{ strings.card_ev_confidence }}</dt><dd>{{ item.confidence or strings.card_not_recorded }}</dd>
-  <dt>{{ strings.card_ev_note }}</dt><dd>{{ item.curator_note or strings.card_not_recorded }}</dd>
-  {% endfor %}
-  {% endif %}
 </dl>
-{% endmacro %}
-
-{% macro external_reference_table(references) %}
-{% if references is defined and references %}
-<table class="xref-table" aria-label="{{ strings.card_xref_heading }}">
-  <thead>
-    <tr>
-      <th scope="col">{{ strings.card_xref_resource }}</th>
-      <th scope="col">{{ strings.card_xref_identifier }}</th>
-      <th scope="col">{{ strings.card_xref_relationship }}</th>
-      <th scope="col">{{ strings.card_xref_version }}</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for x in references %}
-    <tr>
-      <th scope="row">{{ x.resource }}</th>
-      <td><a href="{{ x.url }}">{{ x.external_id }}</a></td>
-      <td>{{ x.relationship }}</td>
-      <td>{{ x.external_version if x.external_version is not none else strings.card_xref_not_versioned }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
 {% endmacro %}
 
 {% block content %}
@@ -76,15 +29,6 @@
 
   <section class="identity">
     <h2>{{ strings.card_identity_heading }}</h2>
-    {% if coverage is defined %}
-    <section class="channel-coverage-summary">
-      <h3>{{ strings.coverage_card_title }}</h3>
-      <dl>
-        <dt>{{ strings.coverage_evidence_items }}</dt><dd>{{ coverage.totals.evidence_items }}</dd>
-        <dt>{{ strings.coverage_external_references }}</dt><dd>{{ coverage.totals.external_references }}</dd>
-      </dl>
-    </section>
-    {% endif %}
     {# MIMIC badge (P7, spec §8): field-level compliance across this
        channel's records (P2 scoring, ADR-0005 denominators). Channels
        without experiment records carry no block and render no badge. #}
@@ -110,13 +54,6 @@
     </dl>
   </section>
 
-  {% if card.gene.external_references is defined and card.gene.external_references %}
-  <section class="external-references">
-    <h2>{{ strings.card_xref_heading }}</h2>
-    {{ external_reference_table(card.gene.external_references) }}
-  </section>
-  {% endif %}
-
   <section class="parameters">
     <h2>{{ strings.card_parameters_heading }}</h2>
     {% for name, block in card.parameters | dictsort %}
@@ -136,30 +73,7 @@
               <span class="asrep">({{ strings.card_as_reported_prefix }} {{ r.value_as_reported }}{% if r.unit_as_reported %} {{ r.unit_as_reported }}{% endif %})</span>
               {% endif %}
             </summary>
-            {% if r.constructs %}
-            <dl class="constructs">
-              {% for construct in r.constructs %}
-              <dt>{{ strings.construct_id_label }}</dt>
-              <dd><a href="{{ root }}/constructs/{{ construct.construct.maicdb_id | lower }}/">{{ construct.construct.maicdb_id }}</a></dd>
-              {% if construct.variants %}
-              {% for variant in construct.variants %}
-              <dt>{{ strings.construct_variant_label }}</dt>
-              <dd><a href="{{ root }}/variants/{{ variant.maicdb_id | lower }}/">{{ variant.maicdb_id }}</a></dd>
-              {% endfor %}
-              {% else %}
-              <dt>{{ strings.construct_variant_label }}</dt><dd>{{ strings.card_not_recorded }}</dd>
-              {% endif %}
-              {% endfor %}
-            </dl>
-            {% endif %}
             {{ evidence_dl(r) }}
-            {{ external_reference_table(r.external_references) }}
-            {% if r.parameter_provenance is defined %}
-            <dl class="parameter-provenance">
-              <dt>{{ strings.card_conversion_provenance }}</dt><dd>{{ r.parameter_provenance.conversion }}</dd>
-              <dt>{{ strings.card_ev_item }}</dt><dd>{{ r.parameter_provenance.evidence_ids | join(", ") or strings.card_not_recorded }}</dd>
-            </dl>
-            {% endif %}
           </details>
         </li>
         {% endfor %}
@@ -186,26 +100,7 @@
             <span class="compound">{{ r.compound_name }}</span>
             <span class="val">{{ r.activity_type }}{% if r.relation %} {{ r.relation }}{% endif %}{% if r.activity_value is not none %} {{ r.activity_value }}{% endif %}{% if r.activity_units %} {{ r.activity_units }}{% endif %}</span>
           </summary>
-          {% if r.relationship is defined and r.relationship %}
-          <dl class="compound-relationship">
-            <dt>{{ strings.card_relationship_role }}</dt><dd>{{ r.relationship.role }}</dd>
-            <dt>{{ strings.card_relationship_direction }}</dt><dd>{{ r.relationship.direction }}</dd>
-            <dt>{{ strings.card_relationship_assay }}</dt><dd>{{ r.relationship.assay_context or strings.card_not_recorded }}</dd>
-            <dt>{{ strings.card_relationship_concentration }}</dt><dd>{{ r.relationship.concentration_response }}</dd>
-            {% if r.relationship.disclosure %}
-            <dt>{{ strings.card_relationship_disclosure }}</dt><dd>{{ r.relationship.disclosure }}</dd>
-            {% endif %}
-          </dl>
-          {% endif %}
-          {% if r.parameter_provenance is defined %}
-          <dl class="parameter-provenance">
-            <dt>{{ strings.card_as_reported_prefix }}</dt><dd>{{ r.parameter_provenance.activity_value_as_reported if r.parameter_provenance.activity_value_as_reported is not none else strings.card_not_recorded }} {{ r.parameter_provenance.activity_units_as_reported or '' }}</dd>
-            <dt>{{ strings.card_conversion_provenance }}</dt><dd>{{ r.parameter_provenance.conversion }}</dd>
-            <dt>{{ strings.card_ev_item }}</dt><dd>{{ r.parameter_provenance.evidence_ids | join(", ") or strings.card_not_recorded }}</dd>
-          </dl>
-          {% endif %}
           {{ evidence_dl(r, assay=true) }}
-          {{ external_reference_table(r.external_references) }}
         </details>
       </li>
       {% endfor %}

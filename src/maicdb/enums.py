@@ -47,104 +47,9 @@ __all__ = [
     "FunctionalEffect",
     "SourceDb",
     "EntityType",
-    "EvidenceType",
-    "EvidenceConfidence",
-    "EvidenceSubjectType",
-    "EvidenceReviewState",
-    "EvidenceMigrationState",
-    "ResidueRole",
-    "ResidueNumberSystem",
-    "MappingSupport",
     "StructureSource",
     "ParameterSet",
-    "DataLayer",
-    "CompoundChannelRole",
-    "CompoundChannelDirection",
-    "ConcentrationResponseSemantics",
 ]
-
-
-class EvidenceType(str, Enum):
-    """The scientific kind of a reusable evidence statement."""
-
-    MEASUREMENT = "measurement"
-    ANNOTATION = "annotation"
-    STRUCTURE = "structure"
-    RELATIONSHIP = "relationship"
-    OTHER = "other"
-
-
-class EvidenceConfidence(str, Enum):
-    """Curator confidence in an evidence statement."""
-
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    UNSTATED = "unrecorded"
-
-
-class EvidenceSubjectType(str, Enum):
-    """Subject types that can be supported by an Evidence item."""
-
-    CHANNEL = "CHANNEL"
-    STRUCTURE = "STRUCTURE"
-    COMPOUND = "COMPOUND"
-    VARIANT = "VARIANT"
-    BIOPHYSICS_EXPERIMENT = "BIOPHYSICS_EXPERIMENT"
-    BIOACTIVITY = "BIOACTIVITY"
-    UNMAPPED_MEASUREMENT = "UNMAPPED_MEASUREMENT"
-
-
-class EvidenceReviewState(str, Enum):
-    """Lightweight public review state for an Evidence item."""
-
-    UNREVIEWED = "unreviewed"
-    REVIEWED = "reviewed"
-    ACCEPTED = "accepted"
-    PROVISIONAL = "provisional"
-    CONFLICTED = "conflicted"
-
-
-class EvidenceMigrationState(str, Enum):
-    """Whether a fact family currently resolves normalized Evidence items."""
-
-    MIGRATED = "MIGRATED"
-    UNMIGRATED = "UNMIGRATED"
-
-
-class DataLayer(str, Enum):
-    """The provenance layer of a value-bearing scientific output."""
-
-    SOURCE_REPORTED = "source_reported"
-    CURATED = "curated"
-    COMPUTED = "computed"
-
-
-class CompoundChannelRole(str, Enum):
-    """The contextual role of a compound on a channel."""
-
-    ACTIVATOR = "activator"
-    INHIBITOR_BLOCKER = "inhibitor_blocker"
-    POTENTIATOR = "potentiator"
-    ANTAGONIST = "antagonist"
-    UNCLASSIFIED = "unclassified"
-    CONFLICT = "conflict"
-
-
-class CompoundChannelDirection(str, Enum):
-    """The subject direction of a Compound-channel relationship."""
-
-    COMPOUND_TO_CHANNEL = "compound_to_channel"
-    CHANNEL_TO_COMPOUND = "channel_to_compound"
-
-
-class ConcentrationResponseSemantics(str, Enum):
-    """How a compound-channel measurement depends on concentration."""
-
-    FULL_CURVE = "full_curve"
-    SINGLE_POINT = "single_point"
-    ENSEMBLE_AVERAGE = "ensemble_average"
-    NOT_APPLICABLE = "not_applicable"
 
 
 def name_stored_enum(enum_cls: type[Enum]) -> SQLEnum:
@@ -206,32 +111,6 @@ class StructureSource(str, Enum):
     ALPHAFOLD = "AlphaFold"
     SWISS_MODEL = "SWISS-MODEL"
     OTHER = "OTHER"
-
-
-class ResidueRole(str, Enum):
-    """Curated role assigned to a mapped residue."""
-
-    CONSTRUCTION_MUTATION = "construction_mutation"
-    FUNCTIONAL_SITE = "functional_site"
-    STRUCTURAL_REGION = "structural_region"
-    UNASSIGNED = "unassigned"
-
-
-class ResidueNumberSystem(str, Enum):
-    """Coordinate systems stored for a residue mapping."""
-
-    UNIPROT = "UniProt"
-    PDB = "PDB"
-    AUTHOR = "author"
-
-
-class MappingSupport(str, Enum):
-    """How a variant-to-structure location was established."""
-
-    TITLE_MUTATION = "title_mutation"
-    SIFTS = "SIFTS"
-    CURATED = "curated"
-    UNMAPPED = "unmapped"
 
 
 class ParameterSet(str, Enum):
@@ -448,15 +327,6 @@ class SourceDb(str, Enum):
     GO = "GO"
     DOI = "DOI"
     LITERATURE = "Literature"
-
-
-class ExternalReferenceRelationship(str, Enum):
-    """Controlled semantics between a MAIC-DB subject and an external record."""
-
-    SAME_AS = "SAME_AS"
-    DERIVED_FROM = "DERIVED_FROM"
-    RELATED_TO = "RELATED_TO"
-    PUBLISHED_IN = "PUBLISHED_IN"
 
 
 class EntityType(str, Enum):

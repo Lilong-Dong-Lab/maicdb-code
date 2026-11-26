@@ -1,75 +1,27 @@
 {
   "vault_head": "dd49d8e65ac1d45d7c30f93e450ceac50595572c",
   "freeze_tag": "data-v1.2",
-  "schema_version": "0.8.0",
+  "schema_version": "0.2.0",
   "counts": {
     "publication": 216,
     "channel": 12,
-    "external_reference": 987,
+    "external_reference": 6,
     "compound": 86,
-    "variant": 135,
+    "variant": 133,
     "structure_publication_links": 10,
     "structure": 12,
     "biophysics": 960,
     "bioactivity": 137,
     "unmapped": 28,
-    "unit_conversions": 105,
-    "evidence_item": 1129,
-    "evidence_subject": 1129,
-    "evidence_unresolved": 0,
-    "evidence_coverage_by_family": {
-      "BIOPHYSICS_EXPERIMENT": 0,
-      "BIOACTIVITY": 0,
-      "UNMAPPED_MEASUREMENT": 0
-    },
-    "construct": 52,
-    "construct_variant_link": 142,
-    "experiment_construct_link": 200,
-    "construct_migration": {
-      "schema_version_before": "0.8.0",
-      "schema_version_after": "0.7.0",
-      "constructs_created": 52,
-      "variant_links_created": 142,
-      "experiment_links_created": 200,
-      "rows_examined": 200
-    },
-    "structure_residue": 4,
-    "structure_variant_location": 4,
-    "structure_evidence_item": 4,
-    "structure_function_migration": {
-      "schema_version_before": "0.7.0",
-      "schema_version_after": "0.7.0",
-      "variants_created": 2,
-      "residues_created": 4,
-      "locations_created": 4,
-      "evidence_created": 4
-    },
-    "data_layer": 3,
-    "data_layer_inventory": 15,
-    "compound_channel_relationship": 73,
-    "compound_relationship_migration": {
-      "schema_version_before": "0.7.0",
-      "schema_version_after": "0.8.0",
-      "rows_examined": 73,
-      "bioactivity_rows_covered": 73,
-      "relationships_created": 73,
-      "conflicts": 0
-    }
+    "unit_conversions": 105
   },
   "disclosures": [
     "authors: 0 publications Zotero-enriched; first_author-only fallback for the rest",
     "publication title variants (first-seen kept): 6 DOIs",
-    "Legacy external references did not record relationship semantics; migration assigns SAME_AS only where the identifier denotes the same subject.",
-    "Legacy external references did not record upstream resource versions; missing applicable versions remain NULL rather than being reconstructed.",
-    "Schema 0.3 keeps primary identifier columns as convenience fields; subject-specific link tables are the authoritative semantic matrix.",
     "compound 'ruthenium red': InChIKey already used by an earlier case-variant name — descriptor key withheld",
     "unroled bioactivity modulators typed UNCLASSIFIED: ['Silica nanoparticles (Ludox SM30, ~10 nm)']",
     "compound descriptors: 4 / 86 carry InChIKey (piezo1 compounds descriptor CSV, name join; duplicate keys awarded to corpus-joining names)",
-    "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)",
-    "All fact families resolve normalized Evidence items as the authoritative provenance source; legacy evidence columns remain as a compatibility bridge.",
-    "Construct links are authoritative traversal relationships; direct experiment variant and structure columns remain compatibility bridges.",
-    "Structure construction mutations are extracted from deposited PDB titles; residue-level PDB coordinates remain null until SIFTS mappings are curated.",
-    "Compound-channel relationship records are authoritative; legacy compound_type remains a documented convenience and migration field."
+    "ratio_direction NULL this load: staging's 70 classified direction values (note/web/machine provenance) were not ported — parse deferred post-v1.0 (direction survives in the CSV parameter_label)"
   ],
   "dump": "db/maicdb.sql"
 }
