@@ -1,0 +1,16 @@
+{
+  "local": {
+    "passed": 458,
+    "collected": 466
+  },
+  "novault": {
+    "passed": 458,
+    "skipped": 8,
+    "warnings": 1
+  },
+  "notag": {
+    "passed": 439,
+    "skipped": 26,
+    "warnings": 1
+  }
+}

@@ -16,7 +16,7 @@
 # with --no-verify — the hook's signature guard blocks BY DESIGN until
 # the pins match reality, so the bypass is the sanctioned first step,
 # not a failure; (2) run this script; (3) apply the printed edit list
-# (ci.yml + KNOWN-QUIRKS quirk 3); (4) commit the re-pin — it passes the
+# (tests/suite-signatures.json); (4) commit the re-pin — it passes the
 # hook cleanly; (5) run the full verdict: bash
 # scripts/check-suite-matrix.sh (no args) → "matrix OK".
 # Cleans up the worktree on exit. Output: the three executed signatures +
