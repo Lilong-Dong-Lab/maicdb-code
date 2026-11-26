@@ -225,7 +225,7 @@ maicdb-code/
 
 The `maicdb.query` library (`src/maicdb/query.py`) provides read-only,
 deterministic queries over the published artifact `db/maicdb.sqlite`
-(schema 0.8.0 · 1125 curated measurement rows · CC-BY-4.0). The `maicdb-query` CLI is its first
+(schema 0.2.0 · 1100 rows · CC-BY-4.0). The `maicdb-query` CLI is its first
 consumer; the website/API layers to come will wrap the same library.
 
 ```bash
@@ -288,11 +288,11 @@ measurement's full evidence row. Semantics, all enforced by tests:
   signs (disclosed; no |value| pooling). A gene symbol spanning multiple
   organisms (schema-supported) raises a clean `AmbiguousGeneError` instead
   of pooling or picking one silently.
-- **Evidence chain everywhere** — normalized Evidence items are authoritative
-  for biophysics, bioactivity, and unmapped measurements. Channel cards and
-  `provenance` resolve the shared Evidence path and still print legacy
-  compatibility fields; every aggregate row lists its `measurement_ids`
-  (`;`-joined in CSV), one step from the quotes via `provenance`.
+- **Evidence chain everywhere** — channel cards and `provenance` print
+  each row's full chain (`measurement_id`, verbatim quote, location,
+  confidence, extractor note); every aggregate row lists its
+  `measurement_ids` (`;`-joined in CSV), one step from the quotes via
+  `provenance`.
 - **Frozen-layer wording** — outputs touching PIEZO1/PIEZO2 attach the §6.7
   boilerplate on every path — channel cards, each PIEZO comparison row
   (counted or zero), `provenance`, and the export document (CSV: stderr, so

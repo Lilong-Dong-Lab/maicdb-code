@@ -58,33 +58,20 @@ from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, select
 
 from maicdb.analysis import figures as analysis_figures
 from maicdb.analysis.site_payloads import (
     analysis_payloads,
     channel_mimic_blocks,
 )
-from maicdb.constructs import construct_page, variant_construct_page
-from maicdb.structure_function import (
-    structure_function_page,
-    variant_structure_locations,
-)
-from maicdb.models import (
-    Bioactivity,
-    BiophysicsExperiment,
-    Channel,
-    Publication,
-    Structure,
-    UnmappedMeasurement,
-)
+from maicdb.models import Bioactivity, BiophysicsExperiment, Channel, Publication, UnmappedMeasurement
 from maicdb.query import (
     PARAMETERS,
     bioactivity_card,
     channel_card,
     export,
     open_readonly,
-    subject_pages,
 )
 
 
@@ -247,16 +234,11 @@ def _alt_href(page_dir: str, locale: str) -> str:
     """Language-switcher target: the same page in the other locale tree
     (relative; the template appends the trailing slash)."""
     other = _LOCALES[locale][1]
-    return posixpath.relpath(
-        _tree_prefix(page_dir, other), _tree_prefix(page_dir, locale)
-    )
+    return posixpath.relpath(_tree_prefix(page_dir, other), _tree_prefix(page_dir, locale))
 
 
 def _site_pages(
-    index: dict,
-    data_dir: Path,
-    download_files: list[dict],
-    strings: dict[str, dict],
+    index: dict, data_dir: Path, download_files: list[dict]
 ) -> list[tuple[str, str, dict]]:
     """The page list: (template, tree-relative directory, extra context).
 
@@ -287,9 +269,6 @@ def _site_pages(
     audit = json.loads(
         (data_dir / "analysis" / "audit.json").read_text(encoding="utf-8")
     )
-    coverage = json.loads(
-        (data_dir / "analysis" / "coverage.json").read_text(encoding="utf-8")
-    )
     atlas = json.loads(
         (data_dir / "analysis" / "atlas.json").read_text(encoding="utf-8")
     )
@@ -309,16 +288,7 @@ def _site_pages(
     ]
     pages.extend(
         [
-            (
-                "coverage.html",
-                "analysis/coverage",
-                {"coverage": coverage},
-            ),
-            (
-                "analysis.html",
-                "analysis",
-                {"headlines": headlines, "coverage": coverage},
-            ),
+            ("analysis.html", "analysis", {"headlines": headlines}),
             (
                 "audit.html",
                 "analysis/audit",
@@ -341,23 +311,6 @@ def _site_pages(
         for fam in index["families"]
         for entry in fam["channels"]
     }
-    reference_pages = json.loads(
-        (data_dir / "external-references.json").read_text(encoding="utf-8")
-    )
-    coverage_by_channel = {
-        channel["scope_key"]: channel for channel in coverage["channels"]
-    }
-    for page in reference_pages:
-        pages.append(
-            (
-                "external-references.html",
-                f"references/{page['type']}",
-                {
-                    "page": page,
-                    "heading_key": f"{page['type']}_references_heading",
-                },
-            )
-        )
     for fam in index["families"]:
         for entry in fam["channels"]:
             slug = entry["slug"]
@@ -368,15 +321,9 @@ def _site_pages(
                 (
                     "card.html",
                     f"channels/{slug}",
-                    {
-                        "card": card,
-                        "entry": entry,
-                        "coverage": coverage_by_channel[entry["gene_symbol"]],
-                    },
+                    {"card": card, "entry": entry},
                 )
             )
-    pages.extend(_construct_pages(data_dir, gene_slugs))
-    pages.extend(_structure_pages(data_dir))
     for param in index["parameters"]:
         name = param["name"]
         comparison = json.loads(
@@ -393,50 +340,6 @@ def _site_pages(
                 },
             )
         )
-    return pages
-
-
-def _construct_pages(data_dir: Path, gene_slugs: dict[str, str]) -> list:
-    """Add one page per persisted Construct/variant traversal payload."""
-    pages: list[tuple[str, str, dict]] = []
-    constructs_dir = data_dir / "constructs"
-    if constructs_dir.exists():
-        for path in sorted(constructs_dir.glob("*.json")):
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            pages.append(
-                (
-                    "construct.html",
-                    f"constructs/{path.stem}",
-                    {"construct": payload, "gene_slugs": gene_slugs},
-                )
-            )
-    variants_dir = data_dir / "variants"
-    if variants_dir.exists():
-        for path in sorted(variants_dir.glob("*.json")):
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            pages.append(
-                (
-                    "variant.html",
-                    f"variants/{path.stem}",
-                    {"variant_payload": payload, "gene_slugs": gene_slugs},
-                )
-            )
-    return pages
-
-
-def _structure_pages(data_dir: Path) -> list:
-    """Add one page per persisted structure-function payload."""
-    pages: list[tuple[str, str, dict]] = []
-    structures_dir = data_dir / "structures"
-    if structures_dir.exists():
-        for path in sorted(structures_dir.glob("*.json")):
-            pages.append(
-                (
-                    "structure.html",
-                    f"structures/{path.stem}",
-                    {"structure": json.loads(path.read_text(encoding="utf-8"))},
-                )
-            )
     return pages
 
 
@@ -469,7 +372,8 @@ def _trends_pivots(trends: dict) -> dict:
     for row in trends["parameter_adoption"]:
         per_param.setdefault(row["parameter"], {})[row["year"]] = row["k"]
     adoption_grid = [
-        (label, [per_param.get(label, {}).get(y) for y in years]) for label in per_param
+        (label, [per_param.get(label, {}).get(y) for y in years])
+        for label in per_param
     ]
     return {
         "trends_families": families,
@@ -484,7 +388,9 @@ def _analysis_headlines(
 ) -> dict:
     """Landing-page headline numbers, lifted (not recomputed) from the
     payloads — the page renders payload facts only."""
-    identifiable = [c for c in biophysics["threshold_meta"] if c.get("identifiable")]
+    identifiable = [
+        c for c in biophysics["threshold_meta"] if c.get("identifiable")
+    ]
     return {
         "audit_data_tag": audit["data_freeze_tag"],
         "audit_n_records": audit["n_records"],
@@ -511,15 +417,10 @@ _NAV_FLAGS_by_template = {
     "home.html": "home",
     "browse.html": "channels",
     "card.html": "channels",
-    "construct.html": "channels",
-    "variant.html": "channels",
-    "structure.html": "channels",
     "parameters.html": "parameters",
     "parameter.html": "parameters",
-    "external-references.html": "parameters",
     "downloads.html": "downloads",
     "analysis.html": "analysis",
-    "coverage.html": "analysis",
     "audit.html": "analysis",
     "atlas.html": "analysis",
     "trends.html": "analysis",
@@ -540,9 +441,7 @@ def _nav_flags(template: str) -> dict[str, bool]:
     }
 
 
-def render_site(
-    data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path
-) -> list[Path]:
+def render_site(data_dir: Path, out_dir: Path, site_dir: Path, repo_root: Path) -> list[Path]:
     """Render every page kind into both locale trees under *out_dir*.
 
     Reads ``<data_dir>/index.json``, the per-channel card JSONs and the
@@ -572,8 +471,9 @@ def render_site(
         name: json.loads(
             (data_dir / "analysis" / f"{name}.json").read_text(encoding="utf-8")
         )
-        for name in ("audit", "biophysics", "atlas", "trends", "coverage")
+        for name in ("audit", "biophysics", "atlas", "trends")
     }
+    pages = _site_pages(index, data_dir, download_files)
     env = Environment(
         loader=FileSystemLoader(site_dir / "templates"),
         autoescape=True,
@@ -589,17 +489,16 @@ def render_site(
         "f3": lambda x: f"{x:.3f}",
     }
     strings = {
-        code: json.loads(
-            (site_dir / f"strings.{code}.json").read_text(encoding="utf-8")
-        )
+        code: json.loads((site_dir / f"strings.{code}.json").read_text(encoding="utf-8"))
         for code in _LOCALES
     }
-    pages = _site_pages(index, data_dir, download_files, strings)
     site = _site_facts(repo_root)
     # Curated Chinese content (M3-T-LOC): a presentation-layer overlay —
     # only the ZH tree renders it; the data layer and the EN tree are
     # untouched (spec §6).
-    zh_content = json.loads((site_dir / "zh-content.json").read_text(encoding="utf-8"))
+    zh_content = json.loads(
+        (site_dir / "zh-content.json").read_text(encoding="utf-8")
+    )
     # Cache-busting asset URLs (content hash, deterministic — the
     # byte-stable contract holds): a stylesheet or script edit changes
     # the query string, so a browser holding the previous copy must
@@ -634,11 +533,6 @@ def render_site(
                 index["families"], index["parameters"], zh_content
             )
         for template, page_dir, extra in pages:
-            if "heading_key" in extra:
-                extra = {
-                    **extra,
-                    "heading": strings[locale][extra.pop("heading_key")],
-                }
             if locale == "zh":
                 if "card" in extra:
                     extra = {**extra, "card": _zh_card(extra["card"], zh_content)}
@@ -694,7 +588,9 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         # gene_symbol → channel id, the MIMIC badge join key (P7). The
         # analysis module keys blocks by channel id; cards are keyed by
         # gene symbol.
-        gene_ids = dict(conn.execute(select(Channel.gene_symbol, Channel.id)).all())
+        gene_ids = dict(
+            conn.execute(select(Channel.gene_symbol, Channel.id)).all()
+        )
         # Home-scale census (SQL, never transcribed — ticket #38): one
         # measurement = one row across the three fact tables; the
         # publications count is the normalized citation table itself.
@@ -738,19 +634,10 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 .group_by(Channel.gene_symbol)
             ).all()
         )
-        conn.close()
 
     written: list[Path] = []
     families: dict[str, dict] = {}
     search_entries: list[dict] = []
-    constructs_dir = data_dir / "constructs"
-    variants_dir = data_dir / "variants"
-    structures_dir = data_dir / "structures"
-    constructs_dir.mkdir(parents=True, exist_ok=True)
-    variants_dir.mkdir(parents=True, exist_ok=True)
-    structures_dir.mkdir(parents=True, exist_ok=True)
-    rendered_constructs: set[str] = set()
-    rendered_variants: set[int] = set()
     # MIMIC badge blocks, computed once (P2's scoring engine behind P7's
     # per-channel field-level aggregation — site_payloads docstring).
     mimic_blocks = channel_mimic_blocks(engine)
@@ -773,72 +660,6 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
         path = channels_dir / f"{slugify(gene)}.json"
         _dump(path, card)
         written.append(path)
-
-        construct_ids = sorted(
-            {
-                construct["construct"]["maicdb_id"]
-                for block in card["parameters"].values()
-                for row in block["rows"]
-                for construct in row["constructs"]
-            }
-        )
-        for construct_id in construct_ids:
-            if construct_id in rendered_constructs:
-                continue
-            payload = construct_page(engine, construct_id)
-            if payload is None:
-                continue
-            payload["gene"] = {
-                "gene_symbol": gene,
-                "slug": slugify(gene),
-            }
-            construct_path = constructs_dir / f"{slugify(construct_id)}.json"
-            _dump(construct_path, payload)
-            written.append(construct_path)
-            rendered_constructs.add(construct_id)
-            search_entries.append(
-                {
-                    "type": "construct",
-                    "name": "construct",
-                    "slug": slugify(construct_id),
-                    "label": construct_id,
-                    "family": identity["family"],
-                    "aliases": [],
-                    "uniprots": [],
-                    "url": f"/constructs/{slugify(construct_id)}/",
-                }
-            )
-            for variant_id in payload["variant_ids"]:
-                if variant_id in rendered_variants:
-                    continue
-                variant_payload = variant_construct_page(engine, variant_id)
-                if variant_payload is None:
-                    continue
-                variant_payload["structure_locations"] = variant_structure_locations(
-                    engine,
-                    variant_id,
-                )
-                variant_payload["gene"] = {
-                    "gene_symbol": gene,
-                    "slug": slugify(gene),
-                }
-                variant_slug = slugify(f"MAIC:VR:{variant_id:05d}")
-                variant_path = variants_dir / f"{variant_slug}.json"
-                _dump(variant_path, variant_payload)
-                written.append(variant_path)
-                rendered_variants.add(variant_id)
-                search_entries.append(
-                    {
-                        "type": "variant",
-                        "name": "variant",
-                        "slug": variant_slug,
-                        "label": f"MAIC:VR:{variant_id:05d}",
-                        "family": identity["family"],
-                        "aliases": [],
-                        "uniprots": [],
-                        "url": f"/variants/{variant_slug}/",
-                    }
-                )
 
         slug = slugify(gene)
         # Aggregate the browse index (family → channels → counts) from the
@@ -863,7 +684,8 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                     1 for b in card["parameters"].values() if b["n_rows"] > 0
                 ),
                 "parameters": {
-                    name: block["n_rows"] for name, block in card["parameters"].items()
+                    name: block["n_rows"]
+                    for name, block in card["parameters"].items()
                 },
             }
         )
@@ -883,33 +705,6 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 "url": f"/channels/{slug}/",
             }
         )
-
-    with engine.connect() as conn:
-        structure_rows = (
-            list(
-                conn.scalars(select(Structure.maicdb_id).order_by(Structure.maicdb_id))
-            )
-            if "structure" in set(inspect(conn).get_table_names())
-            else []
-        )
-    for structure_accession in structure_rows:
-        payload = structure_function_page(engine, structure_accession)
-        if payload is None:
-            continue
-        search_entries.append(
-            {
-                "type": "structure",
-                "name": "structure",
-                "slug": slugify(structure_accession),
-                "label": payload["pdb_id"] or structure_accession,
-                "aliases": [structure_accession],
-                "uniprots": [],
-                "url": f"/structures/{slugify(structure_accession)}/",
-            }
-        )
-        path = structures_dir / f"{slugify(structure_accession)}.json"
-        _dump(path, payload)
-        written.append(path)
 
     for fam in sorted(families):
         search_entries.append(
@@ -945,10 +740,6 @@ def build(db_path: Path, out_dir: Path) -> list[Path]:
                 "n_rows": sum(r["count"] for r in json.loads(doc)["rows"]),
             }
         )
-
-    reference_path = data_dir / "external-references.json"
-    _dump(reference_path, subject_pages(engine))
-    written.append(reference_path)
 
     # Analysis payloads (P7, spec §8): the four track modules' outputs
     # serialized verbatim — pages read these JSON files, never the DB.

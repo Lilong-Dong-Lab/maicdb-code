@@ -56,7 +56,7 @@ def test_comparison_page_buckets_and_zero_rows(tmp_path):
     # the two unmerged buckets render as separate rows; the disclosure
     # sentence does not (repo-side convention, not site copy)
     assert strings["param_unit_disclosure"] not in p50
-    assert p50.count("<tr") == 6  # xref header+row + comparison header + 3 rows
+    assert p50.count("<tr") == 4  # header + 3 data rows
     assert ">mmHg<" in p50 and ">psi<" in p50
     # zero-count gene: row present, marked, all stats "—"
     assert 'class="zero-rows"' in p50
@@ -147,7 +147,7 @@ def test_comparison_page_table_controls(tmp_path):
         # get no empty live region (gate r1 NOTE fix)
         assert f'data-template="{strings["table_status"]}" hidden></p>' in html
         # every data row is still in the static HTML
-        assert html.count("<tr") == 6  # xref header+row + comparison header + 3 rows
+        assert html.count("<tr") == 4  # header + 3 data rows
 
 
 def test_parameter_index_page_lists_all_parameters(tmp_path):
@@ -236,9 +236,9 @@ def test_db_zero_count_genes_reported_not_hidden(tmp_path):
          WHERE e.osmotic_threshold_value IS NOT NULL GROUP BY 1, 2;
         → ('TRPV4', '%', 1), ('TRPV4', '% HTS', 1), ('TRPV4', 'mOsm', 1)
 
-    so the page carries 18 data rows (15 zero-gene rows + 3 TRPV4
-    buckets), 11 gene-bucket rows marked zero; the 4-row unit-less
-    ca_permeability (ASIC only, one bucket) lists 15 rows, 11 marked —
+    so the page carries 14 data rows (11 zero-gene rows + 3 TRPV4
+    buckets), 11 of them marked zero; the 4-row unit-less
+    ca_permeability (ASIC only, one bucket) lists 12 rows, 11 marked —
     AND is a direction-blind ratio, so its counted ASIC row shows the
     omitted-median marker (min/max pinned: ASIC's 4 ca_permeability
     values are 1.8…25.5 — ``SELECT MIN(ca_permeability), MAX(
@@ -249,8 +249,8 @@ def test_db_zero_count_genes_reported_not_hidden(tmp_path):
     run_build(out)
     site = out / "_site"
     for name, counted_gene, n_data_rows in (
-        ("osmotic_threshold", "TRPV4", 18),
-        ("ca_permeability", "ASIC", 15),
+        ("osmotic_threshold", "TRPV4", 14),
+        ("ca_permeability", "ASIC", 12),
     ):
         for prefix in ("", "zh/"):
             html = (

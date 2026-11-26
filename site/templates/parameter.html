@@ -18,31 +18,6 @@
     <strong>{{ strings.card_frozen_label }}</strong> — {{ comparison.frozen_layer_disclosure }}
   </aside>
   {% endif %}
-  {% if comparison.external_references is defined and comparison.external_references %}
-  <section class="external-references">
-    <h2>{{ strings.card_xref_heading }}</h2>
-    <table class="xref-table" aria-label="{{ strings.card_xref_heading }}">
-      <thead>
-        <tr>
-          <th scope="col">{{ strings.card_xref_resource }}</th>
-          <th scope="col">{{ strings.card_xref_identifier }}</th>
-          <th scope="col">{{ strings.card_xref_relationship }}</th>
-          <th scope="col">{{ strings.card_xref_version }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for x in comparison.external_references %}
-        <tr>
-          <th scope="row">{{ x.resource }}</th>
-          <td><a href="{{ x.url }}">{{ x.external_id }}</a></td>
-          <td>{{ x.relationship }}</td>
-          <td>{{ x.external_version if x.external_version is not none else strings.card_xref_not_versioned }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
-  {% endif %}
   {# Table controls (progressive enhancement, M3 site-design pass): the
      static table below carries every row, and site.js adds client-side
      search, a page-size selector and per-column sorting for when the

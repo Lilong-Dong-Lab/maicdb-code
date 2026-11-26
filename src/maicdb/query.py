@@ -45,44 +45,16 @@ from urllib.parse import quote
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Connection, Engine
-from sqlalchemy import inspect
 
 from maicdb.models import (
     BiophysicsExperiment,
     Bioactivity,
     Channel,
     Compound,
-    Construct,
-    EvidenceItem,
-    EvidenceSubject,
-    ExperimentConstruct,
-    Publication,
-    Structure,
     UnmappedMeasurement,
-    Variant,
-)
-from maicdb.enums import EvidenceSubjectType
-from maicdb.evidence import AUTHORITATIVE_EVIDENCE_DISCLOSURE
-from maicdb.constructs import (
-    construct_page,
-    construct_payloads_for_experiments,
-    construct_traversals_for_experiments,
-    variant_construct_page,
-)
-from maicdb.data_layers import in_scope_entry
-from maicdb.parameter_provenance import relationships_for_bioactivity
-from maicdb.structure_function import (
-    structure_function_page,
-    variant_structure_locations,
-)
-from maicdb.external_references import (
-    all_external_references,
-    external_references_for_experiments,
-    external_references_for_subject,
 )
 
 __all__ = [
-    "semantic_references",
     "open_readonly",
     "DEFAULT_DB_PATH",
     "PARAMETERS",
@@ -95,152 +67,12 @@ __all__ = [
     "AmbiguousGeneError",
     "UnknownParameterError",
     "channel_card",
-    "construct_page",
     "bioactivity_card",
-    "subject_pages",
     "parameter_comparison",
     "provenance",
-    "biophysics_evidence",
     "export",
-    "variant_construct_page",
-    "structure_function_page",
-    "variant_structure_locations",
     "main",
 ]
-
-
-def semantic_references(engine: Engine) -> list[dict]:
-    """Return the semantic matrix across every supported subject type."""
-    return all_external_references(engine)
-
-
-def subject_pages(engine: Engine) -> list[dict]:
-    """Return the five external-reference pages together.
-
-    Every row pairs one supported subject with one supporting semantic
-    reference. Subject labels come from the subject rows themselves; the
-    convenience accession columns are not used as the reference authority.
-    """
-    references = semantic_references(engine)
-    if not references:
-        return []
-
-    with engine.connect() as connection:
-        channel_rows = connection.execute(
-            select(Channel.id, Channel.maicdb_id, Channel.gene_symbol, Channel.organism)
-            .order_by(Channel.gene_symbol, Channel.organism)
-        ).all()
-        compound_rows = connection.execute(
-            select(Compound.id, Compound.maicdb_id, Compound.name)
-            .order_by(Compound.name, Compound.maicdb_id)
-        ).all()
-        variant_rows = connection.execute(
-            select(
-                Variant.id,
-                Variant.maicdb_id,
-                Variant.mutation_short,
-                Variant.phenotype,
-            ).order_by(Variant.mutation_short, Variant.maicdb_id)
-        ).all()
-        structure_rows = connection.execute(
-            select(
-                Structure.id,
-                Structure.maicdb_id,
-                Structure.title,
-                Channel.gene_symbol,
-            )
-            .join(Channel, Structure.channel_id == Channel.id)
-            .order_by(Channel.gene_symbol, Structure.maicdb_id)
-        ).all()
-        experiment_rows = connection.execute(
-            select(
-                BiophysicsExperiment.id,
-                BiophysicsExperiment.maicdb_id,
-                BiophysicsExperiment.measurement_id,
-                Channel.gene_symbol,
-            )
-            .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
-            .order_by(BiophysicsExperiment.maicdb_id)
-        ).all()
-
-    rows_by_subject: dict[str, dict[int, dict]] = {
-        "channel": {
-            row.id: {
-                "maicdb_id": row.maicdb_id,
-                "label": f"{row.gene_symbol} ({row.organism})",
-                "target": f"/channels/{row.gene_symbol.lower()}/",
-                "external_references": [],
-            }
-            for row in channel_rows
-        },
-        "compound": {
-            row.id: {
-                "maicdb_id": row.maicdb_id,
-                "label": row.name,
-                "target": None,
-                "external_references": [],
-            }
-            for row in compound_rows
-        },
-        "variant": {
-            row.id: {
-                "maicdb_id": row.maicdb_id,
-                "label": row.mutation_short or row.maicdb_id,
-                "detail": row.phenotype,
-                "target": None,
-                "external_references": [],
-            }
-            for row in variant_rows
-        },
-        "structure": {
-            row.id: {
-                "maicdb_id": row.maicdb_id,
-                "label": row.title or row.maicdb_id,
-                "detail": row.gene_symbol,
-                "target": None,
-                "external_references": [],
-            }
-            for row in structure_rows
-        },
-        "experiment": {
-            row.id: {
-                "maicdb_id": row.maicdb_id,
-                "label": row.measurement_id or row.maicdb_id,
-                "detail": row.gene_symbol,
-                "target": (
-                    f"/channels/{row.gene_symbol.lower()}/#{row.measurement_id}"
-                    if row.measurement_id
-                    else None
-                ),
-                "external_references": [],
-            }
-            for row in experiment_rows
-        },
-    }
-
-    page_order = ("channel", "compound", "variant", "structure", "experiment")
-    page_rows: dict[str, list[dict]] = {subject_type: [] for subject_type in page_order}
-    for reference in references:
-        subject = rows_by_subject.get(reference["subject_type"], {}).get(
-            reference["subject_id"]
-        )
-        if subject is None:
-            continue
-        subject["external_references"].append(
-            {key: value for key, value in reference.items() if key not in {
-                "subject_type", "subject_id"
-            }}
-        )
-    for subject_type in page_order:
-        page_rows[subject_type] = [
-            subject
-            for subject in rows_by_subject[subject_type].values()
-            if subject["external_references"]
-        ]
-    return [
-        {"type": subject_type, "rows": page_rows[subject_type]}
-        for subject_type in page_order
-    ]
 
 #: Default artifact location (repository layout; override with ``--db``).
 DEFAULT_DB_PATH = Path("db") / "maicdb.sqlite"
@@ -274,8 +106,6 @@ RATIO_MEDIAN_NOTE = (
     "cross-direction medians are meaningless (A1 panel p4 semantics — "
     "direction-unstated groups report count/min/max only)"
 )
-
-UNMIGRATED_FACT_FAMILY_DISCLOSURE = AUTHORITATIVE_EVIDENCE_DISCLOSURE
 
 
 class UnknownGeneError(ValueError):
@@ -409,7 +239,6 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
             Channel.activation_mechanism,
             Channel.ortholog_group,
             Channel.summary,
-            Channel.id,
         ).where(Channel.gene_symbol == gene)
     ).mappings().all()
     if not rows:
@@ -431,172 +260,10 @@ def _gene_identity(conn: Connection, gene: str) -> dict:
     # Render name-stored enum members as their stored names.
     for key in ("family", "activation_mechanism"):
         identity[key] = _enum_name(identity.get(key))
-    identity["external_references"] = external_references_for_subject(
-        conn, "channel", identity.pop("id")
-    )
     return identity
 
 
-def biophysics_evidence(
-    engine: Engine, experiment_ids: list[int]
-) -> dict[int, list[dict]]:
-    """Resolve normalized Evidence items for biophysics experiments.
-
-    The mapping is keyed by experiment id and preserves all Evidence items,
-    supporting the many-to-many shape required by ticket #97.
-    """
-    resolved: dict[int, list[dict]] = {
-        experiment_id: [] for experiment_id in experiment_ids
-    }
-    if not experiment_ids:
-        return resolved
-    with engine.connect() as conn:
-        table_names = set(inspect(conn).get_table_names())
-        if not {"evidence_item", "evidence_subject"}.issubset(table_names):
-            return resolved
-        rows = conn.execute(
-            select(
-                EvidenceSubject.subject_id,
-                EvidenceItem.maicdb_id,
-                EvidenceItem.claim,
-                EvidenceItem.source,
-                Publication.id.label("publication_id"),
-                Publication.doi,
-                Publication.title,
-                Publication.journal,
-                Publication.year,
-                Publication.authors,
-                Publication.pmid,
-                Publication.citation_text,
-                EvidenceItem.quote,
-                EvidenceItem.location,
-                EvidenceItem.evidence_type,
-                EvidenceItem.confidence,
-                EvidenceItem.curator_note,
-                EvidenceItem.review_state,
-                EvidenceItem.review_timestamp,
-            )
-            .join(EvidenceItem, EvidenceSubject.evidence_item_id == EvidenceItem.id)
-            .join(
-                Publication,
-                EvidenceItem.publication_id == Publication.id,
-                isouter=True,
-            )
-            .where(
-                EvidenceSubject.subject_type
-                == EvidenceSubjectType.BIOPHYSICS_EXPERIMENT,
-                EvidenceSubject.subject_id.in_(experiment_ids),
-            )
-            .order_by(EvidenceSubject.subject_id, EvidenceItem.maicdb_id)
-        ).mappings()
-        for row in rows:
-            item = dict(row)
-            publication = {
-                "id": item.pop("publication_id"),
-                "doi": item.pop("doi"),
-                "title": item.pop("title"),
-                "journal": item.pop("journal"),
-                "year": item.pop("year"),
-                "authors": item.pop("authors"),
-                "pmid": item.pop("pmid"),
-                "citation_text": item.pop("citation_text"),
-            }
-            item["publication"] = publication if publication["id"] is not None else None
-            item["evidence_type"] = _enum_value(item["evidence_type"])
-            item["confidence"] = _enum_value(item["confidence"])
-            item["review_state"] = _enum_value(item["review_state"])
-            resolved[item.pop("subject_id")].append(item)
-    return resolved
-
-
-def normalized_evidence(
-    engine: Engine, subject_type: EvidenceSubjectType, subject_ids: list[int]
-) -> dict[int, list[dict]]:
-    """Resolve normalized Evidence items for any supported fact family."""
-    resolved: dict[int, list[dict]] = {subject_id: [] for subject_id in subject_ids}
-    if not subject_ids:
-        return resolved
-    with engine.connect() as conn:
-        table_names = set(inspect(conn).get_table_names())
-        if not {"evidence_item", "evidence_subject"}.issubset(table_names):
-            return resolved
-        rows = conn.execute(
-            select(
-                EvidenceSubject.subject_id,
-                EvidenceItem.maicdb_id,
-                EvidenceItem.claim,
-                EvidenceItem.source,
-                Publication.id.label("publication_id"),
-                Publication.doi,
-                Publication.title,
-                Publication.journal,
-                Publication.year,
-                Publication.authors,
-                Publication.pmid,
-                Publication.citation_text,
-                EvidenceItem.quote,
-                EvidenceItem.location,
-                EvidenceItem.evidence_type,
-                EvidenceItem.confidence,
-                EvidenceItem.curator_note,
-                EvidenceItem.review_state,
-                EvidenceItem.review_timestamp,
-            )
-            .join(EvidenceItem, EvidenceSubject.evidence_item_id == EvidenceItem.id)
-            .join(Publication, EvidenceItem.publication_id == Publication.id, isouter=True)
-            .where(
-                EvidenceSubject.subject_type == subject_type,
-                EvidenceSubject.subject_id.in_(subject_ids),
-            )
-            .order_by(EvidenceSubject.subject_id, EvidenceItem.maicdb_id)
-        ).mappings()
-        for row in rows:
-            item = dict(row)
-            publication = {
-                "id": item.pop("publication_id"),
-                "doi": item.pop("doi"),
-                "title": item.pop("title"),
-                "journal": item.pop("journal"),
-                "year": item.pop("year"),
-                "authors": item.pop("authors"),
-                "pmid": item.pop("pmid"),
-                "citation_text": item.pop("citation_text"),
-            }
-            item["publication"] = publication if publication["id"] is not None else None
-            item["evidence_type"] = _enum_value(item["evidence_type"])
-            item["confidence"] = _enum_value(item["confidence"])
-            item["review_state"] = _enum_value(item["review_state"])
-            resolved[item.pop("subject_id")].append(item)
-    return resolved
-
-
-def _data_layers(*keys: str) -> dict[str, str]:
-    return {key.split(".")[-1]: in_scope_entry(key).layer.value for key in keys}
-
-
-def _conversion_provenance(
-    value, unit, value_as_reported, unit_as_reported
-) -> str:
-    if value_as_reported is None and unit_as_reported is None:
-        return "source-reported pair not recorded for this parameter"
-    source = f"{value_as_reported} {unit_as_reported or ''}".strip()
-    normalized = f"{value} {unit or ''}".strip()
-    try:
-        same_value = value is not None and float(value_as_reported) == float(
-            value
-        )
-    except (TypeError, ValueError):
-        same_value = False
-    source_unit = (unit_as_reported or "").replace(" ", "").casefold()
-    normalized_unit = (unit or "").replace(" ", "").casefold()
-    if same_value and source_unit == normalized_unit:
-        return "none; source value and unit retained"
-    return f"converted {source} to {normalized}; sources and normalized values are retained"
-
-
-def channel_card(
-    engine: Engine, gene: str, parameters: list[str] | None = None
-) -> dict:
+def channel_card(engine: Engine, gene: str, parameters: list[str] | None = None) -> dict:
     """Identity block + parameter blocks with per-row evidence for *gene*.
 
     ``parameters=None`` renders **every** registry parameter — blocks with
@@ -617,7 +284,7 @@ def channel_card(
             # maicdb_id leads every row: the stable per-row reference key
             # (issue #12, additive slice) — attribution via measurement_id
             # can stay NULL at the schema level without losing the key.
-            cols = [BiophysicsExperiment.id, BiophysicsExperiment.maicdb_id, value_col]
+            cols = [BiophysicsExperiment.maicdb_id, value_col]
             if spec.unit_column is not None:
                 cols.append(getattr(BiophysicsExperiment, spec.unit_column))
             # value/unit_as_reported ride along for every parameter — the
@@ -637,18 +304,7 @@ def channel_card(
                     )
                 ).mappings()
             ]
-            experiment_ids = [row["id"] for row in rows]
-            evidence = normalized_evidence(
-                engine,
-                EvidenceSubjectType.BIOPHYSICS_EXPERIMENT,
-                experiment_ids,
-            )
-            constructs = construct_traversals_for_experiments(
-                engine,
-                experiment_ids,
-            )
-            for index, r in enumerate(rows):
-                experiment_id = r.pop("id")
+            for r in rows:
                 # Normalize column names to the card vocabulary: the value
                 # column is always "value", the unit column always "unit"
                 # (plain str — value-stored enum members render as "mmHg").
@@ -657,31 +313,6 @@ def channel_card(
                     r["unit"] = _enum_value(r.pop(spec.unit_column))
                 else:
                     r["unit"] = spec.fixed_unit
-                r["data_layers"] = _data_layers(
-                    "channel_card.value_as_reported",
-                    "channel_card.unit_as_reported",
-                    "channel_card.value",
-                )
-                r["parameter_provenance"] = {
-                    "value_as_reported": r["value_as_reported"],
-                    "unit_as_reported": r["unit_as_reported"],
-                    "conversion": _conversion_provenance(
-                        r["value"],
-                        r["unit"],
-                        r["value_as_reported"],
-                        r["unit_as_reported"],
-                    ),
-                    "evidence_ids": [
-                        item["maicdb_id"] for item in evidence[experiment_id]
-                    ],
-                }
-                r["evidence"] = evidence[experiment_id]
-                r["constructs"] = constructs[experiment_id]
-                if not r["evidence"]:
-                    r["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
-                r["external_references"] = external_references_for_subject(
-                    conn, "experiment", experiment_id
-                )
             card["parameters"][name] = {
                 "label": spec.label,
                 "n_rows": len(rows),
@@ -726,7 +357,6 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
             dict(r)
             for r in conn.execute(
                 select(
-                    Bioactivity.id,
                     Bioactivity.maicdb_id,
                     Bioactivity.measurement_id,
                     Compound.name.label("compound_name"),
@@ -737,8 +367,6 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
                     Bioactivity.source_db,
                     Bioactivity.assay_description,
                     *(getattr(Bioactivity, c) for c in _EVIDENCE_COLUMNS),
-                    Compound.id.label("compound_id"),
-                    Bioactivity.channel_id,
                 )
                 .join(Channel, Bioactivity.channel_id == Channel.id)
                 .join(Compound, Bioactivity.compound_id == Compound.id)
@@ -746,34 +374,9 @@ def bioactivity_card(engine: Engine, gene: str) -> dict:
                 .order_by(Bioactivity.measurement_id, Bioactivity.maicdb_id)
             ).mappings()
         ]
-        evidence = normalized_evidence(
-            engine, EvidenceSubjectType.BIOACTIVITY, [row["id"] for row in rows]
-        )
-        fact_pairs = [(row["compound_id"], row["channel_id"]) for row in rows]
-        relationships = relationships_for_bioactivity(engine, fact_pairs)
-        for row in rows:
-            row["evidence"] = evidence[row["id"]]
-            row["data_layers"] = _data_layers("bioactivity_card.activity_value")
-            row["parameter_provenance"] = {
-                "activity_value_as_reported": row["activity_value"],
-                "activity_units_as_reported": row["activity_units"],
-                "conversion": "none; source units retained",
-                "evidence_ids": [
-                    item["maicdb_id"] for item in row["evidence"]
-                ],
-            }
-            row.pop("id")
-            if not row["evidence"]:
-                row["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
         for r in rows:
             r["activity_type"] = _enum_name(r["activity_type"])
             r["source_db"] = _enum_name(r["source_db"])
-            compound_id = r.pop("compound_id")
-            channel_id = r.pop("channel_id")
-            r["relationship"] = relationships[(compound_id, channel_id)]
-            r["external_references"] = external_references_for_subject(
-                conn, "compound", compound_id
-            )
     card: dict = {"gene": gene, "n_rows": len(rows), "rows": rows}
     if gene in FROZEN_GENE_SYMBOLS:
         card["frozen_layer_disclosure"] = FROZEN_LAYER_DISCLOSURE
@@ -819,7 +422,6 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 Channel.family,
                 Channel.organism,
                 Channel.organism_taxid,
-                Channel.id,
             ).order_by(Channel.gene_symbol, Channel.organism)
         ).all()
         by_gene: dict[str, list] = {}
@@ -835,15 +437,13 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     f"{variants}; organism-disambiguated comparisons are "
                     "not yet supported"
                 )
-        genes = [
-            (g, entries[0][1], entries[0][4]) for g, entries in by_gene.items()
-        ]
+        genes = [(g, entries[0][1]) for g, entries in by_gene.items()]
         unit_col = (
             getattr(BiophysicsExperiment, spec.unit_column)
             if spec.unit_column is not None
             else None
         )
-        rows_query = (
+        rows = conn.execute(
             select(
                 Channel.gene_symbol,
                 value_col,
@@ -851,82 +451,21 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 # NOT NULL + unique: the total-order tie-break for rows
                 # whose measurement_id ties or is NULL.
                 BiophysicsExperiment.maicdb_id,
-                BiophysicsExperiment.id,
                 *([unit_col] if unit_col is not None else []),
             )
             .join(Channel, BiophysicsExperiment.channel_id == Channel.id)
             .where(value_col.is_not(None))
-        )
-        rows = conn.execute(rows_query).all()
-        experiment_ids = [
-            int(row[4])
-            for row in rows
-        ]
-        parameter_references = external_references_for_experiments(
-            engine, experiment_ids
-        )
-
-    construct_ids_by_experiment = {
-        experiment_id: [
-            construct["construct"]["maicdb_id"]
-            for construct in construct_traversals_for_experiments(
-                engine, [experiment_id]
-            )[experiment_id]
-        ]
-        for experiment_id in (row[4] for row in rows)
-    }
-    structure_ids_by_experiment = {
-        experiment_id: []
-        for experiment_id in (row[4] for row in rows)
-    }
-    with engine.connect() as conn:
-        structure_links = conn.execute(
-            select(
-                ExperimentConstruct.experiment_id,
-                Structure.id,
-            )
-            .join(Construct, ExperimentConstruct.construct_id == Construct.id)
-            .join(Structure, Construct.structure_id == Structure.id)
-            .where(
-                ExperimentConstruct.experiment_id.in_(
-                    structure_ids_by_experiment
-                ),
-                Structure.id.is_not(None),
-            )
         ).all()
-    for experiment_id, structure_id in structure_links:
-        structure_ids_by_experiment[experiment_id].append(structure_id)
-    construct_ids_by_experiment = {
-        experiment_id: [
-            construct["maicdb_id"]
-            for construct in construct_payloads_for_experiments(
-                engine, [experiment_id]
-            )[experiment_id]
-        ]
-        for experiment_id in (row[4] for row in rows)
-    }
 
-    evidence_ids_by_experiment = {
-        experiment_id: [item["maicdb_id"] for item in items]
-        for experiment_id, items in biophysics_evidence(
-            engine, [row[4] for row in rows]
-        ).items()
-    }
-    grouped: dict[
-        tuple[str, str | None],
-        list[tuple[float, str | None, str, list[str], int]],
-    ] = {}
+    grouped: dict[tuple[str, str | None], list[tuple[float, str | None, str]]] = {}
     for row in rows:
-        gene, value, mid, mdb, experiment_id = row[:5]
-        unit = row[-1] if unit_col is not None else spec.fixed_unit
+        gene, value, mid, mdb = row[0], row[1], row[2], row[3]
+        unit = row[4] if unit_col is not None else spec.fixed_unit
         unit = _enum_value(unit)  # plain str ("mmHg", not member)
-        evidence_ids = evidence_ids_by_experiment[experiment_id]
-        grouped.setdefault((gene, unit), []).append(
-            (value, mid, mdb, evidence_ids, experiment_id)
-        )
+        grouped.setdefault((gene, unit), []).append((value, mid, mdb))
 
     out: list[dict] = []
-    for gene, family, channel_id in genes:
+    for gene, family in genes:
         family_name = _enum_name(family)
         # NULL units are their own bucket (reported, never erased — rule 5).
         # ``key`` keeps the order TOTAL and documented: None first, then the
@@ -945,7 +484,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     grouped[(gene, unit)],
                     key=lambda p: (p[0], p[1] or "", p[2]),
                 )
-                values = [v for v, *_ in pairs]
+                values = [v for v, _, _ in pairs]
                 # round(..., 6) mirrors the loader's converted-value precision
                 # and keeps exports byte-stable across float repr changes.
                 row = {
@@ -957,36 +496,7 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                     "min": round(values[0], 6),
                     "median": round(statistics.median(values), 6),
                     "max": round(values[-1], 6),
-                    "measurement_ids": [pair[1] for pair in pairs],
-                    "evidence_ids": sum(
-                        (pair[3] for pair in pairs), []
-                    ),
-                    "construct_ids": sum(
-                        (
-                            construct_ids_by_experiment[experiment_id]
-                            for *_, experiment_id in pairs
-                        ),
-                        [],
-                    ),
-                    "structure_ids": sum(
-                        (
-                            structure_ids_by_experiment[experiment_id]
-                            for *_, experiment_id in pairs
-                        ),
-                        [],
-                    ),
-                    "external_references": parameter_references,
-                    "data_layer": in_scope_entry(
-                        "parameter_comparison.value_statistics"
-                    ).layer.value,
-                    "parameter_provenance": {
-                        "conversion": (
-                            "aggregates combine normalization-stable "
-                            "values; per-row conversion provenance is "
-                            "exposed by channel_card"
-                        ),
-                    "evidence_ids": sum((pair[3] for pair in pairs), []),
-                    },
+                    "measurement_ids": [mid for _, mid, _ in pairs],
                 }
                 _decorate_aggregate_row(row, gene, spec)
                 out.append(row)
@@ -1001,20 +511,6 @@ def parameter_comparison(engine: Engine, parameter: str) -> list[dict]:
                 "median": None,
                 "max": None,
                 "measurement_ids": [],
-                "evidence_ids": [],
-                "construct_ids": [],
-                "structure_ids": [],
-                "external_references": parameter_references,
-                "data_layer": in_scope_entry(
-                    "parameter_comparison.value_statistics"
-                ).layer.value,
-                "parameter_provenance": {
-                    "conversion": (
-                        "no normalized parameter rows underlie this entity "
-                        "and parameter"
-                    ),
-                    "evidence_ids": [],
-                },
             }
             _decorate_aggregate_row(row, gene, spec)
             out.append(row)
@@ -1063,20 +559,6 @@ def provenance(engine: Engine, measurement_id: str) -> dict | None:
             if row is not None:
                 out = {k: v for k, v in dict(row).items() if k != "channel_id"}
                 out["table"] = model.__tablename__
-                out["data_layers"] = _data_layers("provenance.value")
-                if model is BiophysicsExperiment:
-                    subject_type = EvidenceSubjectType.BIOPHYSICS_EXPERIMENT
-                else:
-                    subject_type = (
-                        EvidenceSubjectType.BIOACTIVITY
-                        if model is Bioactivity
-                        else EvidenceSubjectType.UNMAPPED_MEASUREMENT
-                    )
-                out["evidence"] = normalized_evidence(
-                    engine, subject_type, [row["id"]]
-                )[row["id"]]
-                if not out["evidence"]:
-                    out["unresolved_evidence_disclosure"] = AUTHORITATIVE_EVIDENCE_DISCLOSURE
                 gene = conn.execute(
                     select(Channel.gene_symbol).where(Channel.id == row["channel_id"])
                 ).scalar_one_or_none()
@@ -1101,12 +583,6 @@ _EXPORT_COLUMNS = (
     "median",
     "max",
     "measurement_ids",
-    "evidence_ids",
-    "construct_ids",
-    "structure_ids",
-    "external_references",
-    "data_layer",
-    "parameter_provenance",
     "note",
 )
 
@@ -1129,7 +605,7 @@ def export(
     * ``csv`` — pure data on stdout; when the result touches a frozen
       channel, the §6.7 boilerplate goes to **stderr** so the data stream
       stays clean while the wording rule still holds everywhere.
-      ``measurement_ids`` and ``evidence_ids`` cells are ``;``-joined.
+      ``measurement_ids`` cells are ``;``-joined.
     * ``json`` — ``{"parameter": …, "rows": […], "frozen_layer_disclosure": …}``
       (the disclosure field appears whenever a frozen gene is listed, zero-
       count rows included; threshold parameters add a ``sign_convention``
@@ -1144,20 +620,6 @@ def export(
     No timestamps anywhere; identical inputs produce byte-identical output.
     """
     rows = parameter_comparison(engine, parameter)
-    reference_keys = set()
-    parameter_references = []
-    for row in rows:
-        for reference in row["external_references"]:
-            key = (
-                reference["resource"],
-                reference["external_id"],
-                reference["relationship"],
-                reference["url"],
-                reference["external_version"],
-            )
-            if key not in reference_keys:
-                reference_keys.add(key)
-                parameter_references.append(reference)
 
     if format == "csv":
         buf = io.StringIO()
@@ -1173,12 +635,6 @@ def export(
                         for mid in r["measurement_ids"]
                     )
                     if col == "measurement_ids"
-                    else json.dumps(
-                        r[col], sort_keys=True, ensure_ascii=False, separators=(",", ":")
-                    )
-                    if col == "external_references"
-                    else ";".join(eid for eid in r["evidence_ids"])
-                    if col == "evidence_ids"
                     else r.get(col, "")
                     for col in _EXPORT_COLUMNS
                 ]
@@ -1188,11 +644,7 @@ def export(
         return buf.getvalue()
 
     if format == "json":
-        doc: dict = {
-            "parameter": parameter,
-            "external_references": parameter_references,
-            "rows": rows,
-        }
+        doc: dict = {"parameter": parameter, "rows": rows}
         if parameter in THRESHOLD_PARAMETERS:
             doc["sign_convention"] = SIGN_CONVENTION_NOTE
         if _touches_frozen(rows):
@@ -1278,41 +730,6 @@ def _render_card(card: dict) -> str:
             lines.append(
                 f"    condition_key: {_or_not_recorded(r.get('condition_key'))}"
             )
-            if r.get("unmigrated_evidence_disclosure") is not None:
-                lines.append(
-                    f"    evidence_migration: "
-                    f"{r['unmigrated_evidence_disclosure']}"
-                )
-            for item in r.get("evidence", []):
-                evidence_id = item.get("maicdb_id")
-                publication = item.get("publication")
-                publication_trace = "not recorded"
-                if publication is not None:
-                    publication_trace = "; ".join(
-                        str(value)
-                        for value in (
-                            publication.get("id"),
-                            publication.get("doi"),
-                            publication.get("title"),
-                        )
-                        if value is not None
-                    )
-                lines.extend(
-                    [
-                        f"    evidence: {evidence_id}",
-                        f"      claim: {_or_not_recorded(item.get('claim'))}",
-                        f"      source: {_or_not_recorded(item.get('source'))}",
-                        f"      publication: {publication_trace}",
-                        f"      quote: {_or_not_recorded(item.get('quote'))}",
-                        f"      location: {_or_not_recorded(item.get('location'))}",
-                        f"      evidence_type: {_enum_value(item.get('evidence_type'))}",
-                        f"      confidence: "
-                        f"{_or_not_recorded(_enum_value(item.get('confidence')))}",
-                        f"      curator_note: {_or_not_recorded(item.get('curator_note'))}",
-                        f"      review_state: {_enum_value(item.get('review_state'))}",
-                        f"      review_timestamp: {_or_not_recorded(item.get('review_timestamp'))}",
-                    ]
-                )
     return "\n".join(lines) + "\n"
 
 
@@ -1326,37 +743,6 @@ def _render_provenance(ev: dict) -> str:
     for key in ("maicdb_id", "evidence_quote", "evidence_location",
                 "confidence", "extractor_note", "condition_key", "n"):
         lines.append(f"{key}: {_or_not_recorded(ev.get(key))}")
-    if ev.get("unmigrated_evidence_disclosure") is not None:
-        lines.append(f"evidence_migration: {ev['unmigrated_evidence_disclosure']}")
-    for item in ev.get("evidence", []):
-        publication = item.get("publication")
-        publication_trace = "not recorded"
-        if publication is not None:
-            publication_trace = "; ".join(
-                str(value)
-                for value in (
-                    publication.get("id"),
-                    publication.get("doi"),
-                    publication.get("title"),
-                )
-                if value is not None
-            )
-        lines.extend(
-            [
-                f"evidence_item: {item.get('maicdb_id')}",
-                f"  claim: {_or_not_recorded(item.get('claim'))}",
-                f"  source: {_or_not_recorded(item.get('source'))}",
-                f"  publication: {publication_trace}",
-                f"  quote: {_or_not_recorded(item.get('quote'))}",
-                f"  location: {_or_not_recorded(item.get('location'))}",
-                f"  evidence_type: {_enum_value(item.get('evidence_type'))}",
-                f"  confidence: "
-                f"{_or_not_recorded(_enum_value(item.get('confidence')))}",
-                f"  curator_note: {_or_not_recorded(item.get('curator_note'))}",
-                f"  review_state: {_enum_value(item.get('review_state'))}",
-                f"  review_timestamp: {_or_not_recorded(item.get('review_timestamp'))}",
-            ]
-        )
     return "\n".join(lines) + "\n"
 
 
