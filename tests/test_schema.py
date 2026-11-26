@@ -23,11 +23,12 @@ from sqlalchemy.orm import Session
 
 from maicdb.accessions import AccessionPrefix, format_accession
 from maicdb.database import SCHEMA_PATH, create_all, make_engine, render_ddl
+from maicdb.models import Base
 from maicdb.enums import (
     ActivityType,
     AssayFormat,
     CompoundType,
-    EntityType,
+    ExternalReferenceRelationship,
     Family,
     FunctionalEffect,
     PressureUnit,
@@ -39,12 +40,11 @@ from maicdb.enums import (
     VariantType,
 )
 from maicdb.models import (
-    ALL_TABLES,
     Bioactivity,
     BiophysicsExperiment,
     Channel,
     Compound,
-    ExternalReference,
+    ExternalReferenceRecord,
     Publication,
     DbMeta,
     Structure,
@@ -100,8 +100,10 @@ def flush_get_id(session: Session, obj) -> int:
 def test_ddl_creates_cleanly_with_all_tables(engine):
     """create_all produces the 8 expected tables with declared columns."""
     table_names = set(inspect(engine).get_table_names())
-    expected = {t.__tablename__ for t in ALL_TABLES}
+    expected = set(Base.metadata.tables)
     assert expected <= table_names, f"missing tables: {expected - table_names}"
+    assert len(expected) == 25
+    assert "external_reference" in inspect(engine).get_view_names()
 
     # Spot-check key columns on the hub table.
     channel_cols = {c["name"] for c in inspect(engine).get_columns("channel")}
@@ -521,24 +523,37 @@ def test_external_reference_reverse_lookup(session):
     session.add(ch)
     session.flush()
 
-    xref = ExternalReference(
-        entity_type=EntityType.CHANNEL,
-        entity_id=ch.id,
-        source_db=SourceDb.UNIPROT,
+    xref = ExternalReferenceRecord(
+        resource=SourceDb.UNIPROT,
+        relationship=ExternalReferenceRelationship.SAME_AS,
         external_id="Q92508",
         url="https://www.uniprot.org/uniprotkb/Q92508",
     )
     session.add(xref)
     session.flush()
+    session.execute(
+        text(
+            "INSERT INTO channel_external_reference "
+            "(id, resource, external_id, relationship, channel_id) "
+            "VALUES (:record_id, 'UNIPROT', 'Q92508', 'SAME_AS', :channel_id)"
+        ),
+        {"record_id": xref.id, "channel_id": ch.id},
+    )
 
     found = session.scalar(
-        select(ExternalReference).where(
-            ExternalReference.source_db == SourceDb.UNIPROT,
-            ExternalReference.external_id == "Q92508",
+        select(ExternalReferenceRecord).where(
+            ExternalReferenceRecord.resource == SourceDb.UNIPROT,
+            ExternalReferenceRecord.external_id == "Q92508",
         )
     )
     assert found is not None
-    assert found.entity_id == ch.id
+    assert (
+        session.execute(
+            text("SELECT channel_id FROM channel_external_reference WHERE id = :id"),
+            {"id": found.id},
+        ).scalar_one()
+        == ch.id
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ strings.coverage_statistics_title }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="analysis-page">
+  <h1>{{ strings.coverage_statistics_title }}</h1>
+  <p class="page-intro">{{ strings.coverage_statistics_summary }}</p>
+  <p class="data-tag">{{ strings.analysis_data_tag_label }}: <code>{{ coverage.data_freeze_tag }}</code></p>
+
+  <section>
+    <h2>{{ strings.coverage_scope_all }}</h2>
+    <table class="coverage-table">
+      <tbody>
+        {% for name, value in coverage.all.totals | dictsort %}
+        <tr><th scope="row">{{ name }}</th><td>{{ value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% for family in coverage.families %}
+  <section>
+    <h2>{{ family.scope_key }}</h2>
+    <table class="coverage-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ strings.coverage_col_channel }}</th>
+          <th scope="col">{{ strings.coverage_col_totals }}</th>
+          <th scope="col">{{ strings.coverage_col_coverage }}</th>
+          <th scope="col">{{ strings.coverage_col_linkage }}</th>
+          <th scope="col">{{ strings.coverage_col_review }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for channel in coverage.channels %}
+        {% if channel.scope_key in family.channels %}
+        <tr>
+          <th scope="row">{{ channel.scope_key }}</th>
+          <td>{{ channel.totals.experiments }}, {{ channel.totals.bioactivities }}, {{ channel.totals.unmapped_measurements }}</td>
+          <td>{{ channel.coverage.evidence_links }}/{{ channel.coverage.denominator }}</td>
+          <td>{{ channel.linkage.experiments_to_variants }}</td>
+          <td>{{ channel.review.total }} ({{ channel.review.last_review_date or strings.coverage_none }})</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+</article>
+{% endblock %}

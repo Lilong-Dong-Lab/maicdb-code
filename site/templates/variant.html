@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ variant_payload.variant.maicdb_id }} · {{ strings.site_name }}{% endblock %}
+{% block content %}
+<article class="variant-page">
+  <h1>{{ variant_payload.variant.maicdb_id }}</h1>
+  <aside class="frozen-banner"><strong>{{ strings.variant_heading }}</strong> — {{ variant_payload.disclosure }}</aside>
+  <section class="identity">
+    <h2>{{ strings.variant_identity_heading }}</h2>
+    <dl class="identity-fields">
+      <dt>{{ strings.card_field_gene_symbol }}</dt>
+      <dd><a href="{{ root }}/channels/{{ variant_payload.gene.slug }}/">{{ variant_payload.gene.gene_symbol }}</a></dd>
+      <dt>{{ strings.variant_hgvs_label }}</dt><dd>{{ variant_payload.variant.hgvs_protein or strings.card_not_recorded }}</dd>
+      <dt>{{ strings.variant_mutation_label }}</dt><dd>{{ variant_payload.variant.mutation_short or strings.card_not_recorded }}</dd>
+      <dt>{{ strings.variant_position_label }}</dt><dd>{{ variant_payload.variant.position or strings.card_not_recorded }}</dd>
+    </dl>
+  </section>
+  {% for traversal in variant_payload.construct_experiments %}
+  <section class="parameter-block">
+    <h2>{{ strings.variant_construct_prefix }} {{ traversal.construct.maicdb_id }}</h2>
+    <p><a href="{{ root }}/constructs/{{ traversal.construct.maicdb_id | lower }}/">{{ strings.construct_page_label }}</a></p>
+    {% if traversal.experiments %}
+    <ul class="measure-rows">
+      {% for experiment in traversal.experiments %}
+      <li>
+        <a href="{{ root }}/channels/{{ variant_payload.gene.slug }}/#{{ experiment.measurement_id }}">{{ experiment.measurement_id or experiment.maicdb_id }}</a>
+        {% if experiment.experiment_label %}<span>{{ experiment.experiment_label }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>{{ strings.card_zero_rows_note }}</p>{% endif %}
+  </section>
+  {% else %}
+  <p>{{ strings.card_zero_rows_note }}</p>
+  {% endfor %}
+  <section class="parameters">
+    <h2>{{ strings.structure_function_heading }}</h2>
+    {% if variant_payload.structure_locations %}
+    <ul class="measure-rows">
+      {% for traversal in variant_payload.structure_locations %}
+      <li>
+        <a href="{{ root }}/structures/{{ traversal.structure.maicdb_id | lower }}/">{{ traversal.structure.pdb_id or traversal.structure.maicdb_id }}</a>
+        <span>{{ traversal.location.support }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>{{ strings.card_zero_rows_note }}</p>{% endif %}
+  </section>
+</article>
+{% endblock %}

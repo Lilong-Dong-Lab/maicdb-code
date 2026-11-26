@@ -34,9 +34,9 @@ Design notes (see ``report/MAICDB_Schema_Design.md`` for full rationale):
   Card" is the database's most-queried row and should be one query away).
 * Cross-references use a **hybrid** scheme: canonical accessions
   (``uniprot_accession``, ``pdb_id``, ``inchikey``, ``clinvar_accession``) live
-  as indexed columns on the parent table for O(1) lookup; the long tail goes in
-  the polymorphic :class:`ExternalReference` table so new source DBs never
-  require a migration.
+  as indexed columns on the parent table for O(1) lookup; semantic links live
+  in subject-specific tables, with the legacy polymorphic surface retained as
+  a compatibility view.
 * Thresholds (P50/T50/X50) use **value + unit pairs** because units vary across
   labs (mmHg, kPa, mN/m, …); kinetics (τ) and conductance use fixed units
   baked into the column name.
@@ -46,21 +46,27 @@ Design notes (see ``report/MAICDB_Schema_Design.md`` for full rationale):
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
+    Column,
     Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    Table,
+    PrimaryKeyConstraint,
+    ForeignKeyConstraint,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -70,14 +76,25 @@ from maicdb.enums import (
     AssayFormat,
     ClinvarSignificance,
     CompoundType,
-    EntityType,
+    CompoundChannelDirection,
+    CompoundChannelRole,
+    ConcentrationResponseSemantics,
+    DataLayer,
+    ExternalReferenceRelationship,
     Family,
     FunctionalEffect,
+    EvidenceConfidence,
+    EvidenceReviewState,
+    EvidenceSubjectType,
+    EvidenceType,
     IVRelation,
     IndentationUnit,
+    MappingSupport,
     ParameterSet,
     PressureUnit,
     RecordingMode,
+    ResidueNumberSystem,
+    ResidueRole,
     SourceDb,
     StimulusType,
     StructureSource,
@@ -87,6 +104,8 @@ from maicdb.enums import (
     value_stored_enum,
 )
 
+FREEZE_EPOCH = datetime(2026, 11, 8, 0, 0, 0)
+
 __all__ = [
     "Channel",
     "Structure",
@@ -95,19 +114,300 @@ __all__ = [
     "Bioactivity",
     "Variant",
     "ExternalReference",
+    "ExternalReferenceRecord",
+    "ChannelExternalReference",
+    "CompoundExternalReference",
+    "VariantExternalReference",
+    "StructureExternalReference",
+    "ExperimentExternalReference",
+    "DataLayerVocabulary",
+    "DataLayerInventory",
+    "CompoundChannelRelationship",
     "Publication",
     "UnmappedMeasurement",
+    "EvidenceItem",
+    "EvidenceSubject",
+    "Construct",
+    "ConstructVariant",
+    "ExperimentConstruct",
+    "StructureResidue",
+    "StructureVariantLocation",
     "DbMeta",
 ]
 
 
 class Base(DeclarativeBase):
-    """Declarative base for all MAIC-DB models.
+    """Declarative base for all MAIC-DB models."""
 
-    Defined here (rather than in :mod:`maicdb.database`) so that simply
-    importing :mod:`maicdb.models` registers every table on the metadata.
-    :mod:`maicdb.database` re-exports it for convenience.
+
+# --------------------------------------------------------------------------- #
+# Support: native data-layer provenance (schema v0.7)
+# --------------------------------------------------------------------------- #
+class DataLayerVocabulary(Base):
+    """The schema-controlled provenance layer vocabulary."""
+
+    __tablename__ = "data_layer"
+
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    value: Mapped[str] = mapped_column(String(32), nullable=False)
+    definition: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("name", "value", name="uq_data_layer"),
+        UniqueConstraint("value", name="uq_data_layer_value"),
+        CheckConstraint(
+            "value IN ('source_reported', 'curated', 'computed')",
+            name="ck_data_layer_value",
+        ),
+        CheckConstraint(
+            "name IN ('SOURCE_REPORTED', 'CURATED', 'COMPUTED')",
+            name="ck_data_layer_name",
+        ),
+    )
+
+
+class DataLayerInventory(Base):
+    """One value-bearing output and its auditable classification rule."""
+
+    __tablename__ = "data_layer_inventory"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    surface: Mapped[str] = mapped_column(String(64), nullable=False)
+    field: Mapped[str] = mapped_column(String(128), nullable=False)
+    layer: Mapped[DataLayer] = mapped_column(
+        name_stored_enum(DataLayer), nullable=False
+    )
+    rule: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "key = trim(key) AND surface = trim(surface) "
+            "AND field = trim(field) AND rule = trim(rule)",
+            name="ck_data_layer_inventory_trimmed",
+        ),
+        ForeignKeyConstraint(
+            ["layer"], ["data_layer.name"], name="fk_data_layer_inventory_layer"
+        ),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Support: semantic external-reference matrix (schema v0.3)
+# --------------------------------------------------------------------------- #
+_VERSIONED_RESOURCES = "'CHEMBL_TARGET', 'CHEMBL_MOLECULE', 'PUBCHEM'"
+_SEMANTIC_XREF_CHECKS = {
+    "url IS NOT NULL": "ck_external_reference_url_present",
+    "external_id = trim(external_id)": "ck_external_reference_id_trimmed",
+    (
+        "external_version IS NULL "
+        f"OR resource IN ({_VERSIONED_RESOURCES})"
+    ): "ck_external_reference_version_applicable",
+    (
+        "external_version IS NOT NULL "
+        f"OR resource NOT IN ({_VERSIONED_RESOURCES})"
+        " OR legacy_version_disclosed = 1"
+    ): "ck_external_reference_version_required",
+    (
+        "external_version IS NULL "
+        "OR (trim(external_version) != '' AND external_version != 'unknown')"
+    ): "ck_external_reference_version_explicit",
+}
+
+
+class ExternalReferenceRecord(Base):
+    """A semantic, versioned link from one supported subject to a resource.
+
+    Subject-specific link tables are the authoritative storage;
+    ``external_reference`` remains as a compatibility view only.
     """
+
+    __tablename__ = "external_reference_record"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    resource: Mapped[SourceDb] = mapped_column(
+        name_stored_enum(SourceDb), nullable=False, index=True
+    )
+    external_id: Mapped[str] = mapped_column(Text, nullable=False)
+    relationship: Mapped[ExternalReferenceRelationship] = mapped_column(
+        name_stored_enum(ExternalReferenceRelationship),
+        nullable=False,
+        index=True,
+    )
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    external_version: Mapped[str | None] = mapped_column(Text)
+    legacy_version_disclosed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
+    )
+    created_at: Mapped[str] = mapped_column(
+        DateTime, server_default=func.current_timestamp(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "resource",
+            "external_id",
+            "relationship",
+            name="uq_external_reference_semantics",
+        ),
+        *(
+            CheckConstraint(condition, name=name)
+            for condition, name in _SEMANTIC_XREF_CHECKS.items()
+        ),
+    )
+
+
+_FOREIGN_KEY_COLUMNS = {
+    "channel": ForeignKey("channel.id", ondelete="CASCADE"),
+    "compound": ForeignKey("compound.id", ondelete="CASCADE"),
+    "variant": ForeignKey("variant.id", ondelete="CASCADE"),
+    "structure": ForeignKey("structure.id", ondelete="CASCADE"),
+    "experiment": ForeignKey("biophysics_experiment.id", ondelete="CASCADE"),
+}
+
+
+def _link_semantic_columns():
+    return (
+        Column("resource", name_stored_enum(SourceDb), nullable=False),
+        Column("external_id", Text, nullable=False),
+        Column(
+            "relationship",
+            name_stored_enum(ExternalReferenceRelationship),
+            nullable=False,
+        ),
+)
+
+
+Table(
+    "compound_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("compound_id", Integer, _FOREIGN_KEY_COLUMNS["compound"], nullable=False),
+    PrimaryKeyConstraint("id", "compound_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "compound_id",
+        name="uq_compound_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "channel_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("channel_id", Integer, _FOREIGN_KEY_COLUMNS["channel"], nullable=False),
+    PrimaryKeyConstraint("id", "channel_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "channel_id",
+        name="uq_channel_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "variant_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("variant_id", Integer, _FOREIGN_KEY_COLUMNS["variant"], nullable=False),
+    PrimaryKeyConstraint("id", "variant_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "variant_id",
+        name="uq_variant_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "structure_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("structure_id", Integer, _FOREIGN_KEY_COLUMNS["structure"], nullable=False),
+    PrimaryKeyConstraint("id", "structure_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "structure_id",
+        name="uq_structure_external_reference_semantics",
+    ),
+)
+
+
+Table(
+    "experiment_external_reference",
+    Base.metadata,
+    Column(
+        "id",
+        Integer,
+        ForeignKey("external_reference_record.id", ondelete="CASCADE"),
+    ),
+    Column("experiment_id", Integer, _FOREIGN_KEY_COLUMNS["experiment"], nullable=False),
+    PrimaryKeyConstraint("id", "experiment_id"),
+    *_link_semantic_columns(),
+    UniqueConstraint(
+        "resource",
+        "external_id",
+        "relationship",
+        "experiment_id",
+        name="uq_experiment_external_reference_semantics",
+    ),
+)
+
+
+class ExternalReference:
+    """A legacy-shaped compatibility view over authoritative subject links."""
+
+    __tablename__ = "external_reference"
+    __mapper_args__ = {"primary_key": ["id"]}
+
+
+class ChannelExternalReference(Base):
+    __table__ = Base.metadata.tables["channel_external_reference"]
+
+
+class CompoundExternalReference(Base):
+    __table__ = Base.metadata.tables["compound_external_reference"]
+
+
+class VariantExternalReference(Base):
+    __table__ = Base.metadata.tables["variant_external_reference"]
+
+
+class StructureExternalReference(Base):
+    __table__ = Base.metadata.tables["structure_external_reference"]
+
+
+class ExperimentExternalReference(Base):
+    __table__ = Base.metadata.tables["experiment_external_reference"]
+
 
 
 # --------------------------------------------------------------------------- #
@@ -137,6 +437,264 @@ class Publication(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<Publication id={self.id} doi={self.doi!r}>"
+
+
+class EvidenceItem(Base):
+    """A reusable evidence statement supporting one or more subjects.
+
+    Detailed editorial history remains in the private vault; the public model
+    records only the published claim, citation trail, and lightweight review
+    state.
+    """
+
+    __tablename__ = "evidence_item"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    claim: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(Text)
+    publication_id: Mapped[int | None] = mapped_column(
+        ForeignKey("publication.id", ondelete="SET NULL")
+    )
+    quote: Mapped[str | None] = mapped_column(Text)
+    location: Mapped[str | None] = mapped_column(Text)
+    evidence_type: Mapped[EvidenceType] = mapped_column(
+        name_stored_enum(EvidenceType), nullable=False, index=True
+    )
+    confidence: Mapped[EvidenceConfidence | None] = mapped_column(
+        name_stored_enum(EvidenceConfidence), index=True
+    )
+    curator_note: Mapped[str | None] = mapped_column(Text)
+    review_state: Mapped[EvidenceReviewState] = mapped_column(
+        name_stored_enum(EvidenceReviewState),
+        nullable=False,
+        default=EvidenceReviewState.UNREVIEWED,
+        index=True,
+    )
+    review_timestamp: Mapped[date | None] = mapped_column(Date)
+
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    subjects: Mapped[list[EvidenceSubject]] = relationship(
+        back_populates="evidence_item", cascade="all, delete-orphan"
+    )
+    publication: Mapped[Publication | None] = relationship()
+
+    __table_args__ = {"keep_existing": True}
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"<EvidenceItem {self.maicdb_id!r}>"
+
+
+class EvidenceSubject(Base):
+    """The many-to-many link between an Evidence item and a subject."""
+
+    __tablename__ = "evidence_subject"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    evidence_item_id: Mapped[int] = mapped_column(
+        ForeignKey("evidence_item.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    subject_type: Mapped[EvidenceSubjectType] = mapped_column(
+        name_stored_enum(EvidenceSubjectType), nullable=False, index=True
+    )
+    subject_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+    evidence_item: Mapped[EvidenceItem] = relationship(back_populates="subjects")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "evidence_item_id",
+            "subject_type",
+            "subject_id",
+            name="uq_evidence_subject",
+        ),
+    )
+
+
+class Construct(Base):
+    """The measured genetic object for one or more experiments."""
+
+    __tablename__ = "construct"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    structure_id: Mapped[int | None] = mapped_column(
+        ForeignKey("structure.id", ondelete="SET NULL"), index=True
+    )
+    mutation_set: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[str | None] = mapped_column(Text)
+    truncations: Mapped[str | None] = mapped_column(Text)
+    expression_design: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    source_db: Mapped[SourceDb | None] = mapped_column(
+        name_stored_enum(SourceDb), index=True
+    )
+    collected_date: Mapped[date | None] = mapped_column(Date)
+    publication_id: Mapped[int | None] = mapped_column(
+        ForeignKey("publication.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    channel: Mapped[Channel | None] = relationship(back_populates="constructs")
+    structure: Mapped[Structure | None] = relationship(back_populates="constructs")
+    variants: Mapped[list[Variant]] = relationship(
+        secondary="construct_variant", back_populates="constructs"
+    )
+    experiments: Mapped[list[BiophysicsExperiment]] = relationship(
+        secondary="experiment_construct", back_populates="constructs"
+    )
+    publication: Mapped[Publication | None] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<Construct {self.maicdb_id!r}>"
+
+
+class ConstructVariant(Base):
+    """Explicit many-to-many membership between a Construct and Variant."""
+
+    __tablename__ = "construct_variant"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    construct_id: Mapped[int] = mapped_column(
+        ForeignKey("construct.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("variant.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "construct_id", "variant_id", name="uq_construct_variant"
+        ),
+    )
+
+
+class ExperimentConstruct(Base):
+    """Explicit many-to-many measurement link between Experiment and Construct."""
+
+    __tablename__ = "experiment_construct"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(
+        ForeignKey("biophysics_experiment.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    construct_id: Mapped[int] = mapped_column(
+        ForeignKey("construct.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "experiment_id", "construct_id", name="uq_experiment_construct"
+        ),
+    )
+
+
+class StructureResidue(Base):
+    """One numbered residue in one coordinate system for one structure."""
+
+    __tablename__ = "structure_residue"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    structure_id: Mapped[int] = mapped_column(
+        ForeignKey("structure.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    number_system: Mapped[ResidueNumberSystem] = mapped_column(
+        name_stored_enum(ResidueNumberSystem), nullable=False, index=True
+    )
+    residue_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    residue_name: Mapped[str | None] = mapped_column(String(8))
+    residue_role: Mapped[ResidueRole] = mapped_column(
+        name_stored_enum(ResidueRole), nullable=False, index=True
+    )
+    structural_region: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    structure: Mapped[Structure] = relationship(back_populates="residues")
+    channel: Mapped[Channel] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "structure_id",
+            "number_system",
+            "residue_number",
+            name="uq_structure_residue",
+        ),
+    )
+
+
+class StructureVariantLocation(Base):
+    """A variant location on a structure, with mapping support disclosed."""
+
+    __tablename__ = "structure_variant_location"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("variant.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    structure_id: Mapped[int] = mapped_column(
+        ForeignKey("structure.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    uniprot_residue_id: Mapped[int | None] = mapped_column(
+        ForeignKey("structure_residue.id", ondelete="SET NULL"), index=True
+    )
+    pdb_residue_id: Mapped[int | None] = mapped_column(
+        ForeignKey("structure_residue.id", ondelete="SET NULL"), index=True
+    )
+    neighborhood: Mapped[str | None] = mapped_column(Text)
+    structural_region: Mapped[str | None] = mapped_column(Text)
+    support: Mapped[MappingSupport] = mapped_column(
+        name_stored_enum(MappingSupport), nullable=False, index=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+    updated_at: Mapped[object | None] = mapped_column(DateTime)
+
+    variant: Mapped[Variant] = relationship(back_populates="structure_locations")
+    structure: Mapped[Structure] = relationship(back_populates="variant_locations")
+    uniprot_residue: Mapped[StructureResidue | None] = relationship(
+        foreign_keys=[uniprot_residue_id]
+    )
+    pdb_residue: Mapped[StructureResidue | None] = relationship(
+        foreign_keys=[pdb_residue_id]
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "variant_id", "structure_id", name="uq_structure_variant_location"
+        ),
+        Index("uq_uniprot_residue", uniprot_residue_id, unique=True),
+        Index("uq_pdb_residue", pdb_residue_id, unique=True),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -204,6 +762,9 @@ class Channel(Base):
         back_populates="channel", cascade="all, delete-orphan"
     )
     variants: Mapped[list[Variant]] = relationship(
+        back_populates="channel", cascade="all, delete-orphan"
+    )
+    constructs: Mapped[list[Construct]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
     unmapped_measurements: Mapped[list[UnmappedMeasurement]] = relationship(
@@ -291,6 +852,13 @@ class Structure(Base):
         back_populates="structure"
     )
     publication: Mapped[Publication | None] = relationship()
+    constructs: Mapped[list[Construct]] = relationship(back_populates="structure")
+    residues: Mapped[list[StructureResidue]] = relationship(
+        back_populates="structure", cascade="all, delete-orphan"
+    )
+    variant_locations: Mapped[list[StructureVariantLocation]] = relationship(
+        back_populates="structure", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Structure maicdb_id={self.maicdb_id!r} pdb_id={self.pdb_id!r}>"
@@ -430,6 +998,9 @@ class BiophysicsExperiment(Base):
     structure: Mapped[Structure | None] = relationship(back_populates="biophysics_experiments")
     compound: Mapped[Compound | None] = relationship(back_populates="biophysics_experiments")
     variant: Mapped[Variant | None] = relationship(back_populates="biophysics_experiments")
+    constructs: Mapped[list[Construct]] = relationship(
+        secondary="experiment_construct", back_populates="experiments"
+    )
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -590,6 +1161,60 @@ class Bioactivity(Base):
         )
 
 
+class CompoundChannelRelationship(Base):
+    """The contextual relationship between one compound and one channel."""
+
+    __tablename__ = "compound_channel_relationship"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    maicdb_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    compound_id: Mapped[int] = mapped_column(
+        ForeignKey("compound.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channel.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[CompoundChannelRole] = mapped_column(
+        name_stored_enum(CompoundChannelRole), nullable=False, index=True
+    )
+    direction: Mapped[CompoundChannelDirection] = mapped_column(
+        name_stored_enum(CompoundChannelDirection), nullable=False
+    )
+    assay_context: Mapped[str | None] = mapped_column(Text)
+    concentration_response: Mapped[
+        ConcentrationResponseSemantics
+    ] = mapped_column(
+        name_stored_enum(ConcentrationResponseSemantics), nullable=False
+    )
+    disclosure: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[object] = mapped_column(
+        DateTime, default=lambda: FREEZE_EPOCH, nullable=False
+    )
+
+    compound = relationship(Compound)
+    channel = relationship(Channel)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "compound_id",
+            "channel_id",
+            "role",
+            "direction",
+            name="uq_compound_channel_relationship_semantics",
+        ),
+        CheckConstraint(
+            "assay_context IS NOT NULL "
+            "OR concentration_response = 'NOT_APPLICABLE' "
+            "OR disclosure IS NOT NULL",
+            name="ck_compound_relationship_assay_context",
+        ),
+        CheckConstraint(
+            "role != 'CONFLICT' OR disclosure IS NOT NULL",
+            name="ck_compound_relationship_conflict_disclosure",
+        ),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Disease module
 # --------------------------------------------------------------------------- #
@@ -656,6 +1281,12 @@ class Variant(Base):
     biophysics_experiments: Mapped[list[BiophysicsExperiment]] = relationship(
         back_populates="variant"
     )
+    constructs: Mapped[list[Construct]] = relationship(
+        secondary="construct_variant", back_populates="variants"
+    )
+    structure_locations: Mapped[list[StructureVariantLocation]] = relationship(
+        back_populates="variant", cascade="all, delete-orphan"
+    )
     publication: Mapped[Publication | None] = relationship()
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -665,53 +1296,8 @@ class Variant(Base):
         )
 
 
-# --------------------------------------------------------------------------- #
-# Support: polymorphic external references (the cross-reference long tail)
-# --------------------------------------------------------------------------- #
-class ExternalReference(Base):
-    """An external-database identifier attached to any core entity.
-
-    Polymorphic by (``entity_type``, ``entity_id``). SQLite cannot enforce a
-    polymorphic foreign key, so the link is validated at the ORM/application
-    layer; this keeps the schema extensible — adding a new source database never
-    requires altering a parent table.
-
-    Use the canonical-accession columns on parent tables for the handful of IDs
-    that *are* an entity's identity; use this table for everything else.
-    """
-
-    __tablename__ = "external_reference"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    entity_type: Mapped[EntityType] = mapped_column(name_stored_enum(EntityType), nullable=False, index=True)
-    entity_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    source_db: Mapped[SourceDb] = mapped_column(name_stored_enum(SourceDb), nullable=False, index=True)
-    external_id: Mapped[str] = mapped_column(Text, nullable=False)
-    url: Mapped[str | None] = mapped_column(Text)
-
-    created_at: Mapped[str] = mapped_column(
-        DateTime, server_default=func.current_timestamp(), nullable=False
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "entity_type",
-            "entity_id",
-            "source_db",
-            "external_id",
-            name="uq_xref_entity_source_id",
-        ),
-        # Fast "all xrefs of entity X".
-        Index("ix_xref_entity", "entity_type", "entity_id"),
-        # Fast reverse lookup "which MAIC entity maps to this external ID".
-        Index("ix_xref_reverse", "source_db", "external_id"),
-    )
-
-    def __repr__(self) -> str:  # pragma: no cover
-        return (
-            f"<ExternalReference {self.entity_type.value}:{self.entity_id} "
-            f"{self.source_db.value}={self.external_id!r}>"
-        )
+# The legacy polymorphic external-reference surface is created as a view by
+# :func:`maicdb.database.create_all`; it projects the subject-specific tables.
 
 
 # --------------------------------------------------------------------------- #
@@ -795,6 +1381,7 @@ CORE_TABLES = (
     BiophysicsExperiment,
     Compound,
     Bioactivity,
+    CompoundChannelRelationship,
     Variant,
     UnmappedMeasurement,
 )
@@ -807,6 +1394,19 @@ ALL_TABLES = (
     Variant,
     UnmappedMeasurement,
     ExternalReference,
+    ExternalReferenceRecord,
+    ChannelExternalReference,
+    CompoundExternalReference,
+    VariantExternalReference,
+    StructureExternalReference,
+    ExperimentExternalReference,
     Publication,
+    EvidenceItem,
+    EvidenceSubject,
+    Construct,
+    ConstructVariant,
+    ExperimentConstruct,
+    StructureResidue,
+    StructureVariantLocation,
     DbMeta,
 )

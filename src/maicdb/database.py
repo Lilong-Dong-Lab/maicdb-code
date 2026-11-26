@@ -24,6 +24,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.schema import CreateIndex, CreateTable
 
 from maicdb.models import ALL_TABLES, Base
+from maicdb.external_references import COMPATIBILITY_VIEW_DDL
 
 __all__ = [
     "Base",
@@ -50,9 +51,25 @@ def make_engine(url: str = "sqlite:///:memory:", echo: bool = False) -> Engine:
     return create_engine(url, future=True, echo=echo)
 
 
+def _external_reference_kind(engine: Engine) -> str | None:
+    with engine.connect() as connection:
+        return connection.exec_driver_sql(
+            "SELECT type FROM sqlite_master WHERE name = 'external_reference'"
+        ).scalar_one_or_none()
+
+
 def create_all(engine: Engine) -> None:
-    """Create every MAIC-DB table on *engine* (idempotent via ``checkfirst``)."""
+    """Create every MAIC-DB table and compatibility view on *engine*."""
+    kind = _external_reference_kind(engine)
+    if kind == "table":
+        with engine.begin() as connection:
+            connection.exec_driver_sql("DROP TABLE external_reference")
+    elif kind == "view":
+        with engine.begin() as connection:
+            connection.exec_driver_sql("DROP VIEW external_reference")
     Base.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(COMPATIBILITY_VIEW_DDL)
 
 
 def render_ddl() -> str:
@@ -65,12 +82,15 @@ def render_ddl() -> str:
     dialect = sqlite.dialect()
     chunks: list[str] = []
     for table in Base.metadata.sorted_tables:
-        chunks.append(str(CreateTable(table).compile(dialect=dialect)).strip())
+        table_ddl = str(CreateTable(table).compile(dialect=dialect))
+        chunks.append(
+            "\n".join(line.rstrip() for line in table_ddl.splitlines())
+        )
         for index in sorted(table.indexes, key=lambda i: i.name or ""):
             chunks.append(
                 str(CreateIndex(index).compile(dialect=dialect)).strip()
             )
-    return "\n\n".join(chunks) + "\n"
+    return "\n\n".join([*chunks, COMPATIBILITY_VIEW_DDL.strip()]) + "\n"
 
 
 def dump_schema_sql(path: Path | str | None = None) -> Path:
