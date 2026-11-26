@@ -16,7 +16,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from maicdb.models import Base
+from maicdb.database import create_all
 
 CENSUS_SNAPSHOT_PATH = Path(__file__).resolve().parent / "census_snapshot.json"
 
@@ -40,7 +40,14 @@ def engine() -> Engine:
         poolclass=StaticPool,
         future=True,
     )
-    Base.metadata.create_all(eng)
+    from sqlalchemy import event
+
+    @event.listens_for(eng, "connect")
+    def _enable_foreign_keys(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+    create_all(eng)
     yield eng
     eng.dispose()
 

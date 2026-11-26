@@ -18,6 +18,8 @@ Two tiers:
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -25,6 +27,7 @@ import pytest
 from maicdb.loader import (
     FREEZE_TAG,
     GAP_KEEPS,
+    SCHEMA_VERSION,
     UNIT_ENUMS,
     _convert,
     _experiment_label,
@@ -209,8 +212,9 @@ def test_full_load_conservation(tmp_path):
     # data-v1.1 calibers (unchanged at data-v1.2 — zero-row retarget):
     # 1125 = 960 (829 normal-route + 131 gap migrations)
     # + 137 + 28 KEEP; v1.0 was 1100 = 948 + 136 + 16, variant 125 → 133.
+    # Issue #100 adds two title-derived variants (135 total).
     assert (c["biophysics"], c["bioactivity"], c["unmapped"]) == (960, 137, 28)
-    assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 133
+    assert c["channel"] == 12 and c["structure"] == 12 and c["variant"] == 135
     assert c["unit_conversions"] == 105
     assert c["compound"] == 86 and c["publication"] == 216
     assert any("silica" in d.lower() or "unroled" in d.lower()
@@ -306,3 +310,35 @@ def test_yoda1_keeps_inchikey(tmp_path):
     conn.close()
     assert keys.get("Yoda1") not in (None, "")
     assert sum(1 for v in keys.values() if v) >= 2
+
+
+def test_repository_artifact_reflects_final_schema():
+    """The shipped artifact must include migrations emitted by its own loader.
+
+    A fresh load sets ``SCHEMA_VERSION`` before additive migrations run, so
+    their recorded ``schema_version_before``/``after`` pairs describe the
+    migration helpers' contracts, not the final artifact version.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((repo_root / "db" / "load-manifest.json").read_text())
+    connection = sqlite3.connect(repo_root / "db" / "maicdb.sqlite")
+    try:
+        artifact_schema = connection.execute(
+            "SELECT value FROM db_meta WHERE key = 'schema_version'"
+        ).fetchone()[0]
+        counts = dict(
+            connection.execute(
+                "SELECT 'data_layer_inventory', COUNT(*) FROM data_layer_inventory "
+                "UNION ALL SELECT 'compound_channel_relationship', "
+                "COUNT(*) FROM compound_channel_relationship"
+            ).fetchall()
+        )
+    finally:
+        connection.close()
+
+    assert artifact_schema == manifest["schema_version"] == SCHEMA_VERSION
+    assert manifest["dump"] == "db/maicdb.sql"
+    assert counts == {
+        "data_layer_inventory": 15,
+        "compound_channel_relationship": 73,
+    }

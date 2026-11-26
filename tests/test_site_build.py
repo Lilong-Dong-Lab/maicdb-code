@@ -247,14 +247,39 @@ def test_channel_json_carries_bioactivity_block(tmp_path):
     assert piezo1["bioactivity"]["frozen_layer_disclosure"] == (
         piezo1["frozen_layer_disclosure"]
     )
-    # rows carry the compound join + evidence chain (query library contract)
+    # rows carry the compound join + authoritative Evidence chain
     row = piezo1["bioactivity"]["rows"][0]
     assert {"compound_name", "activity_type", "activity_value", "evidence_quote"} <= set(
         row
     )
+    assert row["evidence"]
+    assert row["evidence"][0]["maicdb_id"].startswith("MAIC:EV:")
+    assert "unmigrated_evidence_disclosure" not in row
 
     trek2 = json.loads((out / "_data" / "channels" / "trek-2.json").read_text())
     assert "bioactivity" not in trek2
+
+
+@requires_db
+def test_channel_html_renders_normalized_evidence_and_migration_disclosure(tmp_path):
+    out = tmp_path / "out"
+    run_build(out)
+    piezo1_html = (
+        out / "_site" / "channels" / "piezo1" / "index.html"
+    ).read_text()
+    assert "MAIC:EV:00409" in piezo1_html
+    assert "Evidence item" in piezo1_html
+    assert "Claim" in piezo1_html
+    assert "Publication" in piezo1_html
+    assert "Review state" in piezo1_html
+    assert "Evidence type" in piezo1_html
+
+    tray_2_html = (
+        out / "_site" / "zh" / "channels" / "piezo1" / "index.html"
+    ).read_text()
+    assert "MAIC:EV:00409" in tray_2_html
+    assert "证据对象" in tray_2_html
+    assert "证据类型" in tray_2_html
 
 
 @requires_db
@@ -327,6 +352,25 @@ def test_build_renders_home_in_both_locale_trees(tmp_path):
         "DEG_ENaC_ASIC", "K2P", "MSCL_MSCS", "OSCA_TMEM63", "PIEZO", "TMC", "TRP",
     ):
         assert family in en
+
+
+@requires_db
+def test_structure_function_pages_render_in_both_locales(tmp_path):
+    """All 12 structures render; the four title-derived mappings disclose
+    their evidence while the remaining structures show the empty state."""
+    out = tmp_path
+    run_build(out)
+    site = out / "_site"
+    en_pages = list((site / "structures").glob("*/index.html"))
+    assert len(en_pages) == 12
+    assert len(list((site / "zh" / "structures").glob("*/index.html"))) == 12
+    for html in en_pages:
+        assert "Structure-function mapping" in html.read_text(encoding="utf-8")
+    mapped = "\n".join(
+        path.read_text(encoding="utf-8") for path in en_pages
+    )
+    for mutation in ("A1988V", "E756del", "R2456H"):
+        assert mutation in mapped
 
 
 @requires_db

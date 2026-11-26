@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft (approved in scope review 2026-11-05; P0 decisions open) |
-| **Data baseline** | tag `data-v1.0`, vault head `5a8ff0ed5cacf62dd2517fd23a6f0d1848c93b7e`, `schema_version 0.2.0` (see `db/load-manifest.json`) |
+| **Data baseline** | Historical design baseline: tag `data-v1.0`, vault head `5a8ff0ed5cacf62dd2517fd23a6f0d1848c93b7e`, `schema_version 0.2.0`; current artifact is `data-v1.2`, `schema_version 0.3.0` (see `db/load-manifest.json`) |
 | **MIMIC authority** | vault `report/MAICDB_Schema_Design.md` §4.3, `mimic_standard_version v0.1-draft` in `db_meta`; README §"The MIMIC Standard" |
 | **Naming** | **MIMIC** (Minimum Information about a Mechanically Induced Current) is canonical. Known collision with PhysioNet MIMIC-IV; acceptable for now, revisit before the companion paper. |
 

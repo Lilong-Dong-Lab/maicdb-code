@@ -391,11 +391,919 @@
     "threshold_meta_cells": 10
   },
   "corpus": {
+    "bioactivity_count": 137,
     "bioactivity_pchembl_null": 137,
+    "construct_count": 52,
+    "construct_variant_link_count": 142,
+    "evidence_item_count": 1129,
+    "evidence_subject_count": 1129,
+    "evidence_unresolved_count": 0,
+    "experiment_construct_link_count": 200,
     "experiment_count": 960,
+    "legacy_structure_experiment_link_count": 0,
+    "legacy_variant_experiment_link_count": 200,
     "p50_psi_rows": 4,
+    "structure_residue_count": 4,
+    "structure_variant_location_count": 4,
     "t50_dyncm_rows": 15,
+    "unmapped_count": 28,
     "x50_nm_rows": 37
+  },
+  "coverage": {
+    "all": {
+      "coverage": {
+        "construct_links": 10,
+        "denominator": 12,
+        "evidence_links": 12,
+        "external_references": 12,
+        "required_fields": 12,
+        "residue_maps": 0,
+        "review_state": 12
+      },
+      "linkage": {
+        "experiments_to_variants": 200,
+        "records_to_publications": 1125,
+        "structures_to_functional_residues": 0,
+        "subjects_to_external_references": 987,
+        "variants_to_structures": 3
+      },
+      "review": {
+        "accepted": 0,
+        "conflicted": 0,
+        "last_review_date": null,
+        "provisional": 0,
+        "reviewed": 0,
+        "total": 1125,
+        "unreviewed": 1125
+      },
+      "scope_key": "all",
+      "scope_type": "all",
+      "totals": {
+        "bioactivities": 137,
+        "channels": 12,
+        "compounds": 86,
+        "evidence_items": 1129,
+        "experiments": 960,
+        "external_references": 987,
+        "families": 7,
+        "ortholog_groups": 12,
+        "publications": 216,
+        "structures": 12,
+        "unmapped_measurements": 28,
+        "variants": 135
+      }
+    },
+    "channels": [
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 39,
+          "records_to_publications": 139,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 139,
+          "unreviewed": 139
+        },
+        "scope_key": "ASIC",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 25,
+          "channels": 1,
+          "compounds": 8,
+          "evidence_items": 109,
+          "experiments": 109,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 5,
+          "variants": 22
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 0,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 0,
+          "records_to_publications": 40,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 40,
+          "unreviewed": 40
+        },
+        "scope_key": "TRAAK",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 1,
+          "channels": 1,
+          "compounds": 1,
+          "evidence_items": 39,
+          "experiments": 39,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 0,
+          "variants": 0
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 8,
+          "records_to_publications": 52,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 52,
+          "unreviewed": 52
+        },
+        "scope_key": "TREK-1",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 4,
+          "channels": 1,
+          "compounds": 3,
+          "evidence_items": 46,
+          "experiments": 46,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 2,
+          "variants": 4
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 0,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 0,
+          "records_to_publications": 42,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 42,
+          "unreviewed": 42
+        },
+        "scope_key": "TREK-2",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 0,
+          "channels": 1,
+          "compounds": 0,
+          "evidence_items": 42,
+          "experiments": 42,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 0,
+          "variants": 0
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 4,
+          "records_to_publications": 52,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 52,
+          "unreviewed": 52
+        },
+        "scope_key": "TRESK",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 34,
+          "channels": 1,
+          "compounds": 32,
+          "evidence_items": 18,
+          "experiments": 18,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 0,
+          "variants": 4
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 31,
+          "records_to_publications": 104,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 104,
+          "unreviewed": 104
+        },
+        "scope_key": "MscL",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 0,
+          "channels": 1,
+          "compounds": 0,
+          "evidence_items": 97,
+          "experiments": 97,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 7,
+          "variants": 24
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 16,
+          "records_to_publications": 104,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 104,
+          "unreviewed": 104
+        },
+        "scope_key": "MscS",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 1,
+          "channels": 1,
+          "compounds": 1,
+          "evidence_items": 103,
+          "experiments": 103,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 0,
+          "variants": 16
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 15,
+          "records_to_publications": 97,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 97,
+          "unreviewed": 97
+        },
+        "scope_key": "OSCA",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 2,
+          "channels": 1,
+          "compounds": 2,
+          "evidence_items": 95,
+          "experiments": 95,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 0,
+          "variants": 14
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 27,
+          "records_to_publications": 174,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 3
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 174,
+          "unreviewed": 174
+        },
+        "scope_key": "PIEZO1",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 14,
+          "channels": 1,
+          "compounds": 6,
+          "evidence_items": 160,
+          "experiments": 160,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 12,
+          "unmapped_measurements": 0,
+          "variants": 22
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 6,
+          "records_to_publications": 29,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 29,
+          "unreviewed": 29
+        },
+        "scope_key": "PIEZO2",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 0,
+          "channels": 1,
+          "compounds": 0,
+          "evidence_items": 28,
+          "experiments": 28,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 1,
+          "variants": 4
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 48,
+          "records_to_publications": 177,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 177,
+          "unreviewed": 177
+        },
+        "scope_key": "TMC",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 19,
+          "channels": 1,
+          "compounds": 7,
+          "evidence_items": 153,
+          "experiments": 153,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 5,
+          "variants": 21
+        }
+      },
+      {
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 6,
+          "records_to_publications": 115,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 115,
+          "unreviewed": 115
+        },
+        "scope_key": "TRPV4",
+        "scope_type": "channel",
+        "totals": {
+          "bioactivities": 37,
+          "channels": 1,
+          "compounds": 13,
+          "evidence_items": 70,
+          "experiments": 70,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 8,
+          "variants": 4
+        }
+      }
+    ],
+    "computed_layer": "computed",
+    "data_freeze_tag": "data-v1.2@dd49d8e65ac1",
+    "data_layer": "computed",
+    "families": [
+      {
+        "channels": [
+          "ASIC"
+        ],
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 39,
+          "records_to_publications": 139,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 139,
+          "unreviewed": 139
+        },
+        "scope_key": "DEG_ENaC_ASIC",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 25,
+          "channels": 1,
+          "compounds": 8,
+          "evidence_items": 109,
+          "experiments": 109,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 5,
+          "variants": 22
+        }
+      },
+      {
+        "channels": [
+          "TRAAK",
+          "TREK-1",
+          "TREK-2",
+          "TRESK"
+        ],
+        "coverage": {
+          "construct_links": 2,
+          "denominator": 4,
+          "evidence_links": 4,
+          "external_references": 4,
+          "required_fields": 4,
+          "residue_maps": 0,
+          "review_state": 4
+        },
+        "linkage": {
+          "experiments_to_variants": 12,
+          "records_to_publications": 186,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 186,
+          "unreviewed": 186
+        },
+        "scope_key": "K2P",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 39,
+          "channels": 4,
+          "compounds": 35,
+          "evidence_items": 145,
+          "experiments": 145,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 4,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 2,
+          "variants": 8
+        }
+      },
+      {
+        "channels": [
+          "MscL",
+          "MscS"
+        ],
+        "coverage": {
+          "construct_links": 2,
+          "denominator": 2,
+          "evidence_links": 2,
+          "external_references": 2,
+          "required_fields": 2,
+          "residue_maps": 0,
+          "review_state": 2
+        },
+        "linkage": {
+          "experiments_to_variants": 47,
+          "records_to_publications": 208,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 208,
+          "unreviewed": 208
+        },
+        "scope_key": "MSCL_MSCS",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 1,
+          "channels": 2,
+          "compounds": 1,
+          "evidence_items": 200,
+          "experiments": 200,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 2,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 7,
+          "variants": 40
+        }
+      },
+      {
+        "channels": [
+          "OSCA"
+        ],
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 15,
+          "records_to_publications": 97,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 97,
+          "unreviewed": 97
+        },
+        "scope_key": "OSCA_TMEM63",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 2,
+          "channels": 1,
+          "compounds": 2,
+          "evidence_items": 95,
+          "experiments": 95,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 0,
+          "variants": 14
+        }
+      },
+      {
+        "channels": [
+          "PIEZO1",
+          "PIEZO2"
+        ],
+        "coverage": {
+          "construct_links": 2,
+          "denominator": 2,
+          "evidence_links": 2,
+          "external_references": 2,
+          "required_fields": 2,
+          "residue_maps": 0,
+          "review_state": 2
+        },
+        "linkage": {
+          "experiments_to_variants": 33,
+          "records_to_publications": 203,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 3
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 203,
+          "unreviewed": 203
+        },
+        "scope_key": "PIEZO",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 14,
+          "channels": 2,
+          "compounds": 6,
+          "evidence_items": 188,
+          "experiments": 188,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 2,
+          "publications": 210,
+          "structures": 12,
+          "unmapped_measurements": 1,
+          "variants": 26
+        }
+      },
+      {
+        "channels": [
+          "TMC"
+        ],
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 48,
+          "records_to_publications": 177,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 177,
+          "unreviewed": 177
+        },
+        "scope_key": "TMC",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 19,
+          "channels": 1,
+          "compounds": 7,
+          "evidence_items": 153,
+          "experiments": 153,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 5,
+          "variants": 21
+        }
+      },
+      {
+        "channels": [
+          "TRPV4"
+        ],
+        "coverage": {
+          "construct_links": 1,
+          "denominator": 1,
+          "evidence_links": 1,
+          "external_references": 1,
+          "required_fields": 1,
+          "residue_maps": 0,
+          "review_state": 1
+        },
+        "linkage": {
+          "experiments_to_variants": 6,
+          "records_to_publications": 115,
+          "structures_to_functional_residues": 0,
+          "subjects_to_external_references": 987,
+          "variants_to_structures": 0
+        },
+        "review": {
+          "accepted": 0,
+          "conflicted": 0,
+          "last_review_date": null,
+          "provisional": 0,
+          "reviewed": 0,
+          "total": 115,
+          "unreviewed": 115
+        },
+        "scope_key": "TRP",
+        "scope_type": "family",
+        "totals": {
+          "bioactivities": 37,
+          "channels": 1,
+          "compounds": 13,
+          "evidence_items": 70,
+          "experiments": 70,
+          "external_references": 987,
+          "families": 1,
+          "ortholog_groups": 1,
+          "publications": 210,
+          "structures": 0,
+          "unmapped_measurements": 8,
+          "variants": 4
+        }
+      }
+    ],
+    "no_core_schema_change": "Coverage statistics are derived at build time; issue #104 makes no core schema change."
   },
   "freeze_tag": "data-v1.2@dd49d8e65ac1",
   "joins": {
